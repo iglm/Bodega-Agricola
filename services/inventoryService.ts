@@ -4,12 +4,12 @@ const STORAGE_KEY = 'agrobodega_pro_data_v1';
 
 // Base conversion factors (to grams or milliliters)
 const CONVERSION_RATES: Record<Unit, number> = {
-  [Unit.BULTO_50KG]: 50000, // 50kg = 50,000g
-  [Unit.KILO]: 1000,        // 1kg = 1,000g
-  [Unit.GRAMO]: 1,          // 1g = 1g
-  [Unit.LITRO]: 1000,       // 1L = 1,000ml
-  [Unit.MILILITRO]: 1,      // 1ml = 1ml
-  [Unit.UNIDAD]: 1          // 1 unit
+  [Unit.BULTO_50KG]: 50000, 
+  [Unit.KILO]: 1000,        
+  [Unit.GRAMO]: 1,          
+  [Unit.LITRO]: 1000,       
+  [Unit.MILILITRO]: 1,      
+  [Unit.UNIDAD]: 1          
 };
 
 const UNIT_TYPE: Record<Unit, 'g' | 'ml' | 'unit'> = {
@@ -36,14 +36,13 @@ export const calculateCost = (
   purchaseUnit: Unit
 ): number => {
   const baseUsed = convertToBase(amountUsed, unitUsed);
-  const basePurchase = convertToBase(1, purchaseUnit); // How much base is in 1 purchase unit
+  const basePurchase = convertToBase(1, purchaseUnit); 
   
   const costPerBaseUnit = purchasePrice / basePurchase;
   
   return baseUsed * costPerBaseUnit;
 };
 
-// NEW: Calculate Weighted Average Cost (CPP)
 export const calculateWeightedAverageCost = (
   currentQuantity: number,
   currentAvgCost: number,
@@ -51,25 +50,18 @@ export const calculateWeightedAverageCost = (
   incomingUnit: Unit,
   incomingUnitPrice: number
 ): number => {
-  // 1. Current Total Value in Bodega
   const currentTotalValue = currentQuantity * currentAvgCost;
-  
-  // 2. Incoming Total Value
   const incomingBaseQuantity = convertToBase(incomingQuantity, incomingUnit);
   const baseInPurchaseUnit = convertToBase(1, incomingUnit);
-  const costPerBaseIncoming = incomingUnitPrice / baseInPurchaseUnit; // Price per gram/ml of the new batch
+  const costPerBaseIncoming = incomingUnitPrice / baseInPurchaseUnit; 
   const incomingTotalValue = incomingBaseQuantity * costPerBaseIncoming;
-
-  // 3. New Total Quantity
   const nextTotalQty = currentQuantity + incomingBaseQuantity;
 
-  // 4. New Average Cost (Weighted)
   if (nextTotalQty <= 0) return currentAvgCost;
   
   return (currentTotalValue + incomingTotalValue) / nextTotalQty;
 };
 
-// Updated: Now relies on averageCost if available, fallback to last purchase
 export const getCostPerGramOrMl = (item: InventoryItem): number => {
   if (item.averageCost && item.averageCost > 0) {
     return item.averageCost;
@@ -84,12 +76,10 @@ export const loadData = (): AppState => {
     if (rawData) {
       const parsed = JSON.parse(rawData);
       
-      // MIGRATION LOGIC
       let migrated = { ...parsed };
 
       // 1. Multi-tenant structure migration
       if (!migrated.warehouses) {
-        console.log("Migrating data to multi-tenant structure...");
         const defaultId = crypto.randomUUID();
         const defaultWarehouse: Warehouse = {
           id: defaultId,
@@ -97,30 +87,19 @@ export const loadData = (): AppState => {
           description: 'Bodega por defecto migrada',
           created: new Date().toISOString()
         };
-        
         migrated.warehouses = [defaultWarehouse];
         migrated.activeWarehouseId = defaultId;
-        
-        migrated.inventory = (migrated.inventory || []).map((i: any) => ({
-          ...i,
-          warehouseId: defaultId
-        }));
-        
-        migrated.movements = (migrated.movements || []).map((m: any) => ({
-          ...m,
-          warehouseId: defaultId
-        }));
+        migrated.inventory = (migrated.inventory || []).map((i: any) => ({ ...i, warehouseId: defaultId }));
+        migrated.movements = (migrated.movements || []).map((m: any) => ({ ...m, warehouseId: defaultId }));
       }
 
-      // 2. Admin Features Migration (Suppliers/CostCenters/Personnel)
+      // 2. Admin Features Migration
       if (!migrated.suppliers) migrated.suppliers = [];
       if (!migrated.costCenters) migrated.costCenters = [];
       if (!migrated.personnel) migrated.personnel = [];
 
-      // 3. Labor Module Migration (NEW)
+      // 3. Labor Module Migration
       if (!migrated.activities) {
-          // Default activities
-          const id = crypto.randomUUID();
           migrated.activities = [
             { id: crypto.randomUUID(), name: 'Guadaña / Plateo' },
             { id: crypto.randomUUID(), name: 'Fumigación' },
@@ -132,7 +111,6 @@ export const loadData = (): AppState => {
       if (!migrated.laborLogs) migrated.laborLogs = [];
 
       // 4. Average Cost Migration
-      // If items exist without averageCost, calculate it based on lastPurchasePrice
       migrated.inventory = migrated.inventory.map((item: any) => {
         if (item.averageCost === undefined) {
            const basePurchase = convertToBase(1, item.lastPurchaseUnit);
@@ -142,10 +120,14 @@ export const loadData = (): AppState => {
         return item;
       });
       
-      // 5. Admin PIN migration (keep undefined if not set)
-      if (migrated.adminPin === undefined) {
-          migrated.adminPin = undefined; 
-      }
+      if (migrated.adminPin === undefined) migrated.adminPin = undefined; 
+
+      // 5. NEW MODULES MIGRATION (Production, Agenda, Machinery, Rain)
+      if (!migrated.harvests) migrated.harvests = [];
+      if (!migrated.agenda) migrated.agenda = [];
+      if (!migrated.machines) migrated.machines = [];
+      if (!migrated.maintenanceLogs) migrated.maintenanceLogs = [];
+      if (!migrated.rainLogs) migrated.rainLogs = [];
 
       return migrated;
     }
@@ -153,14 +135,9 @@ export const loadData = (): AppState => {
     console.error("Error loading data", e);
   }
 
-  // Default empty state
   const initId = crypto.randomUUID();
   return { 
-    warehouses: [{
-      id: initId,
-      name: 'Bodega Principal',
-      created: new Date().toISOString()
-    }],
+    warehouses: [{ id: initId, name: 'Bodega Principal', created: new Date().toISOString() }],
     activeWarehouseId: initId,
     inventory: [], 
     movements: [],
@@ -173,7 +150,12 @@ export const loadData = (): AppState => {
         { id: crypto.randomUUID(), name: 'Fertilización' },
         { id: crypto.randomUUID(), name: 'Cosecha' }
     ],
-    laborLogs: []
+    laborLogs: [],
+    harvests: [],
+    agenda: [],
+    machines: [],
+    maintenanceLogs: [],
+    rainLogs: []
   };
 };
 
@@ -191,17 +173,14 @@ export const formatCurrency = (val: number) => {
 
 export const formatBaseQuantity = (qty: number, type: 'g' | 'ml' | 'unit'): string => {
   if (type === 'unit') return `${qty} und`;
-  
   if (type === 'g') {
     if (qty >= 50000) return `${(qty / 50000).toFixed(2)} Bultos`;
     if (qty >= 1000) return `${(qty / 1000).toFixed(2)} kg`;
     return `${qty.toFixed(0)} g`;
   }
-  
   if (type === 'ml') {
     if (qty >= 1000) return `${(qty / 1000).toFixed(2)} L`;
     return `${qty.toFixed(0)} ml`;
   }
-  
   return `${qty}`;
 };

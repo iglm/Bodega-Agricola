@@ -33,39 +33,36 @@ export interface Supplier {
   address?: string;
 }
 
-// New: Personnel Interface
 export interface Personnel {
   id: string;
   name: string;
-  role?: string; // e.g., Aplicador, Mayordomo
+  role?: string; 
 }
 
 export interface CostCenter {
   id: string;
   name: string;
   description?: string;
-  budget?: number; // New: Presupuesto asignado
-  area?: number; // New: Área en Hectáreas para indicadores de eficiencia
+  budget?: number;
+  area?: number;
 }
 
-// NEW: Activity Catalog (For Labor)
 export interface Activity {
   id: string;
-  name: string; // e.g. "Guadaña", "Poda", "Fumigación"
+  name: string;
   description?: string;
 }
 
-// NEW: Labor Log (Jornales)
 export interface LaborLog {
   id: string;
   date: string;
   personnelId: string;
   personnelName: string;
-  costCenterId: string; // Lote
+  costCenterId: string; 
   costCenterName: string;
   activityId: string;
   activityName: string;
-  value: number; // Costo del jornal o tarea
+  value: number;
   notes?: string;
 }
 
@@ -77,17 +74,13 @@ export interface InventoryItem {
   currentQuantity: number;
   baseUnit: 'g' | 'ml' | 'unit';
   image?: string;
-  
-  // Cost tracking
   lastPurchasePrice: number;
   lastPurchaseUnit: Unit;
-  averageCost: number; // New: Costo Promedio Ponderado por unidad base (g/ml)
-  
-  // Admin features
+  averageCost: number;
   minStock?: number;
   minStockUnit?: Unit;
   description?: string;
-  expirationDate?: string; // New: Control de Vencimientos
+  expirationDate?: string;
 }
 
 export interface Movement {
@@ -101,20 +94,65 @@ export interface Movement {
   calculatedCost: number;
   date: string;
   notes?: string;
-  
-  // Admin Tracking
   invoiceNumber?: string;
-  invoiceImage?: string; // New: Foto de la factura/recibo
+  invoiceImage?: string;
   outputCode?: string;
-  
   supplierId?: string;
   supplierName?: string;
   costCenterId?: string;
   costCenterName?: string;
-  
-  // New: Personnel Tracking
   personnelId?: string;
   personnelName?: string;
+}
+
+// --- NEW MODULES ---
+
+// 1. Production / Harvest
+export interface HarvestLog {
+  id: string;
+  date: string;
+  costCenterId: string; // Lote
+  costCenterName: string;
+  cropName: string; // e.g. "Café Pergamino", "Aguacate Hass"
+  quantity: number;
+  unit: string; // "Kg", "Arrobas", "Toneladas"
+  totalValue: number; // Ingreso Real ($)
+  notes?: string;
+}
+
+// 2. Agenda / Planning
+export interface AgendaEvent {
+  id: string;
+  date: string;
+  title: string;
+  description?: string;
+  costCenterId?: string;
+  completed: boolean;
+}
+
+// 3. Machinery & Maintenance
+export interface Machine {
+  id: string;
+  name: string; // "Tractor John Deere"
+  brand?: string;
+  purchaseDate?: string;
+}
+
+export interface MaintenanceLog {
+  id: string;
+  machineId: string;
+  date: string;
+  type: 'Preventivo' | 'Correctivo' | 'Combustible';
+  cost: number;
+  description: string;
+}
+
+// 4. Rain / Pluviometry
+export interface RainLog {
+  id: string;
+  date: string;
+  millimeters: number;
+  notes?: string;
 }
 
 export interface AppState {
@@ -125,7 +163,14 @@ export interface AppState {
   suppliers: Supplier[];
   costCenters: CostCenter[];
   personnel: Personnel[]; 
-  activities: Activity[]; // NEW: Labores Catalog
-  laborLogs: LaborLog[]; // NEW: Registry
-  adminPin?: string; // New: Security PIN for manager mode
+  activities: Activity[]; 
+  laborLogs: LaborLog[]; 
+  adminPin?: string;
+
+  // New State Arrays
+  harvests: HarvestLog[];
+  agenda: AgendaEvent[];
+  machines: Machine[];
+  maintenanceLogs: MaintenanceLog[];
+  rainLogs: RainLog[];
 }
