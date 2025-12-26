@@ -40,11 +40,11 @@ function App() {
     personnel: [],
     activities: [], 
     laborLogs: [],
-    harvests: [], // New
-    agenda: [],   // New
-    machines: [], // New
-    maintenanceLogs: [], // New
-    rainLogs: []  // New
+    harvests: [], 
+    agenda: [],   
+    machines: [], 
+    maintenanceLogs: [], 
+    rainLogs: []  
   });
 
   // Admin Security State
@@ -349,7 +349,27 @@ function App() {
       calculatedCost: calculatedMovementCost
     };
 
-    setData({ ...data, inventory: updatedInventory, movements: [newMovement, ...data.movements] });
+    let updatedMaintenanceLogs = data.maintenanceLogs;
+
+    // INTEGRATION: If movement is OUT and has machineId, create a MaintenanceLog
+    if (movData.type === 'OUT' && movData.machineId) {
+        const newMaintLog: MaintenanceLog = {
+            id: crypto.randomUUID(),
+            machineId: movData.machineId,
+            date: new Date().toISOString(),
+            type: 'Correctivo', // Defaulting to 'Correctivo' for spare parts/replacements
+            cost: calculatedMovementCost,
+            description: `Repuesto Inventario: ${movData.itemName} (${movData.quantity} ${movData.unit})`
+        };
+        updatedMaintenanceLogs = [...updatedMaintenanceLogs, newMaintLog];
+    }
+
+    setData({ 
+        ...data, 
+        inventory: updatedInventory, 
+        movements: [newMovement, ...data.movements],
+        maintenanceLogs: updatedMaintenanceLogs
+    });
     setMovementModal(null);
   };
 
@@ -486,7 +506,7 @@ function App() {
 
       {showAddForm && <InventoryForm onSave={handleAddItem} onCancel={() => setShowAddForm(false)} />}
       {showLaborForm && <LaborForm personnel={data.personnel} costCenters={data.costCenters} activities={data.activities || []} onSave={handleAddLaborLog} onCancel={() => setShowLaborForm(false)} onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} />}
-      {movementModal && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} movements={activeMovements} onSave={handleAddMovement} onCancel={() => setMovementModal(null)} />}
+      {movementModal && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} machines={data.machines} movements={activeMovements} onSave={handleAddMovement} onCancel={() => setMovementModal(null)} />}
       {showSettings && <SettingsModal suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} activities={data.activities} onAddSupplier={handleAddSupplier} onDeleteSupplier={handleDeleteSupplier} onAddCostCenter={handleAddCostCenter} onDeleteCostCenter={handleDeleteCostCenter} onAddPersonnel={handleAddPersonnel} onDeletePersonnel={handleDeletePersonnel} onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onClose={() => setShowSettings(false)} />}
       {showDataModal && <DataModal fullState={data} onRestoreData={handleRestoreData} onClose={() => setShowDataModal(false)} />}
       {showAuditModal && <AuditModal inventory={activeInventory} onAdjust={handleAuditAdjustment} onClose={() => setShowAuditModal(false)} />}

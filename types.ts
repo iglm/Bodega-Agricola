@@ -99,8 +99,15 @@ export interface Movement {
   outputCode?: string;
   supplierId?: string;
   supplierName?: string;
+  
+  // Destination: Cost Center (Lote)
   costCenterId?: string;
   costCenterName?: string;
+  
+  // Destination: Machine (New Integration)
+  machineId?: string;
+  machineName?: string;
+
   personnelId?: string;
   personnelName?: string;
 }

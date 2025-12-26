@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel } from '../types';
+import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine } from '../types';
 import { getBaseUnitType, convertToBase, calculateCost, formatCurrency, formatBaseQuantity } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
-import { X, TrendingUp, TrendingDown, ArrowRight, DollarSign, FileText, AlertTriangle, Users, MapPin, Receipt, Image as ImageIcon, Tag, Settings, UserCheck, Calculator, Calendar, Camera, Trash2 } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, ArrowRight, DollarSign, FileText, AlertTriangle, Users, MapPin, Receipt, Image as ImageIcon, Tag, Settings, UserCheck, Calculator, Calendar, Camera, Trash2, Tractor } from 'lucide-react';
 
 interface MovementModalProps {
   item: InventoryItem;
@@ -10,6 +10,7 @@ interface MovementModalProps {
   suppliers: Supplier[];
   costCenters: CostCenter[];
   personnel?: Personnel[];
+  machines?: Machine[]; // New prop
   movements?: Movement[];
   onSave: (movement: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newUnitPrice?: number, newExpirationDate?: string) => void;
   onCancel: () => void;
@@ -21,6 +22,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   suppliers, 
   costCenters, 
   personnel = [],
+  machines = [],
   movements = [],
   onSave, 
   onCancel 
@@ -28,18 +30,13 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState<Unit>(item.lastPurchaseUnit);
   
-  // New state for manual price entry
   const [manualUnitPrice, setManualUnitPrice] = useState<string>('');
   const [notes, setNotes] = useState('');
   
-  // Tracking codes
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [outputCode, setOutputCode] = useState('');
-  
-  // Vencimiento (Only for Entry)
   const [expirationDate, setExpirationDate] = useState<string>(item.expirationDate || '');
 
-  // Invoice Image (New)
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingImg, setIsProcessingImg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,8 +45,12 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   
   // Admin fields
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [selectedCostCenterId, setSelectedCostCenterId] = useState('');
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
+
+  // Destination Logic (New Switch)
+  const [destinationType, setDestinationType] = useState<'lote' | 'machine'>('lote');
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState('');
+  const [selectedMachineId, setSelectedMachineId] = useState('');
 
   // Calculator State
   const [showCalculator, setShowCalculator] = useState(false);
@@ -64,7 +65,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   
   const EPSILON = 0.1;
 
-  // Filter compatible units
   const compatibleUnits = Object.values(Unit).filter(u => {
      const t = getBaseUnitType(u);
      if (baseType === 'unit') return t === 'unit';
@@ -73,9 +73,9 @@ export const MovementModal: React.FC<MovementModalProps> = ({
      return false;
   });
 
-  // Budget Logic
+  // Budget Logic (Only applies if destination is LOTE)
   const budgetInfo = useMemo(() => {
-    if (!isOut || !selectedCostCenterId) return null;
+    if (!isOut || destinationType !== 'lote' || !selectedCostCenterId) return null;
     const center = costCenters.find(c => c.id === selectedCostCenterId);
     if (!center || !center.budget) return null;
 
@@ -93,7 +93,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         percentage,
         isOver: projectedTotal > center.budget
     };
-  }, [isOut, selectedCostCenterId, movements, costCenters, previewCost]);
+  }, [isOut, destinationType, selectedCostCenterId, movements, costCenters, previewCost]);
 
 
   // Initialize
@@ -166,12 +166,16 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     if (isOut) {
         const requestedBaseAmount = convertToBase(qtyNum, unit);
         if (requestedBaseAmount > item.currentQuantity + EPSILON) return;
+        // Destination Validation
+        if (destinationType === 'lote' && !selectedCostCenterId) return;
+        if (destinationType === 'machine' && !selectedMachineId) return;
     }
     if (error) return;
 
     const supplierName = suppliers.find(s => s.id === selectedSupplierId)?.name;
     const costCenterName = costCenters.find(c => c.id === selectedCostCenterId)?.name;
     const personnelName = personnel.find(p => p.id === selectedPersonnelId)?.name;
+    const machineName = machines.find(m => m.id === selectedMachineId)?.name;
 
     const priceToSave = !isOut ? parseFloat(manualUnitPrice) : undefined;
     const dateToSave = !isOut && expirationDate ? expirationDate : undefined;
@@ -185,12 +189,14 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       calculatedCost: previewCost,
       notes: notes.trim(),
       invoiceNumber: !isOut ? invoiceNumber.trim() : undefined,
-      invoiceImage: !isOut ? invoiceImage : undefined, // Save Image
+      invoiceImage: !isOut ? invoiceImage : undefined,
       outputCode: isOut ? outputCode.trim() : undefined,
       supplierId: selectedSupplierId || undefined,
       supplierName,
-      costCenterId: selectedCostCenterId || undefined,
-      costCenterName,
+      costCenterId: (isOut && destinationType === 'lote') ? selectedCostCenterId : undefined,
+      costCenterName: (isOut && destinationType === 'lote') ? costCenterName : undefined,
+      machineId: (isOut && destinationType === 'machine') ? selectedMachineId : undefined,
+      machineName: (isOut && destinationType === 'machine') ? machineName : undefined,
       personnelId: selectedPersonnelId || undefined,
       personnelName
     }, priceToSave, dateToSave);
@@ -437,7 +443,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             </div>
           )}
 
-          {/* Cost Center & Personnel Selection - Only for Out */}
+          {/* Cost Center / Machine / Personnel Selection - Only for Out */}
           {isOut && (
               <div className="space-y-4">
                  
@@ -474,54 +480,109 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                      {personnel.length === 0 && <p className="text-[10px] text-slate-400 mt-1">Puede crear responsables en Maestros.</p>}
                  </div>
 
-                 {/* Destination & Budget */}
+                 {/* DESTINATION TOGGLE (LOTE vs MACHINE) */}
                  <div>
-                    <label className="block text-xs font-bold text-purple-500 uppercase mb-1 flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> Destino / Lote (Obligatorio)
+                    <label className="block text-xs font-bold text-purple-500 uppercase mb-2 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> ¿Para dónde va el insumo?
                     </label>
                     
-                    {costCenters.length === 0 ? (
-                        <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
-                             <p className="text-xs text-orange-600 dark:text-orange-400 font-bold flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4" />
-                                No hay Destinos creados
-                             </p>
-                        </div>
-                    ) : (
-                        <select
-                            value={selectedCostCenterId}
-                            onChange={e => setSelectedCostCenterId(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none text-sm transition-colors"
+                    <div className="flex p-1 bg-slate-200 dark:bg-slate-900 rounded-lg mb-3">
+                        <button 
+                            type="button"
+                            onClick={() => { setDestinationType('lote'); setSelectedMachineId(''); }}
+                            className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${destinationType === 'lote' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}
                         >
-                            <option value="">-- Seleccionar Destino --</option>
-                            {costCenters.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
+                            <MapPin className="w-3 h-3" /> Lote / Cultivo
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => { setDestinationType('machine'); setSelectedCostCenterId(''); }}
+                            className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${destinationType === 'machine' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                        >
+                            <Tractor className="w-3 h-3" /> Maquinaria
+                        </button>
+                    </div>
+
+                    {/* SELECTOR FOR LOTE */}
+                    {destinationType === 'lote' && (
+                        <>
+                            {costCenters.length === 0 ? (
+                                <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+                                    <p className="text-xs text-orange-600 dark:text-orange-400 font-bold flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        No hay Lotes/Destinos creados
+                                    </p>
+                                </div>
+                            ) : (
+                                <select
+                                    value={selectedCostCenterId}
+                                    onChange={e => setSelectedCostCenterId(e.target.value)}
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none text-sm transition-colors"
+                                >
+                                    <option value="">-- Seleccionar Lote --</option>
+                                    {costCenters.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            )}
+
+                            {/* BUDGET WARNING VISUALIZATION (ONLY FOR LOTE) */}
+                            {budgetInfo && (
+                                <div className={`mt-3 p-3 rounded-lg border ${budgetInfo.isOver ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700'}`}>
+                                    <div className="flex justify-between items-center text-xs mb-1">
+                                        <span className="font-bold text-slate-600 dark:text-slate-300">Presupuesto Lote</span>
+                                        <span className={budgetInfo.isOver ? 'text-red-600 font-bold' : 'text-slate-500'}>
+                                            {formatCurrency(budgetInfo.projectedTotal)} / {formatCurrency(budgetInfo.budget)}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div 
+                                            className={`h-2 rounded-full transition-all duration-500 ${budgetInfo.isOver ? 'bg-red-500' : 'bg-purple-500'}`}
+                                            style={{ width: `${Math.min(budgetInfo.percentage, 100)}%` }}
+                                        ></div>
+                                    </div>
+                                    {budgetInfo.isOver && (
+                                        <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" /> PRESUPUESTO EXCEDIDO
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </>
                     )}
 
-                    {/* BUDGET WARNING VISUALIZATION */}
-                    {budgetInfo && (
-                        <div className={`mt-3 p-3 rounded-lg border ${budgetInfo.isOver ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700'}`}>
-                            <div className="flex justify-between items-center text-xs mb-1">
-                                <span className="font-bold text-slate-600 dark:text-slate-300">Presupuesto Lote</span>
-                                <span className={budgetInfo.isOver ? 'text-red-600 font-bold' : 'text-slate-500'}>
-                                    {formatCurrency(budgetInfo.projectedTotal)} / {formatCurrency(budgetInfo.budget)}
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                <div 
-                                    className={`h-2 rounded-full transition-all duration-500 ${budgetInfo.isOver ? 'bg-red-500' : 'bg-purple-500'}`}
-                                    style={{ width: `${Math.min(budgetInfo.percentage, 100)}%` }}
-                                ></div>
-                            </div>
-                            {budgetInfo.isOver && (
-                                <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
-                                    <AlertTriangle className="w-3 h-3" /> PRESUPUESTO EXCEDIDO
-                                </p>
+                    {/* SELECTOR FOR MACHINE */}
+                    {destinationType === 'machine' && (
+                        <>
+                             {machines.length === 0 ? (
+                                <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+                                    <p className="text-xs text-orange-600 dark:text-orange-400 font-bold flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        No hay Máquinas creadas
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 mt-1">Cree máquinas en la pestaña Gestión.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <select
+                                        value={selectedMachineId}
+                                        onChange={e => setSelectedMachineId(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none text-sm transition-colors"
+                                    >
+                                        <option value="">-- Seleccionar Máquina --</option>
+                                        {machines.map(m => (
+                                            <option key={m.id} value={m.id}>{m.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1 bg-emerald-900/10 p-2 rounded border border-emerald-900/20">
+                                        <Tractor className="w-3 h-3" /> 
+                                        El costo se registrará automáticamente como mantenimiento de la máquina.
+                                    </p>
+                                </div>
                             )}
-                        </div>
+                        </>
                     )}
+
                  </div>
               </div>
           )}
