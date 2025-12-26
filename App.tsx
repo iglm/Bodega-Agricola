@@ -16,12 +16,12 @@ import { DataModal } from './components/DataModal';
 import { SecurityModal } from './components/SecurityModal';
 import { LaborView } from './components/LaborView'; 
 import { LaborForm } from './components/LaborForm'; 
-import { HarvestView } from './components/HarvestView'; // NEW
-import { ManagementView } from './components/ManagementView'; // NEW
+import { HarvestView } from './components/HarvestView'; 
+import { ManagementView } from './components/ManagementView'; 
 
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
-import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel } from './services/reportService';
+import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
 import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe, Tractor } from 'lucide-react';
 
 function App() {
@@ -438,8 +438,10 @@ function App() {
              <button onClick={() => setCurrentTab('management')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'management' ? 'bg-white dark:bg-slate-700 text-indigo-500 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}>
                 <Tractor className="w-4 h-4" /> <span className="hidden sm:inline">Gestión</span>
              </button>
-             <button onClick={() => setCurrentTab('stats')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'stats' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
-                <BarChart3 className="w-4 h-4" /> <span className="hidden sm:inline">Reportes</span>
+             {/* PROTECTED STATS TAB */}
+             <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setCurrentTab('stats'); }} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'stats' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
+                {isAdminUnlocked ? <BarChart3 className="w-4 h-4" /> : <Lock className="w-4 h-4" />} 
+                <span className="hidden sm:inline">Reportes</span>
              </button>
           </div>
 
@@ -451,8 +453,10 @@ function App() {
             <button onClick={() => setShowAuditModal(true)} className="col-span-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-indigo-100 transition-colors">
               <ClipboardCheck className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Auditoría</span>
             </button>
-            <button onClick={() => setShowExport(true)} className="col-span-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-emerald-100 transition-colors">
-              <Download className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Reportes</span>
+            {/* PROTECTED EXPORT BUTTON */}
+            <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowExport(true); }} className={`col-span-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-emerald-100 transition-colors ${!isAdminUnlocked ? 'opacity-50' : ''}`}>
+              {isAdminUnlocked ? <Download className="w-4 h-4" /> : <Lock className="w-4 h-4" />} 
+              <span className="text-[9px] font-bold hidden sm:inline">Reportes</span>
             </button>
             <button onClick={() => setShowSupport(true)} className="col-span-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-yellow-100 transition-colors">
               <Gift className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Apoyar</span>
@@ -512,7 +516,18 @@ function App() {
       {showAuditModal && <AuditModal inventory={activeInventory} onAdjust={handleAuditAdjustment} onClose={() => setShowAuditModal(false)} />}
       {showSecurityModal && <SecurityModal existingPin={data.adminPin} onSuccess={handlePinSuccess} onClose={() => setShowSecurityModal(false)} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
-      {showExport && <ExportModal onClose={() => setShowExport(false)} onExportPDF={() => { generatePDF(getExportData()); setShowExport(false); }} onExportExcel={() => { generateExcel(getExportData()); setShowExport(false); }} onGenerateOrder={() => { generateOrderPDF(getExportData()); setShowExport(false); }} onExportLaborPDF={() => { generateLaborPDF(getExportData()); setShowExport(false); }} onExportLaborExcel={() => { generateLaborExcel(getExportData()); setShowExport(false); }} />}
+      {showExport && (
+          <ExportModal 
+            onClose={() => setShowExport(false)} 
+            onExportPDF={() => { generatePDF(getExportData()); setShowExport(false); }} 
+            onExportExcel={() => { generateExcel(getExportData()); setShowExport(false); }} 
+            onGenerateOrder={() => { generateOrderPDF(getExportData()); setShowExport(false); }} 
+            onExportLaborPDF={() => { generateLaborPDF(getExportData()); setShowExport(false); }} 
+            onExportLaborExcel={() => { generateLaborExcel(getExportData()); setShowExport(false); }}
+            onExportHarvestPDF={() => { generateHarvestPDF(getExportData()); setShowExport(false); }}
+            onExportMachineryPDF={() => { generateMachineryPDF(getExportData()); setShowExport(false); }}
+        />
+      )}
       {historyModalItem && <HistoryModal item={historyModalItem} movements={activeMovements.filter(m => m.itemId === historyModalItem.id)} onClose={() => setHistoryModalItem(null)} />}
       {itemToDelete && <DeleteModal itemName={itemToDelete.name} onConfirm={executeDelete} onCancel={() => setItemToDelete(null)} />}
       {showManual && <ManualModal onClose={() => setShowManual(false)} />}

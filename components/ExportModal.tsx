@@ -1,12 +1,15 @@
+
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, CheckCircle, ShoppingCart, Pickaxe } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor } from 'lucide-react';
 
 interface ExportModalProps {
   onExportPDF: () => void;
   onExportExcel: () => void;
   onGenerateOrder: () => void;
-  onExportLaborPDF: () => void; // New
-  onExportLaborExcel: () => void; // New
+  onExportLaborPDF: () => void;
+  onExportLaborExcel: () => void;
+  onExportHarvestPDF?: () => void; // New
+  onExportMachineryPDF?: () => void; // New
   onClose: () => void;
 }
 
@@ -16,11 +19,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onGenerateOrder, 
     onExportLaborPDF,
     onExportLaborExcel,
+    onExportHarvestPDF,
+    onExportMachineryPDF,
     onClose 
 }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
+      <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh]">
         
         {/* Header */}
         <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 p-6 relative flex-shrink-0">
@@ -83,7 +88,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         </div>
                         <div className="text-left">
                             <h4 className="text-white font-bold text-xs">Pedido Sugerido</h4>
-                            <p className="text-[10px] text-slate-400">Items en stock bajo</p>
+                            <p className="text-xs text-slate-400">Items en stock bajo</p>
                         </div>
                     </div>
                 </button>
@@ -91,10 +96,42 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
             <div className="border-t border-slate-700"></div>
 
-            {/* SECTION 2: LABOR */}
+            {/* SECTION 2: PRODUCTION & MACHINERY (NEW) */}
+            <div className="space-y-3">
+                <h4 className="text-xs font-bold text-yellow-400 uppercase flex items-center gap-2">
+                    <Sprout className="w-4 h-4" /> Producción y Maquinaria
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                     {/* Harvest PDF */}
+                     <button 
+                        onClick={onExportHarvestPDF}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-yellow-500/50 transition-all group"
+                    >
+                        <div className="w-8 h-8 bg-yellow-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <Sprout className="w-4 h-4 text-yellow-500" />
+                        </div>
+                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Cosechas (PDF)</span>
+                    </button>
+
+                    {/* Machinery PDF */}
+                    <button 
+                        onClick={onExportMachineryPDF}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-orange-500/50 transition-all group"
+                    >
+                        <div className="w-8 h-8 bg-orange-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <Tractor className="w-4 h-4 text-orange-500" />
+                        </div>
+                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Maquinaria (PDF)</span>
+                    </button>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-700"></div>
+
+            {/* SECTION 3: LABOR */}
             <div className="space-y-3">
                 <h4 className="text-xs font-bold text-amber-400 uppercase flex items-center gap-2">
-                    <Pickaxe className="w-4 h-4" /> Mano de Obra (Jornales)
+                    <Pickaxe className="w-4 h-4" /> Mano de Obra
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
                     {/* Labor PDF */}

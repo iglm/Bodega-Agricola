@@ -10,18 +10,16 @@ const BRAND_COLORS = {
     primary: [5, 150, 105], // Emerald 600
     slate: [15, 23, 42], // Slate 900
     light: [236, 253, 245], // Emerald 50
-    amber: [245, 158, 11] // Amber 500 for Labor
+    amber: [245, 158, 11], // Amber 500 for Labor
+    yellow: [234, 179, 8], // Yellow for Harvest
+    orange: [249, 115, 22] // Orange for Machinery
 };
 
-const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string, isLabor = false) => {
+const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string, themeColor: number[] = BRAND_COLORS.dark) => {
     const currentDate = new Date();
     
     // Top Banner
-    if (isLabor) {
-        doc.setFillColor(180, 83, 9); // Amber/Orange Dark
-    } else {
-        doc.setFillColor(BRAND_COLORS.dark[0], BRAND_COLORS.dark[1], BRAND_COLORS.dark[2]);
-    }
+    doc.setFillColor(themeColor[0], themeColor[1], themeColor[2]);
     doc.rect(0, 0, 210, 35, 'F'); 
 
     // App Name
@@ -184,7 +182,9 @@ export const generatePDF = (data: AppState) => {
         details = m.supplierName ? `Prov: ${m.supplierName}` : '';
         if(m.invoiceNumber) details += `\nFact: ${m.invoiceNumber}`;
     } else {
-        details = m.costCenterName ? `Dest: ${m.costCenterName}` : '';
+        if (m.machineName) details = `MAQ: ${m.machineName}`;
+        else details = m.costCenterName ? `LOTE: ${m.costCenterName}` : '';
+        
         if(m.personnelName) details += `\nResp: ${m.personnelName}`;
     }
 
@@ -248,7 +248,7 @@ export const generateExcel = (data: AppState) => {
       new Date(m.date).toLocaleDateString(),
       m.type,
       m.itemName,
-      m.type === 'IN' ? m.supplierName : m.costCenterName,
+      m.type === 'IN' ? m.supplierName : (m.machineName || m.costCenterName),
       m.personnelName || '-',
       `${m.quantity} ${m.unit}`,
       m.calculatedCost
@@ -259,13 +259,11 @@ export const generateExcel = (data: AppState) => {
   XLSX.writeFile(wb, `AgroBodega_Inventario_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
-// --- NEW: LABOR REPORTS ---
-
 export const generateLaborPDF = (data: AppState) => {
     const doc = new jsPDF();
     const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
     
-    let yPos = addHeader(doc, "Reporte de Mano de Obra", "Jornales y Labores", activeWarehouseName, true);
+    let yPos = addHeader(doc, "Reporte de Mano de Obra", "Jornales y Labores", activeWarehouseName, BRAND_COLORS.amber);
   
     doc.setFontSize(14);
     doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
@@ -330,4 +328,106 @@ export const generateLaborExcel = (data: AppState) => {
     XLSX.utils.book_append_sheet(wb, ws, "Jornales y Labores");
 
     XLSX.writeFile(wb, `AgroBodega_ManoObra_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+// --- NEW HARVEST REPORT ---
+export const generateHarvestPDF = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
+    
+    let yPos = addHeader(doc, "Reporte de Producción", "Cosechas e Ingresos", activeWarehouseName, BRAND_COLORS.yellow);
+
+    doc.setFontSize(14);
+    doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("Historial de Recolección", 14, yPos);
+    
+    doc.setDrawColor(234, 179, 8); // Yellow
+    doc.setLineWidth(0.5);
+    doc.line(14, yPos + 2, 105, yPos + 2);
+
+    const rows = (data.harvests || []).map(h => [
+        new Date(h.date).toLocaleDateString(),
+        h.costCenterName,
+        h.cropName,
+        `${h.quantity} ${h.unit}`,
+        formatCurrency(h.totalValue)
+    ]);
+
+    const totalIncome = (data.harvests || []).reduce((acc, h) => acc + h.totalValue, 0);
+
+    autoTable(doc, {
+        startY: yPos + 8,
+        head: [['Fecha', 'Lote / Origen', 'Cultivo', 'Cantidad', 'Valor Venta']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [202, 138, 4] }, // Yellow 700
+        styles: { fontSize: 8 },
+        columnStyles: {
+            4: { halign: 'right', fontStyle: 'bold', textColor: [21, 128, 61] } // Green text for income
+        },
+        foot: [['', '', '', 'TOTAL INGRESOS', formatCurrency(totalIncome)]],
+        footStyles: { fillColor: [254, 240, 138], textColor: 50, fontStyle: 'bold', halign: 'right' }
+    });
+
+    addFooter(doc);
+    doc.save(`Reporte_Produccion_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// --- NEW MACHINERY REPORT ---
+export const generateMachineryPDF = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
+    
+    let yPos = addHeader(doc, "Reporte de Maquinaria", "Mantenimiento y Costos", activeWarehouseName, BRAND_COLORS.orange);
+
+    // Iterate through each machine to create a section
+    (data.machines || []).forEach(machine => {
+        
+        // Find Maint Logs
+        const logs = (data.maintenanceLogs || []).filter(l => l.machineId === machine.id);
+        const totalMachineCost = logs.reduce((acc, l) => acc + l.cost, 0);
+
+        if (yPos > 250) { doc.addPage(); yPos = 20; }
+
+        doc.setFontSize(12);
+        doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Máquina: ${machine.name}`, 14, yPos);
+        
+        // Subtable
+        const rows = logs.map(l => [
+            new Date(l.date).toLocaleDateString(),
+            l.type,
+            l.description,
+            formatCurrency(l.cost)
+        ]);
+
+        if (rows.length === 0) {
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "italic");
+            doc.text("Sin registros de mantenimiento.", 14, yPos + 6);
+            yPos += 15;
+        } else {
+             autoTable(doc, {
+                startY: yPos + 3,
+                head: [['Fecha', 'Tipo', 'Descripción', 'Costo']],
+                body: rows,
+                theme: 'grid',
+                headStyles: { fillColor: [234, 88, 12], fontSize: 8 }, // Orange 600
+                styles: { fontSize: 8 },
+                columnStyles: { 3: { halign: 'right' } },
+                foot: [['', '', 'TOTAL MÁQUINA', formatCurrency(totalMachineCost)]],
+                footStyles: { fillColor: [255, 237, 213], textColor: 0, fontStyle: 'bold', halign: 'right' }
+            });
+            yPos = (doc as any).lastAutoTable.finalY + 10;
+        }
+    });
+
+    if ((data.machines || []).length === 0) {
+        doc.text("No hay maquinaria registrada.", 14, yPos);
+    }
+
+    addFooter(doc);
+    doc.save(`Reporte_Maquinaria_${new Date().toISOString().split('T')[0]}.pdf`);
 };
