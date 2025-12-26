@@ -18,7 +18,7 @@ import { LaborView } from './components/LaborView'; // NEW
 import { LaborForm } from './components/LaborForm'; // NEW
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
-import { generateExcel, generatePDF, generateOrderPDF } from './services/reportService';
+import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel } from './services/reportService';
 import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe } from 'lucide-react';
 
 function App() {
@@ -756,6 +756,14 @@ function App() {
           }}
           onGenerateOrder={() => {
             generateOrderPDF(getExportData());
+            setShowExport(false);
+          }}
+          onExportLaborPDF={() => {
+            generateLaborPDF(getExportData());
+            setShowExport(false);
+          }}
+          onExportLaborExcel={() => {
+            generateLaborExcel(getExportData());
             setShowExport(false);
           }}
         />

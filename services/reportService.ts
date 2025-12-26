@@ -9,14 +9,19 @@ const BRAND_COLORS = {
     dark: [6, 78, 59], // Emerald 900
     primary: [5, 150, 105], // Emerald 600
     slate: [15, 23, 42], // Slate 900
-    light: [236, 253, 245] // Emerald 50
+    light: [236, 253, 245], // Emerald 50
+    amber: [245, 158, 11] // Amber 500 for Labor
 };
 
-const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string) => {
+const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string, isLabor = false) => {
     const currentDate = new Date();
     
     // Top Banner
-    doc.setFillColor(BRAND_COLORS.dark[0], BRAND_COLORS.dark[1], BRAND_COLORS.dark[2]);
+    if (isLabor) {
+        doc.setFillColor(180, 83, 9); // Amber/Orange Dark
+    } else {
+        doc.setFillColor(BRAND_COLORS.dark[0], BRAND_COLORS.dark[1], BRAND_COLORS.dark[2]);
+    }
     doc.rect(0, 0, 210, 35, 'F'); 
 
     // App Name
@@ -27,7 +32,7 @@ const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: s
 
     // Subtitle
     doc.setFontSize(10);
-    doc.setTextColor(209, 250, 229); 
+    doc.setTextColor(255, 255, 255); 
     doc.setFont("helvetica", "normal");
     doc.text(title, 14, 28);
 
@@ -251,5 +256,78 @@ export const generateExcel = (data: AppState) => {
   const wsMov = XLSX.utils.aoa_to_sheet([movHeader, ...movBody]);
   XLSX.utils.book_append_sheet(wb, wsMov, "Kardex");
 
-  XLSX.writeFile(wb, `AgroBodega_Data.xlsx`);
+  XLSX.writeFile(wb, `AgroBodega_Inventario_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+// --- NEW: LABOR REPORTS ---
+
+export const generateLaborPDF = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
+    
+    let yPos = addHeader(doc, "Reporte de Mano de Obra", "Jornales y Labores", activeWarehouseName, true);
+  
+    doc.setFontSize(14);
+    doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumen de Jornales", 14, yPos);
+    
+    doc.setDrawColor(245, 158, 11); // Amber
+    doc.setLineWidth(0.5);
+    doc.line(14, yPos + 2, 105, yPos + 2);
+
+    const laborRows = (data.laborLogs || []).map(log => [
+        new Date(log.date).toLocaleDateString(),
+        log.personnelName,
+        log.activityName,
+        log.costCenterName,
+        formatCurrency(log.value),
+        log.notes || '-'
+    ]);
+
+    const totalCost = (data.laborLogs || []).reduce((acc, log) => acc + log.value, 0);
+
+    autoTable(doc, {
+        startY: yPos + 8,
+        head: [['Fecha', 'Trabajador', 'Labor', 'Lote / Destino', 'Valor', 'Notas']],
+        body: laborRows,
+        theme: 'striped',
+        headStyles: { fillColor: [217, 119, 6] }, // Amber 600
+        styles: { fontSize: 8 },
+        columnStyles: {
+            4: { halign: 'right', fontStyle: 'bold' }
+        },
+        foot: [['', '', '', 'TOTAL', formatCurrency(totalCost), '']],
+        footStyles: { fillColor: [251, 191, 36], textColor: 50, fontStyle: 'bold', halign: 'right' }
+    });
+
+    addFooter(doc);
+    doc.save(`Reporte_Jornales_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+export const generateLaborExcel = (data: AppState) => {
+    const wb = XLSX.utils.book_new();
+    
+    const header = [
+        { v: "Fecha", s: { font: { bold: true } } },
+        { v: "Trabajador", s: { font: { bold: true } } },
+        { v: "Labor / Actividad", s: { font: { bold: true } } },
+        { v: "Lote / Destino", s: { font: { bold: true } } },
+        { v: "Valor Jornal", s: { font: { bold: true } } },
+        { v: "Notas", s: { font: { bold: true } } }
+    ];
+
+    const body = (data.laborLogs || []).map(log => [
+        new Date(log.date).toLocaleDateString(),
+        log.personnelName,
+        log.activityName,
+        log.costCenterName,
+        log.value,
+        log.notes || ''
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+    XLSX.utils.book_append_sheet(wb, ws, "Jornales y Labores");
+
+    XLSX.writeFile(wb, `AgroBodega_ManoObra_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
