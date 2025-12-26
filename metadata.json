@@ -1,0 +1,7 @@
+{
+  "name": "bodega agricola",
+  "description": "Gestión profesional de inventario para agroinsumos. Control de stock, cálculo de costos y reportes offline. Desarrollado por Lucas Mateo Tabares Franco.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
