@@ -1,8 +1,8 @@
 
 import React, { useRef } from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard, GraduationCap } from 'lucide-react';
 import { AppState } from '../types';
-import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate } from '../services/reportService';
+import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate, getCoffeeExampleData } from '../services/reportService';
 import { processExcelImport, saveData } from '../services/inventoryService';
 
 interface ExportModalProps {
@@ -41,14 +41,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleDownloadFieldTemplates = () => {
       if (fullData) {
-          generateFieldTemplates(fullData);
+          generateFieldTemplates(fullData, false);
       }
   };
 
   const handleDownloadExcelTemplate = () => {
       if (fullData) {
-        generateExcelImportTemplate(fullData);
+        generateExcelImportTemplate(fullData, false);
       }
+  };
+
+  const handleDownloadExampleExcel = () => {
+      const exampleData = getCoffeeExampleData();
+      generateExcelImportTemplate(exampleData, true);
+  };
+
+  const handleDownloadExamplePDF = () => {
+      const exampleData = getCoffeeExampleData();
+      generateFieldTemplates(exampleData, true);
   };
 
   const handleUploadExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +107,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
             
-            {/* SECTION: FIELD WORK (OFFLINE) - NOW AT TOP */}
+            {/* SECTION: FIELD WORK (OFFLINE) */}
             <div className="space-y-3 bg-amber-900/20 p-4 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-900/10">
                 <h4 className="text-sm font-bold text-amber-500 uppercase flex items-center gap-2 border-b border-amber-500/20 pb-2 mb-2">
                     <Clipboard className="w-4 h-4" /> Plantillas & Carga Masiva
@@ -138,6 +148,32 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         className="hidden" 
                     />
                 </label>
+            </div>
+
+            {/* SECTION: EXAMPLES (NEW) */}
+            <div className="space-y-3 bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
+                <h4 className="text-sm font-bold text-blue-400 uppercase flex items-center gap-2 border-b border-blue-500/20 pb-2 mb-2">
+                    <GraduationCap className="w-4 h-4" /> Zona de Aprendizaje
+                </h4>
+                <p className="text-[10px] text-slate-300 mb-2 leading-tight">
+                    ¿Dudas sobre cómo llenar las plantillas? Descargue ejemplos con datos ficticios de café.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={handleDownloadExampleExcel}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-blue-500/50 transition-all group"
+                    >
+                        <span className="text-blue-400 font-bold text-[10px] text-center group-hover:text-white mb-1">Excel Relleno</span>
+                        <FileSpreadsheet className="w-4 h-4 text-slate-500 group-hover:text-blue-400" />
+                    </button>
+                    <button 
+                        onClick={handleDownloadExamplePDF}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-blue-500/50 transition-all group"
+                    >
+                        <span className="text-blue-400 font-bold text-[10px] text-center group-hover:text-white mb-1">PDF Relleno</span>
+                        <FileText className="w-4 h-4 text-slate-500 group-hover:text-blue-400" />
+                    </button>
+                </div>
             </div>
 
             {/* UNIFIED REPORT BUTTON */}

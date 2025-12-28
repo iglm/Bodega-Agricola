@@ -2,7 +2,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; // Changed to xlsx-js-style for styling support
-import { AppState, LaborLog, RainLog, HarvestLog, Movement, InventoryItem } from '../types';
+import { AppState, LaborLog, RainLog, HarvestLog, Movement, InventoryItem, Category, Unit, MaintenanceLog, FinanceLog } from '../types';
 import { convertToBase, formatCurrency, formatBaseQuantity, getCostPerGramOrMl } from './inventoryService';
 
 // --- SHARED CONFIG ---
@@ -21,6 +21,287 @@ const BRAND_COLORS = {
 
 const AUTHOR_NAME = "Lucas Mateo Tabares Franco";
 const CONTACT_EMAIL = "mateotabares7@gmail.com";
+
+// --- EXTENSIVE DUMMY DATA GENERATOR (12-MONTH REAL COFFEE CYCLE) ---
+export const getCoffeeExampleData = (): AppState => {
+    const id = "hacienda_real_demo";
+    const warehouseId = id;
+    
+    // --- 1. CONFIGURATION (AGRONOMIC DATA PROVIDED BY USER) ---
+    // Costs
+    const JORNAL_VALUE = 140000;
+    const FERTILIZER_PRICE_PER_BULTO = 130000; // 26-4-22
+    const HERBICIDE_PRICE_PER_LITER = 30000;
+    const INSECTICIDE_PRICE_PER_100CC = 100000; // 100cc costs 100k
+    const COFFEE_PRICE_PER_CARGA = 2800000;
+    const COFFEE_PRICE_PER_KG_CPS = COFFEE_PRICE_PER_CARGA / 125; // 22,400
+    
+    // Production & Doses
+    const HECTARES_LOT_1 = 5; // Main production lot
+    const KG_FERT_PER_HA_YEAR = 1200; 
+    const HERBICIDE_DOSE_HA = 3; // Liters
+    const INSECTICIDE_DOSE_HA = 100; // cc (ml) per Ha
+    
+    // Labor Efficiency
+    const JORNALES_GUADANA_HA = 2;
+    const JORNALES_HERBICIDA_HA = 3;
+    const JORNALES_BROCA_HA = 3;
+
+    // 2. MASTER DATA
+    const costCenters = [
+        { id: "c1", warehouseId, name: "Lote 1 - La Esperanza (Producción)", area: HECTARES_LOT_1, budget: 150000000 },
+        { id: "c2", warehouseId, name: "Infraestructura (Casa/Beneficio)", area: 0.5 }
+    ];
+
+    const personnel = [
+        { id: "p1", warehouseId, name: "Lucas Tabares (Administrador)", role: "Administrador" },
+        { id: "p2", warehouseId, name: "Maria Garcia (Alimentación)", role: "Cocina" },
+        { id: "p3", warehouseId, name: "Jose Lopez (Contratista)", role: "Todero" },
+        { id: "p4", warehouseId, name: "Cuadrilla Recolección #1", role: "Recolector" },
+        { id: "p5", warehouseId, name: "Pedro Diaz (Guadañador)", role: "Todero" }
+    ];
+
+    const activities = [
+        { id: "a1", warehouseId, name: "Recolección Café (Kg)" },
+        { id: "a2", warehouseId, name: "Desyerba (Guadaña)" },
+        { id: "a3", warehouseId, name: "Desyerba Química (Herbicida)" },
+        { id: "a4", warehouseId, name: "Fertilización Edáfica" },
+        { id: "a5", warehouseId, name: "Control Broca (Fumigación)" },
+        { id: "a6", warehouseId, name: "Administración" }
+    ];
+
+    const inventory: InventoryItem[] = [
+        { id: "i1", warehouseId, name: "Fertilizante 26-4-22 (Producción)", category: Category.FERTILIZANTE, currentQuantity: 2500000, baseUnit: 'g', lastPurchasePrice: FERTILIZER_PRICE_PER_BULTO, lastPurchaseUnit: Unit.BULTO_50KG, averageCost: FERTILIZER_PRICE_PER_BULTO/50000 },
+        { id: "i2", warehouseId, name: "Herbicida MataMaleza", category: Category.HERBICIDA, currentQuantity: 20000, baseUnit: 'ml', lastPurchasePrice: HERBICIDE_PRICE_PER_LITER, lastPurchaseUnit: Unit.LITRO, averageCost: HERBICIDE_PRICE_PER_LITER/1000 },
+        { id: "i3", warehouseId, name: "Insecticida BrocaFin", category: Category.INSECTICIDA, currentQuantity: 1000, baseUnit: 'ml', lastPurchasePrice: INSECTICIDE_PRICE_PER_100CC, lastPurchaseUnit: Unit.MILILITRO, averageCost: INSECTICIDE_PRICE_PER_100CC/100 }, // High value per ml
+        { id: "i4", warehouseId, name: "Combustible (Gasolina)", category: Category.OTRO, currentQuantity: 15000, baseUnit: 'ml', lastPurchasePrice: 15000, lastPurchaseUnit: Unit.LITRO, averageCost: 15 }
+    ];
+
+    const machines = [
+        { id: "m1", warehouseId, name: "Despulpadora Penagos" },
+        { id: "m2", warehouseId, name: "Guadaña Stihl FS450" }
+    ];
+
+    // 3. SIMULATION LOOP (365 DAYS)
+    const laborLogs: LaborLog[] = [];
+    const rainLogs: RainLog[] = [];
+    const harvests: HarvestLog[] = [];
+    const movements: Movement[] = [];
+    const maintenanceLogs: MaintenanceLog[] = [];
+    const financeLogs: FinanceLog[] = [];
+
+    const today = new Date();
+    
+    // Tracking monthly expenses for the 10% Admin Rule
+    let currentMonthExpenses = 0;
+    let lastProcessedMonth = -1;
+
+    // We simulate backwards from today (Day 365 to 0)
+    // However, to calculate monthly totals correctly, we should probably iterate forward or grouping later.
+    // For simplicity, we'll iterate backwards and post-process the admin fees? 
+    // Better: Iterate Backwards, and at the 'change' of a month (which is the End of the previous month effectively), dump the admin fee.
+    
+    for (let i = 0; i <= 365; i++) {
+        // Go forward in time to make monthly calc easier? No, let's stick to generating past data.
+        // Day 365 ago -> Day 0 (Today).
+        const d = new Date(today);
+        d.setDate(today.getDate() - (365 - i)); // Start from 1 year ago
+        const dateStr = d.toISOString().split('T')[0];
+        const month = d.getMonth(); // 0-11
+        const day = d.getDate();
+        const isSunday = d.getDay() === 0;
+
+        let dailyExpense = 0;
+
+        // --- A. WEATHER ---
+        if ([3, 4, 9, 10].includes(month) && Math.random() > 0.3) {
+            rainLogs.push({ id: `rain_${i}`, warehouseId, date: dateStr, millimeters: Math.floor(Math.random() * 40) + 5 });
+        } else if (Math.random() > 0.7) {
+            rainLogs.push({ id: `rain_${i}`, warehouseId, date: dateStr, millimeters: Math.floor(Math.random() * 15) });
+        }
+
+        // --- B. WEEDING (DESYERBA) - Every 2 Months (Jan, Mar, May...) ---
+        // Frequency: 6 times a year. 
+        // Logic: Alternate between Guadaña (Even months) and Herbicida (Odd months of weeding)
+        // Weeding Months: 0, 2, 4, 6, 8, 10 (Jan, Mar, May, Jul, Sep, Nov)
+        if (day === 10 && (month % 2 === 0)) {
+            const isChemical = (month % 4 !== 0); // Alternate methods
+            
+            if (isChemical) {
+                // HERBICIDE METHOD
+                // 3 Liters/Ha * 5 Ha = 15 Liters
+                // 3 Jornales/Ha * 5 Ha = 15 Jornales
+                
+                const litersNeeded = HERBICIDE_DOSE_HA * HECTARES_LOT_1;
+                const costProduct = litersNeeded * HERBICIDE_PRICE_PER_LITER;
+                const laborCount = JORNALES_HERBICIDA_HA * HECTARES_LOT_1;
+                const costLabor = laborCount * JORNAL_VALUE;
+
+                movements.push({
+                    id: `mov_herb_${i}`, warehouseId, date: dateStr, type: 'OUT',
+                    itemId: 'i2', itemName: "Herbicida MataMaleza", quantity: litersNeeded, unit: Unit.LITRO,
+                    calculatedCost: costProduct, costCenterId: "c1", costCenterName: "Lote 1", notes: `Desyerba Química (${litersNeeded}L para ${HECTARES_LOT_1} Ha)`
+                });
+
+                laborLogs.push({
+                    id: `l_herb_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
+                    activityId: "a3", activityName: "Desyerba Química (Herbicida)", costCenterId: "c1", costCenterName: "Lote 1",
+                    value: costLabor, notes: `Contrato Aplicación (${laborCount} jornales)`, paid: true
+                });
+
+                dailyExpense += (costProduct + costLabor);
+
+            } else {
+                // MECHANICAL METHOD (GUADAÑA)
+                // 2 Jornales/Ha * 5 Ha = 10 Jornales
+                // + Gasolina (Approx 1 Galon/Ha -> 4L/Ha -> 20L total)
+                
+                const laborCount = JORNALES_GUADANA_HA * HECTARES_LOT_1;
+                const costLabor = laborCount * JORNAL_VALUE;
+                const fuelLiters = 4 * HECTARES_LOT_1;
+                const costFuel = fuelLiters * 15000;
+
+                laborLogs.push({
+                    id: `l_guad_${i}`, warehouseId, date: dateStr, personnelId: "p5", personnelName: "Pedro Diaz (Guadañador)",
+                    activityId: "a2", activityName: "Desyerba (Guadaña)", costCenterId: "c1", costCenterName: "Lote 1",
+                    value: costLabor, notes: `Guadañada General (${laborCount} jornales)`, paid: true
+                });
+
+                movements.push({
+                    id: `mov_fuel_${i}`, warehouseId, date: dateStr, type: 'OUT',
+                    itemId: 'i4', itemName: "Combustible (Gasolina)", quantity: fuelLiters, unit: Unit.LITRO,
+                    calculatedCost: costFuel, machineId: "m2", machineName: "Guadaña Stihl", notes: "Combustible Guadaña Lote 1"
+                });
+
+                dailyExpense += (costLabor + costFuel);
+            }
+        }
+
+        // --- C. BROCA CONTROL - Twice a Year (Feb & Aug) ---
+        if (day === 20 && (month === 1 || month === 7)) {
+            // 100cc/Ha * 5 Ha = 500cc
+            // 3 Jornales/Ha * 5 Ha = 15 Jornales
+            
+            const ccNeeded = INSECTICIDE_DOSE_HA * HECTARES_LOT_1; // 500
+            const costProduct = (ccNeeded / 100) * INSECTICIDE_PRICE_PER_100CC; // 5 * 100k = 500k
+            const laborCount = JORNALES_BROCA_HA * HECTARES_LOT_1; // 15
+            const costLabor = laborCount * JORNAL_VALUE; // 15 * 140k = 2.1M
+
+            movements.push({
+                id: `mov_broca_${i}`, warehouseId, date: dateStr, type: 'OUT',
+                itemId: 'i3', itemName: "Insecticida BrocaFin", quantity: ccNeeded, unit: Unit.MILILITRO,
+                calculatedCost: costProduct, costCenterId: "c1", costCenterName: "Lote 1", notes: `Control Broca (${ccNeeded}cc en 1000L agua)`
+            });
+
+            laborLogs.push({
+                id: `l_broca_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
+                activityId: "a5", activityName: "Control Broca (Fumigación)", costCenterId: "c1", costCenterName: "Lote 1",
+                value: costLabor, notes: `Fumigación Broca (${laborCount} jornales)`, paid: true
+            });
+
+            dailyExpense += (costProduct + costLabor);
+        }
+
+        // --- D. FERTILIZATION (Mar & Sep) ---
+        if (day === 5 && (month === 2 || month === 8)) {
+            const kgNeeded = (KG_FERT_PER_HA_YEAR / 2) * HECTARES_LOT_1; // 600 * 5 = 3000kg
+            const bultos = kgNeeded / 50; // 60 Bultos
+            const costProduct = bultos * FERTILIZER_PRICE_PER_BULTO;
+            const laborCost = 1500000; // Contract value for application
+
+            movements.push({
+                id: `mov_fert_${i}`, warehouseId, date: dateStr, type: 'OUT',
+                itemId: 'i1', itemName: "Fertilizante 26-4-22", quantity: bultos, unit: Unit.BULTO_50KG,
+                calculatedCost: costProduct, costCenterId: "c1", costCenterName: "Lote 1", notes: `Fertilización Semestral (${bultos} bultos)`
+            });
+
+            laborLogs.push({
+                id: `l_fert_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
+                activityId: "a4", activityName: "Fertilización Edáfica", costCenterId: "c1", costCenterName: "Lote 1",
+                value: laborCost, notes: "Contrato Abonada", paid: true
+            });
+
+            dailyExpense += (costProduct + laborCost);
+        }
+
+        // --- E. HARVEST (Mitaca Apr-May, Main Oct-Dec) ---
+        let harvestFactor = 0;
+        if ([9, 10, 11].includes(month)) harvestFactor = 0.7 / 90; // High peak
+        else if ([3, 4].includes(month)) harvestFactor = 0.3 / 60; // Mitaca
+
+        if (harvestFactor > 0 && !isSunday && Math.random() > 0.2) {
+            // Production Calculation
+            const totalAnnualYield = 1800 * HECTARES_LOT_1; // 9000kg CPS
+            const dailyKgCPS = (totalAnnualYield * harvestFactor) * (0.8 + Math.random() * 0.4);
+            const dailyRevenue = dailyKgCPS * COFFEE_PRICE_PER_KG_CPS;
+
+            // Harvest Labor Cost (Rule: ~50% of revenue goes to pickers/processing in specific harvest season context)
+            // Or strictly: User said "mano de obra para cosechar se utiliza un 50% de los gastos totales". 
+            // Usually pickers are paid per Kg Cherry. 1kg CPS = 5kg Cherry. 
+            // If revenue is 22,400/kg CPS. Cherry revenue equiv is ~4,500. 
+            // Picker pays ~800-1000. That's about 22%.
+            // BUT, user said 50% of TOTAL EXPENSES. This implies Harvest Labor is massive.
+            // Let's model it as a high per-kg cost to match the user's "50% rule".
+            // Let's say picking + processing + transport = 50% of the Revenue value roughly.
+            
+            const dailyLaborCost = dailyRevenue * 0.45; // 45% of revenue is labor cost
+
+            harvests.push({
+                id: `h_${i}`, warehouseId, date: dateStr, costCenterId: "c1", costCenterName: "Lote 1",
+                cropName: "Café Pergamino Seco", quantity: Math.round(dailyKgCPS), unit: "Kg",
+                totalValue: Math.round(dailyRevenue), notes: "Recolección diaria"
+            });
+
+            laborLogs.push({
+                id: `l_cosecha_${i}`, warehouseId, date: dateStr, personnelId: "p4", personnelName: "Cuadrilla Recolección #1",
+                activityId: "a1", activityName: "Recolección Café (Kg)", costCenterId: "c1", costCenterName: "Lote 1",
+                value: Math.round(dailyLaborCost), notes: `Pago recolección ${Math.round(dailyKgCPS*5)}kg cereza`, paid: true
+            });
+
+            dailyExpense += dailyLaborCost;
+        }
+
+        // --- TRACK EXPENSES ---
+        currentMonthExpenses += dailyExpense;
+
+        // --- END OF MONTH: ADMIN EXPENSES (10% RULE) ---
+        // If tomorrow is a new month (or we hit end of loop), calc admin
+        const tomorrow = new Date(d);
+        tomorrow.setDate(d.getDate() + 1);
+        if (tomorrow.getMonth() !== month || i === 365) {
+            if (currentMonthExpenses > 0) {
+                const adminCost = currentMonthExpenses * 0.10; // 10% of total operational
+                
+                financeLogs.push({
+                    id: `fin_admin_${month}`, warehouseId, date: dateStr, type: 'EXPENSE', category: 'Administracion',
+                    amount: Math.round(adminCost), description: `Gastos Admin Mes ${month+1} (10% Operativo)`
+                });
+            }
+            currentMonthExpenses = 0; // Reset for next month
+        }
+    }
+
+    return {
+        warehouses: [{ id: warehouseId, name: "Hacienda El Cafetal (MODELO EXPERTO)", created: new Date().toISOString() }],
+        activeWarehouseId: warehouseId,
+        suppliers: [
+            { id: "s1", warehouseId, name: "AgroInsumos del Centro" },
+            { id: "s2", warehouseId, name: "Cooperativa de Caficultores" }
+        ],
+        costCenters,
+        personnel,
+        activities,
+        inventory,
+        machines,
+        laborLogs,
+        harvests,
+        movements,
+        maintenanceLogs,
+        rainLogs,
+        financeLogs,
+        agenda: []
+    };
+};
 
 // ... [Existing PDF Helper Functions] ...
 const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string, themeColor: [number, number, number] = BRAND_COLORS.dark) => {
@@ -66,10 +347,14 @@ const addFooter = (doc: jsPDF) => {
 };
 
 // ... [Existing PDF Generator Functions remain unchanged] ...
-export const generateFieldTemplates = (data: AppState) => {
+export const generateFieldTemplates = (data: AppState, prefillData: boolean = false) => {
     const doc = new jsPDF();
     const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
-    let yPos = addHeader(doc, "PLANILLA DE NOMINA Y LABORES", "Registro diario de actividades de campo", activeWarehouseName, BRAND_COLORS.amber);
+    const titlePrefix = prefillData ? "EJEMPLO DE LLENADO - " : "";
+
+    let yPos = addHeader(doc, `${titlePrefix}PLANILLA DE NOMINA`, "Registro diario de actividades de campo", activeWarehouseName, BRAND_COLORS.amber);
+    
+    // Header for Personnel
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text("TRABAJADORES ACTIVOS (Referencia para llenado):", 14, yPos);
@@ -79,16 +364,31 @@ export const generateFieldTemplates = (data: AppState) => {
         doc.text(`• ${p.name}`, x, y);
         x += 45;
     });
+
+    // Body Data (Prefilled or Empty)
+    let bodyData = Array(20).fill(["", "", "", "", ""]);
+    if (prefillData && data.laborLogs.length > 0) {
+        // Take last 30 logs for the example to not overwhelm the PDF
+        bodyData = data.laborLogs.slice(0, 40).map(l => [
+            l.date,
+            l.personnelName,
+            l.activityName,
+            l.costCenterName,
+            formatCurrency(l.value)
+        ]);
+    }
+
     autoTable(doc, {
         startY: y + 5,
         head: [['FECHA', 'TRABAJADOR', 'LABOR REALIZADA', 'LOTE / SITIO', 'JORNALES (1, 0.5) o VALOR']],
-        body: Array(20).fill(["", "", "", "", ""]),
+        body: bodyData,
         theme: 'grid',
-        styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
+        styles: { fontSize: 8, minCellHeight: 8, valign: 'middle', lineColor: 200, fontStyle: prefillData ? 'italic' : 'normal', textColor: prefillData ? [80,80,80] : [0,0,0] },
         headStyles: { fillColor: BRAND_COLORS.amber, textColor: 255, fontStyle: 'bold' }
     });
+
     doc.addPage();
-    yPos = addHeader(doc, "BITÁCORA DE BODEGA", "Control de Salidas de Insumos y Fertilizantes", activeWarehouseName, BRAND_COLORS.red);
+    yPos = addHeader(doc, `${titlePrefix}BITÁCORA DE BODEGA`, "Control de Salidas de Insumos y Fertilizantes", activeWarehouseName, BRAND_COLORS.red);
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text("LOTES Y DESTINOS (Referencia):", 14, yPos);
@@ -98,76 +398,57 @@ export const generateFieldTemplates = (data: AppState) => {
         doc.text(`• ${c.name}`, x, y);
         x += 45;
     });
+
+    let invBody = Array(20).fill(["", "", "", "", "", ""]);
+    if (prefillData && data.movements.length > 0) {
+        invBody = data.movements.slice(0, 30).map(m => [
+            m.date,
+            m.itemName,
+            m.quantity,
+            m.unit,
+            m.costCenterName || m.machineName || 'General',
+            'Mayordomo'
+        ]);
+    }
+
     autoTable(doc, {
         startY: y + 5,
         head: [['FECHA', 'PRODUCTO / INSUMO', 'CANTIDAD', 'UNIDAD (Kg/L)', 'DESTINO (Lote)', 'RESPONSABLE']],
-        body: Array(20).fill(["", "", "", "", "", ""]),
+        body: invBody,
         theme: 'grid',
-        styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
+        styles: { fontSize: 8, minCellHeight: 8, valign: 'middle', lineColor: 200, fontStyle: prefillData ? 'italic' : 'normal', textColor: prefillData ? [80,80,80] : [0,0,0] },
         headStyles: { fillColor: BRAND_COLORS.red, textColor: 255, fontStyle: 'bold' }
     });
+
+    // Harvest Page
     doc.addPage();
-    yPos = addHeader(doc, "REGISTRO DE PRODUCCIÓN", "Control de Cosechas y Recolección", activeWarehouseName, BRAND_COLORS.yellow);
+    yPos = addHeader(doc, `${titlePrefix}REGISTRO DE PRODUCCIÓN`, "Control de Cosechas", activeWarehouseName, BRAND_COLORS.yellow);
+    let harvBody = Array(20).fill(["", "", "", "", "", ""]);
+    if (prefillData && data.harvests.length > 0) {
+        harvBody = data.harvests.slice(0, 30).map(h => [
+            h.date,
+            h.costCenterName,
+            h.cropName,
+            `${h.quantity}`,
+            formatCurrency(h.totalValue),
+            h.notes
+        ]);
+    }
     autoTable(doc, {
         startY: yPos + 5,
-        head: [['FECHA', 'LOTE / ORIGEN', 'CULTIVO / VARIEDAD', 'CANTIDAD (Kg/Arrobas)', 'PRECIO / VALOR TOTAL', 'OBSERVACIONES']],
-        body: Array(20).fill(["", "", "", "", "", ""]),
+        head: [['FECHA', 'LOTE / ORIGEN', 'CULTIVO', 'KG/UNIDAD', 'VALOR ESTIMADO', 'NOTAS']],
+        body: harvBody,
         theme: 'grid',
-        styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
+        styles: { fontSize: 8, minCellHeight: 8, valign: 'middle', lineColor: 200, fontStyle: prefillData ? 'italic' : 'normal', textColor: prefillData ? [80,80,80] : [0,0,0] },
         headStyles: { fillColor: BRAND_COLORS.yellow, textColor: 255, fontStyle: 'bold' }
     });
-    doc.addPage();
-    yPos = addHeader(doc, "BITÁCORA DE MAQUINARIA", "Control de Combustible y Mantenimientos", activeWarehouseName, BRAND_COLORS.orange);
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text("MAQUINARIA REGISTRADA:", 14, yPos);
-    x = 14; y = yPos + 5;
-    data.machines.forEach((m, i) => {
-        if(x > 180) { x = 14; y += 4; }
-        doc.text(`• ${m.name}`, x, y);
-        x += 45;
-    });
-    autoTable(doc, {
-        startY: y + 5,
-        head: [['FECHA', 'MÁQUINA', 'TIPO (Diesel/Repuesto)', 'COSTO ($)', 'HORÓMETRO / KM', 'DESCRIPCIÓN']],
-        body: Array(20).fill(["", "", "", "", "", ""]),
-        theme: 'grid',
-        styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
-        headStyles: { fillColor: BRAND_COLORS.orange, textColor: 255, fontStyle: 'bold' }
-    });
-    doc.addPage();
-    yPos = addHeader(doc, "CONTROL ADMINISTRATIVO Y CLIMA", "Lluvias diarias y Gastos Generales", activeWarehouseName, BRAND_COLORS.blue);
-    doc.setFontSize(11);
-    doc.setTextColor(BRAND_COLORS.blue[0], BRAND_COLORS.blue[1], BRAND_COLORS.blue[2]);
-    doc.setFont("helvetica", "bold");
-    doc.text("1. REGISTRO PLUVIOMÉTRICO (LLUVIAS)", 14, yPos);
-    const rainRows = Array(10).fill(["", "", "", "", "", ""]);
-    autoTable(doc, {
-        startY: yPos + 5,
-        head: [['FECHA', 'MM', 'FECHA', 'MM', 'FECHA', 'MM']],
-        body: rainRows,
-        theme: 'grid',
-        styles: { fontSize: 9, minCellHeight: 7, halign: 'center' },
-        headStyles: { fillColor: BRAND_COLORS.blue, halign: 'center' }
-    });
-    let finalY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(11);
-    doc.setTextColor(BRAND_COLORS.purple[0], BRAND_COLORS.purple[1], BRAND_COLORS.purple[2]);
-    doc.text("2. GASTOS ADMINISTRATIVOS / GENERALES", 14, finalY);
-    autoTable(doc, {
-        startY: finalY + 5,
-        head: [['FECHA', 'CONCEPTO (Luz, Impuesto, Etc)', 'VALOR ($)', 'NOTAS / DETALLES']],
-        body: Array(10).fill(["", "", "", ""]),
-        theme: 'grid',
-        styles: { fontSize: 10, minCellHeight: 10 },
-        headStyles: { fillColor: BRAND_COLORS.purple }
-    });
+    
     addFooter(doc);
-    doc.save(`Plantillas_Campo_${activeWarehouseName.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`Plantillas_${prefillData ? 'EJEMPLO_' : ''}${activeWarehouseName.replace(/\s+/g, '_')}.pdf`);
 };
 
 // --- 2. PROFESSIONAL & SECURE EXCEL IMPORT TEMPLATE ---
-export const generateExcelImportTemplate = (data: AppState) => {
+export const generateExcelImportTemplate = (data: AppState, prefillData: boolean = false) => {
     const wb = XLSX.utils.book_new();
     const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
 
@@ -240,16 +521,19 @@ export const generateExcelImportTemplate = (data: AppState) => {
     };
 
     // --- SHEET 0: LEGAL COVER (PORTADA) ---
+    const legalTitle = prefillData ? "AGROSUITE 360 - ARCHIVO DE EJEMPLO (NO IMPORTAR)" : "AGROSUITE 360 - HERRAMIENTA ADMINISTRATIVA OFICIAL";
+    const legalColor = prefillData ? "EA580C" : "064E3B"; // Orange for Example, Green for Official
+
     const wsLegal = XLSX.utils.aoa_to_sheet([
-        [{ v: "AGROSUITE 360 - HERRAMIENTA ADMINISTRATIVA OFICIAL", s: { font: { bold: true, sz: 20, color: { rgb: "064E3B" } } } }],
+        [{ v: legalTitle, s: { font: { bold: true, sz: 20, color: { rgb: legalColor } } } }],
         [""],
         [{ v: "INFORMACIÓN DE PROPIEDAD INTELECTUAL Y LEGAL", s: { font: { bold: true, sz: 14 } } }],
         [""],
         [{ v: "AUTOR Y DESARROLLADOR:", s: { font: { bold: true } } }, { v: AUTHOR_NAME }],
         [{ v: "CONTACTO DE SOPORTE:", s: { font: { bold: true } } }, { v: CONTACT_EMAIL }],
         [""],
-        [{ v: "ADVERTENCIA LEGAL (LEY 23 DE 1982 / LEY 1273 DE 2009):", s: { font: { bold: true, color: { rgb: "991B1B" } } } }],
-        [{ v: "Este archivo Excel es una extensión funcional del software AgroSuite 360." }],
+        [{ v: prefillData ? "MODO EJEMPLO:" : "ADVERTENCIA LEGAL (LEY 23 DE 1982 / LEY 1273 DE 2009):", s: { font: { bold: true, color: { rgb: "991B1B" } } } }],
+        [{ v: prefillData ? "Este archivo contiene datos ficticios masivos para servir como guía." : "Este archivo Excel es una extensión funcional del software AgroSuite 360." }],
         [{ v: "Su estructura lógica y diseño son propiedad intelectual exclusiva de Lucas Mateo Tabares Franco." }],
         [{ v: "Queda estrictamente prohibida su distribución, venta o modificación estructural sin autorización escrita." }],
         [""],
@@ -285,11 +569,28 @@ export const generateExcelImportTemplate = (data: AppState) => {
     wsRef['!protect'] = { password: "ref", selectLockedCells: true, selectUnlockedCells: false }; // Read only
     XLSX.utils.book_append_sheet(wb, wsRef, "MAESTROS_COPIAR_AQUI");
 
+    // Helper: Map data to rows if prefill is true, otherwise return example row
+    const getSheetData = (headers: any[], exampleRow: any[], dataArray: any[], mapper: (item: any) => any[]) => {
+        const rows = [createCopyrightRow(), headers];
+        if (prefillData && dataArray.length > 0) {
+            dataArray.forEach(item => {
+                const mapped = mapper(item);
+                rows.push(mapped.map(val => createUnlockedCell(val)));
+            });
+        } else {
+            rows.push(exampleRow);
+        }
+        return rows;
+    };
+
     // C. JORNALES (LABOR)
     const laborHeaders = createStyledHeader(["Fecha (AAAA-MM-DD)", "Trabajador (Nombre Exacto)", "Labor (Nombre Exacto)", "Lote (Nombre Exacto)", "Valor ($)", "Notas"], "D97706");
     const laborEx = createExampleRow(["2024-05-01", "EJ: Juan Perez", "Guadaña", "Lote 1", 50000, "Dia completo - BORRAR ESTA FILA"]);
+    
+    const laborRows = getSheetData(laborHeaders, laborEx, data.laborLogs, (l) => [l.date, l.personnelName, l.activityName, l.costCenterName, l.value, l.notes]);
+    
     const wsLabor = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.sheet_add_aoa(wsLabor, [createCopyrightRow(), laborHeaders, laborEx], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(wsLabor, laborRows, { origin: "A1" });
     wsLabor['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 40 }];
     if(!wsLabor['!merges']) wsLabor['!merges'] = [];
     wsLabor['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
@@ -299,8 +600,11 @@ export const generateExcelImportTemplate = (data: AppState) => {
     // D. COSECHAS
     const harvestHeaders = createStyledHeader(["Fecha", "Lote (Origen)", "Cultivo (Producto)", "Cantidad", "Unidad (Kg/Arr)", "ValorTotal ($)", "Notas"], "CA8A04");
     const harvestEx = createExampleRow(["2024-05-01", "Lote 1", "Cafe", 100, "Kg", 500000, "Pasilla - BORRAR"]);
+    
+    const harvestRows = getSheetData(harvestHeaders, harvestEx, data.harvests, (h) => [h.date, h.costCenterName, h.cropName, h.quantity, h.unit, h.totalValue, h.notes]);
+
     const wsHarvest = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.sheet_add_aoa(wsHarvest, [createCopyrightRow(), harvestHeaders, harvestEx], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(wsHarvest, harvestRows, { origin: "A1" });
     wsHarvest['!cols'] = [{ wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 }];
     if(!wsHarvest['!merges']) wsHarvest['!merges'] = [];
     wsHarvest['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
@@ -310,8 +614,11 @@ export const generateExcelImportTemplate = (data: AppState) => {
     // E. INVENTARIO
     const movHeaders = createStyledHeader(["Fecha", "Tipo (ENTRADA/SALIDA)", "Producto (Exacto)", "Cantidad", "Unidad", "Destino_Lote_o_Maquina", "Costo_Total ($)", "Notas"], "059669");
     const movEx = createExampleRow(["2024-05-01", "SALIDA", "Urea", 2, "Bulto 50kg", "Lote 1", 240000, "Abonada - BORRAR"]);
+    
+    const movRows = getSheetData(movHeaders, movEx, data.movements, (m) => [m.date, m.type === 'IN' ? 'ENTRADA' : 'SALIDA', m.itemName, m.quantity, m.unit, m.costCenterName || m.machineName || 'General', m.calculatedCost, m.notes]);
+
     const wsMov = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.sheet_add_aoa(wsMov, [createCopyrightRow(), movHeaders, movEx], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(wsMov, movRows, { origin: "A1" });
     wsMov['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 30 }];
     if(!wsMov['!merges']) wsMov['!merges'] = [];
     wsMov['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } });
@@ -321,8 +628,14 @@ export const generateExcelImportTemplate = (data: AppState) => {
     // F. MAQUINARIA
     const machHeaders = createStyledHeader(["Fecha", "Maquina (Nombre)", "Tipo (Combustible/Repuesto)", "Costo ($)", "Descripcion", "Horas_Km"], "EA580C");
     const machEx = createExampleRow(["2024-05-01", "Tractor", "Combustible", 100000, "ACPM", 1500]);
+    
+    const machRows = getSheetData(machHeaders, machEx, data.maintenanceLogs, (m) => {
+        const mName = data.machines.find(mac => mac.id === m.machineId)?.name || 'Maquina';
+        return [m.date, mName, m.type, m.cost, m.description, m.usageAmount];
+    });
+
     const wsMach = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.sheet_add_aoa(wsMach, [createCopyrightRow(), machHeaders, machEx], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(wsMach, machRows, { origin: "A1" });
     wsMach['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 10 }];
     if(!wsMach['!merges']) wsMach['!merges'] = [];
     wsMach['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
@@ -332,8 +645,11 @@ export const generateExcelImportTemplate = (data: AppState) => {
     // G. LLUVIAS
     const rainHeaders = createStyledHeader(["Fecha", "Milimetros"], "2563EB");
     const rainEx = createExampleRow(["2024-05-01", 15]);
+    
+    const rainRows = getSheetData(rainHeaders, rainEx, data.rainLogs, (r) => [r.date, r.millimeters]);
+
     const wsRain = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.sheet_add_aoa(wsRain, [createCopyrightRow(), rainHeaders, rainEx], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(wsRain, rainRows, { origin: "A1" });
     wsRain['!cols'] = [{ wch: 15 }, { wch: 15 }];
     if(!wsRain['!merges']) wsRain['!merges'] = [];
     wsRain['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } });
@@ -343,8 +659,11 @@ export const generateExcelImportTemplate = (data: AppState) => {
     // H. FINANZAS
     const finHeaders = createStyledHeader(["Fecha", "Tipo (INGRESO/GASTO)", "Categoria", "Monto ($)", "Descripcion"], "7C3AED");
     const finEx = createExampleRow(["2024-05-01", "GASTO", "Servicios", 150000, "Pago Luz"]);
+    
+    const finRows = getSheetData(finHeaders, finEx, data.financeLogs, (f) => [f.date, f.type, f.category, f.amount, f.description]);
+
     const wsFin = XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.sheet_add_aoa(wsFin, [createCopyrightRow(), finHeaders, finEx], { origin: "A1" });
+    XLSX.utils.sheet_add_aoa(wsFin, finRows, { origin: "A1" });
     wsFin['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 40 }];
     if(!wsFin['!merges']) wsFin['!merges'] = [];
     wsFin['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
@@ -352,7 +671,7 @@ export const generateExcelImportTemplate = (data: AppState) => {
     XLSX.utils.book_append_sheet(wb, wsFin, "Gastos_Admin");
 
     // Save File
-    XLSX.writeFile(wb, `Plantilla_Carga_Masiva_${activeWarehouseName.replace(/\s+/g, '_')}.xlsx`);
+    XLSX.writeFile(wb, `Plantilla_${prefillData ? 'EJEMPLO_' : ''}Carga_Masiva.xlsx`);
 };
 
 export const generatePDF = (data: AppState) => {
