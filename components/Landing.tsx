@@ -1,4 +1,10 @@
 
+/**
+ * AgroSuite 360 - Página de Aterrizaje y EULA
+ * Copyright (c) 2025 Lucas Mateo Tabares Franco.
+ * 
+ * Contiene los términos legales obligatorios para el uso del software.
+ */
 import React, { useState } from 'react';
 import { ShieldCheck, User, CheckCircle, Lock, Mail, Sprout, Scale, FileText, AlertTriangle, BookOpen, Gavel, Server, Globe } from 'lucide-react';
 

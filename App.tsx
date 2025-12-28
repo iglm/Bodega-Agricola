@@ -1,4 +1,23 @@
 
+/**
+ * AgroSuite 360 - Sistema de Gestión Agrícola Integral
+ * 
+ * @author Lucas Mateo Tabares Franco
+ * @copyright 2025 Lucas Mateo Tabares Franco. Todos los derechos reservados.
+ * 
+ * AVISO LEGAL:
+ * Este software, incluyendo su código fuente, diseño gráfico, algoritmos y base de datos,
+ * es propiedad intelectual exclusiva de su autor.
+ * 
+ * PROTECCIÓN:
+ * - Ley 23 de 1982 (Sobre Derechos de Autor en Colombia).
+ * - Decisión 351 del Acuerdo de Cartagena.
+ * - Ley 1273 de 2009 (Delitos Informáticos).
+ * 
+ * Queda estrictamente prohibida la reproducción, distribución, ingeniería inversa o
+ * modificación sin autorización escrita del titular.
+ */
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
