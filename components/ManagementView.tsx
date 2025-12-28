@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { AgendaEvent, Machine, MaintenanceLog, RainLog, CostCenter } from '../types';
 import { formatCurrency } from '../services/inventoryService';
 import { generateRainExcel, generateRainPDF } from '../services/reportService';
-import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download } from 'lucide-react';
+import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge } from 'lucide-react';
 
 interface ManagementViewProps {
   agenda: AgendaEvent[];
@@ -42,6 +42,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
   const [maintType, setMaintType] = useState<'Preventivo' | 'Correctivo' | 'Combustible'>('Correctivo');
   const [maintCost, setMaintCost] = useState('');
   const [maintDesc, setMaintDesc] = useState('');
+  const [maintUsage, setMaintUsage] = useState(''); // New: Hours/Km
   const [selectedMachineId, setSelectedMachineId] = useState('');
 
   // AGENDA HANDLERS
@@ -97,9 +98,10 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
           date: new Date().toISOString().split('T')[0],
           type: maintType,
           cost: parseFloat(maintCost),
-          description: maintDesc
+          description: maintDesc,
+          usageAmount: maintUsage ? parseFloat(maintUsage) : undefined
       });
-      setMaintCost(''); setMaintDesc('');
+      setMaintCost(''); setMaintDesc(''); setMaintUsage('');
   };
 
   return (
@@ -221,15 +223,27 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                                     type="number" 
                                     value={maintCost}
                                     onChange={e => setMaintCost(e.target.value)}
-                                    placeholder="Costo ($)"
+                                    placeholder="Costo Total ($)"
                                     className="bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-sm flex-1"
                                 />
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="flex-1 relative">
+                                    <Gauge className="absolute left-2 top-2.5 w-4 h-4 text-slate-500" />
+                                    <input 
+                                        type="number"
+                                        value={maintUsage}
+                                        onChange={e => setMaintUsage(e.target.value)}
+                                        placeholder="Horas / Km (Uso Actual)" 
+                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-8 pr-2 text-white text-sm"
+                                    />
+                                </div>
                             </div>
                             <input 
                                 type="text"
                                 value={maintDesc}
                                 onChange={e => setMaintDesc(e.target.value)}
-                                placeholder="Descripción (Ej: Cambio de aceite)" 
+                                placeholder="Descripción (Ej: Cambio de aceite, Tanqueada)" 
                                 className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-sm"
                             />
                             <button onClick={handleCreateMaintenance} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 rounded-lg text-sm">
@@ -244,21 +258,31 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                     {machines.map(m => {
                         const logs = maintenanceLogs.filter(l => l.machineId === m.id);
                         const totalMaint = logs.reduce((acc, l) => acc + l.cost, 0);
+                        
+                        // Calculate usage stats if available
+                        const usageLogs = logs.filter(l => l.usageAmount !== undefined).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                        const lastUsage = usageLogs.length > 0 ? usageLogs[usageLogs.length - 1].usageAmount : 0;
 
                         return (
                             <div key={m.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                                 <div className="p-4 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
                                     <div>
                                         <h4 className="font-bold text-slate-800 dark:text-white">{m.name}</h4>
-                                        <p className="text-xs text-orange-600 dark:text-orange-400 font-bold">Gasto Total: {formatCurrency(totalMaint)}</p>
+                                        <div className="flex gap-3 text-xs mt-1">
+                                            <span className="text-orange-600 dark:text-orange-400 font-bold">Gasto Total: {formatCurrency(totalMaint)}</span>
+                                            {lastUsage ? <span className="text-slate-500 font-mono bg-slate-200 dark:bg-slate-800 px-1.5 rounded">{lastUsage} Hrs/Km</span> : null}
+                                        </div>
                                     </div>
                                     <button onClick={() => onDeleteMachine(m.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                                 <div className="p-2 space-y-1">
                                     {logs.length === 0 ? <p className="text-[10px] text-slate-500 text-center py-2">Sin mantenimientos</p> : 
                                         logs.map(l => (
-                                            <div key={l.id} className="flex justify-between text-xs text-slate-600 dark:text-slate-300 p-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0">
-                                                <span>{new Date(l.date).toLocaleDateString()} - {l.description}</span>
+                                            <div key={l.id} className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-300 p-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0">
+                                                <div>
+                                                    <span className="block font-bold">{l.type} - {new Date(l.date).toLocaleDateString()}</span>
+                                                    <span className="text-[10px] text-slate-400">{l.description} {l.usageAmount ? `(${l.usageAmount} h)` : ''}</span>
+                                                </div>
                                                 <span className="font-mono font-bold">{formatCurrency(l.cost)}</span>
                                             </div>
                                         ))

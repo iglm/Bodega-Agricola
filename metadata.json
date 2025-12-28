@@ -1,6 +1,6 @@
 {
-  "name": "bodega agricola",
-  "description": "Gestión profesional de inventario para agroinsumos. Control de stock, cálculo de costos y reportes offline. Desarrollado por Lucas Mateo Tabares Franco.",
+  "name": "AgroSuite 360",
+  "description": "Sistema integral de gestión agrícola: Inventario, Nómina, Maquinaria y Producción. Desarrollado por Lucas Mateo Tabares Franco.",
   "requestFramePermissions": [
     "camera"
   ]

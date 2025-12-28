@@ -131,12 +131,13 @@ export const loadData = (): AppState => {
       
       if (migrated.adminPin === undefined) migrated.adminPin = undefined; 
 
-      // 5. NEW MODULES MIGRATION (Production, Agenda, Machinery, Rain)
+      // 5. NEW MODULES MIGRATION
       if (!migrated.harvests) migrated.harvests = [];
       if (!migrated.agenda) migrated.agenda = [];
       if (!migrated.machines) migrated.machines = [];
       if (!migrated.maintenanceLogs) migrated.maintenanceLogs = [];
       if (!migrated.rainLogs) migrated.rainLogs = [];
+      if (!migrated.financeLogs) migrated.financeLogs = []; // Finance Migration
 
       return migrated;
     }
@@ -164,7 +165,8 @@ export const loadData = (): AppState => {
     agenda: [],
     machines: [],
     maintenanceLogs: [],
-    rainLogs: []
+    rainLogs: [],
+    financeLogs: []
   };
 };
 

@@ -19,17 +19,18 @@ import { LaborView } from './components/LaborView';
 import { LaborForm } from './components/LaborForm'; 
 import { HarvestView } from './components/HarvestView'; 
 import { ManagementView } from './components/ManagementView'; 
-import { PayrollModal } from './components/PayrollModal'; // New
+import { FinanceView } from './components/FinanceView'; // New
+import { PayrollModal } from './components/PayrollModal';
 
-import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog } from './types';
+import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog, FinanceLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
 import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
-import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe, Tractor, HelpCircle } from 'lucide-react';
+import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe, Tractor, HelpCircle, Globe, Landmark } from 'lucide-react';
 
 function App() {
   const [view, setView] = useState<'landing' | 'app'>('landing');
   
-  // NAVIGATION: 'inventory' | 'labor' | 'harvest' | 'management' | 'stats'
+  // NAVIGATION: 'inventory' | 'labor' | 'harvest' | 'management' | 'stats' | 'finance'
   const [currentTab, setCurrentTab] = useState<string>('inventory');
   
   const [data, setData] = useState<AppState>({ 
@@ -46,7 +47,8 @@ function App() {
     agenda: [],   
     machines: [], 
     maintenanceLogs: [], 
-    rainLogs: []  
+    rainLogs: [],
+    financeLogs: [] 
   });
 
   // Admin Security State
@@ -87,7 +89,7 @@ function App() {
   const [showDataModal, setShowDataModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
-  const [showPayrollModal, setShowPayrollModal] = useState(false); // New
+  const [showPayrollModal, setShowPayrollModal] = useState(false); 
   const [historyModalItem, setHistoryModalItem] = useState<InventoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
 
@@ -174,6 +176,14 @@ function App() {
       setData(prev => ({ ...prev, rainLogs: prev.rainLogs.filter(r => r.id !== id) }));
   };
 
+  // Finance (NEW)
+  const handleAddTransaction = (t: Omit<FinanceLog, 'id'>) => {
+      setData(prev => ({ ...prev, financeLogs: [...(prev.financeLogs || []), { ...t, id: crypto.randomUUID() }] }));
+  };
+  const handleDeleteTransaction = (id: string) => {
+      setData(prev => ({ ...prev, financeLogs: (prev.financeLogs || []).filter(f => f.id !== id) }));
+  };
+
 
   // -- STANDARD HANDLERS --
   const handlePinSuccess = (pin: string) => {
@@ -258,6 +268,7 @@ function App() {
     if (!safeData.machines) safeData.machines = [];
     if (!safeData.maintenanceLogs) safeData.maintenanceLogs = [];
     if (!safeData.rainLogs) safeData.rainLogs = [];
+    if (!safeData.financeLogs) safeData.financeLogs = [];
     
     saveData(safeData);
     setData(safeData);
@@ -423,16 +434,16 @@ function App() {
           <div className="flex justify-between items-center">
             <div onClick={() => setShowWarehouses(true)} className="flex items-center gap-2 cursor-pointer group p-1 -ml-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
                 <div className="bg-emerald-600 p-1.5 rounded-lg shadow shadow-emerald-600/20 group-hover:scale-105 transition-transform">
-                  <Sprout className="w-4 h-4 text-white" />
+                  <Globe className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <h1 className="text-sm font-bold text-slate-800 dark:text-white leading-none flex items-center gap-1">
-                    {currentWarehouse?.name || 'AgroBodega'}
+                    AgroSuite 360
                     <ChevronDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   </h1>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                  <span className="text-[9px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-yellow-500' : 'bg-emerald-500'} animate-pulse`}></div>
-                      {isSaving ? 'GUARDANDO...' : 'ONLINE'}
+                      {currentWarehouse?.name || 'Bodega'}
                   </span>
                 </div>
             </div>
@@ -459,13 +470,17 @@ function App() {
                 <Package className="w-4 h-4" /> <span className="hidden sm:inline">Inventario</span>
              </button>
              <button onClick={() => setCurrentTab('labor')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'labor' ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
-                <Pickaxe className="w-4 h-4" /> <span className="hidden sm:inline">Labores</span>
+                <Pickaxe className="w-4 h-4" /> <span className="hidden sm:inline">Nómina</span>
              </button>
              <button onClick={() => setCurrentTab('harvest')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'harvest' ? 'bg-white dark:bg-slate-700 text-yellow-500 dark:text-yellow-400 shadow-sm' : 'text-slate-500'}`}>
-                <Sprout className="w-4 h-4" /> <span className="hidden sm:inline">Producción</span>
+                <Sprout className="w-4 h-4" /> <span className="hidden sm:inline">Ventas</span>
              </button>
              <button onClick={() => setCurrentTab('management')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'management' ? 'bg-white dark:bg-slate-700 text-indigo-500 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}>
                 <Tractor className="w-4 h-4" /> <span className="hidden sm:inline">Gestión</span>
+             </button>
+             {/* FINANCE TAB */}
+             <button onClick={() => setCurrentTab('finance')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'finance' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500'}`}>
+                <Landmark className="w-4 h-4" /> <span className="hidden sm:inline">Finanzas</span>
              </button>
              {/* PROTECTED STATS TAB */}
              <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setCurrentTab('stats'); }} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'stats' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
@@ -499,6 +514,13 @@ function App() {
              <Dashboard 
                 inventory={activeInventory} 
                 agenda={data.agenda || []}
+                // --- FINANCIAL DATA FOR COMMAND CENTER ---
+                harvests={data.harvests || []}
+                laborLogs={data.laborLogs || []}
+                movements={activeMovements}
+                maintenanceLogs={data.maintenanceLogs || []}
+                financeLogs={data.financeLogs || []}
+                // ----------------------------------------
                 onAddMovement={(item, type) => setMovementModal({ item, type })} 
                 onDelete={handleRequestDelete} 
                 onViewHistory={(item) => setHistoryModalItem(item)} 
@@ -551,8 +573,25 @@ function App() {
             />
         )}
 
+        {currentTab === 'finance' && (
+            <FinanceView 
+                financeLogs={data.financeLogs || []}
+                onAddTransaction={handleAddTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
+            />
+        )}
+
         {currentTab === 'stats' && (
-             <StatsView movements={activeMovements} suppliers={data.suppliers} costCenters={data.costCenters} laborLogs={data.laborLogs} harvests={data.harvests} maintenanceLogs={data.maintenanceLogs} />
+             <StatsView 
+                movements={activeMovements} 
+                suppliers={data.suppliers} 
+                costCenters={data.costCenters} 
+                laborLogs={data.laborLogs} 
+                harvests={data.harvests} 
+                maintenanceLogs={data.maintenanceLogs}
+                financeLogs={data.financeLogs}
+                rainLogs={data.rainLogs}
+             />
         )}
       </main>
 

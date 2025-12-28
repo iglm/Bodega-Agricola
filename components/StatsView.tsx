@@ -1,16 +1,18 @@
 
 import React, { useMemo, useState } from 'react';
-import { Movement, Supplier, CostCenter, LaborLog, HarvestLog, MaintenanceLog } from '../types';
+import { Movement, Supplier, CostCenter, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target } from 'lucide-react';
+import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark } from 'lucide-react';
 
 interface StatsViewProps {
   movements: Movement[];
   suppliers: Supplier[];
   costCenters: CostCenter[];
   laborLogs?: LaborLog[];
-  harvests?: HarvestLog[]; // New
-  maintenanceLogs?: MaintenanceLog[]; // New
+  harvests?: HarvestLog[]; 
+  maintenanceLogs?: MaintenanceLog[]; 
+  rainLogs?: RainLog[];
+  financeLogs?: FinanceLog[]; // Added
 }
 
 export const StatsView: React.FC<StatsViewProps> = ({ 
@@ -19,7 +21,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
     costCenters,
     laborLogs = [],
     harvests = [],
-    maintenanceLogs = []
+    maintenanceLogs = [],
+    rainLogs = [],
+    financeLogs = []
 }) => {
   // Date Range State
   const today = new Date();
@@ -57,7 +61,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
   // Filter Data based on Range
   const filterByDate = (dateString: string) => {
       if (!useDateFilter) return true;
-      // Simple string comparison works for ISO YYYY-MM-DD
       return dateString >= startDate && dateString <= endDate;
   };
 
@@ -65,26 +68,43 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const filteredLabor = useMemo(() => laborLogs.filter(l => filterByDate(l.date)), [laborLogs, startDate, endDate, useDateFilter]);
   const filteredHarvests = useMemo(() => harvests.filter(h => filterByDate(h.date)), [harvests, startDate, endDate, useDateFilter]);
   const filteredMaint = useMemo(() => maintenanceLogs.filter(m => filterByDate(m.date)), [maintenanceLogs, startDate, endDate, useDateFilter]);
+  const filteredRain = useMemo(() => rainLogs.filter(r => filterByDate(r.date)), [rainLogs, startDate, endDate, useDateFilter]);
+  const filteredFinance = useMemo(() => financeLogs.filter(f => filterByDate(f.date)), [financeLogs, startDate, endDate, useDateFilter]);
 
   // 1. Calculate General Balance
   const financialSummary = useMemo(() => {
+     // Operational Costs
      const inventoryExpense = filteredMovements.filter(m => m.type === 'OUT').reduce((acc, m) => acc + m.calculatedCost, 0);
      const laborExpense = filteredLabor.reduce((acc, l) => acc + l.value, 0);
      const maintExpense = filteredMaint.reduce((acc, m) => acc + m.cost, 0);
      
-     const totalExpenses = inventoryExpense + laborExpense + maintExpense;
-     const totalIncome = filteredHarvests.reduce((acc, h) => acc + h.totalValue, 0);
+     // Overhead Costs (NEW)
+     const generalExpense = filteredFinance.filter(f => f.type === 'EXPENSE').reduce((acc, f) => acc + f.amount, 0);
+     
+     const totalExpenses = inventoryExpense + laborExpense + maintExpense + generalExpense;
+     
+     // Income
+     const harvestIncome = filteredHarvests.reduce((acc, h) => acc + h.totalValue, 0);
+     const otherIncome = filteredFinance.filter(f => f.type === 'INCOME').reduce((acc, f) => acc + f.amount, 0);
+     const totalIncome = harvestIncome + otherIncome;
+
      const profit = totalIncome - totalExpenses;
 
-     // KPIs calculation
-     // ROI = (Profit / Total Investment) * 100
      const roi = totalExpenses > 0 ? (profit / totalExpenses) * 100 : 0;
-     
-     // Profit Margin = (Profit / Revenue) * 100
      const margin = totalIncome > 0 ? (profit / totalIncome) * 100 : 0;
 
-     return { inventoryExpense, laborExpense, maintExpense, totalExpenses, totalIncome, profit, roi, margin };
-  }, [filteredMovements, filteredLabor, filteredMaint, filteredHarvests]);
+     // Breakdown percentages
+     const pInputs = totalExpenses > 0 ? (inventoryExpense / totalExpenses) * 100 : 0;
+     const pLabor = totalExpenses > 0 ? (laborExpense / totalExpenses) * 100 : 0;
+     const pMaint = totalExpenses > 0 ? (maintExpense / totalExpenses) * 100 : 0;
+     const pAdmin = totalExpenses > 0 ? (generalExpense / totalExpenses) * 100 : 0;
+
+     return { 
+         inventoryExpense, laborExpense, maintExpense, generalExpense,
+         totalExpenses, totalIncome, profit, roi, margin,
+         pInputs, pLabor, pMaint, pAdmin
+     };
+  }, [filteredMovements, filteredLabor, filteredMaint, filteredHarvests, filteredFinance]);
 
 
   // 2. Calculate Expenses by Cost Center with Efficiency Metrics
@@ -124,11 +144,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
           
           const totalLotCost = values.inventoryCost + values.laborCost;
           const lotProfit = values.income - totalLotCost;
-          
-          // Costo por Hectárea = Costo Total / Hectáreas
           const costPerHa = area > 0 ? totalLotCost / area : 0;
-          
-          // Lote ROI = (Ganancia Lote / Costo Total Lote) * 100
           const lotRoi = totalLotCost > 0 ? (lotProfit / totalLotCost) * 100 : 0;
 
           return { 
@@ -146,25 +162,50 @@ export const StatsView: React.FC<StatsViewProps> = ({
       .sort((a, b) => b.totalLotCost - a.totalLotCost);
   }, [filteredMovements, costCenters, filteredLabor, filteredHarvests]);
 
+  // 3. Climate vs Production Correlation (NEW DECISION TOOL)
+  const correlationData = useMemo(() => {
+      // Aggregate monthly
+      const monthlyStats: Record<string, { rain: number, income: number }> = {};
+      
+      const getMonthKey = (dateStr: string) => dateStr.substring(0, 7); // YYYY-MM
+
+      filteredRain.forEach(r => {
+          const k = getMonthKey(r.date);
+          if(!monthlyStats[k]) monthlyStats[k] = { rain: 0, income: 0 };
+          monthlyStats[k].rain += r.millimeters;
+      });
+
+      filteredHarvests.forEach(h => {
+          const k = getMonthKey(h.date);
+          if(!monthlyStats[k]) monthlyStats[k] = { rain: 0, income: 0 };
+          monthlyStats[k].income += h.totalValue;
+      });
+
+      // Sort by date key
+      return Object.entries(monthlyStats)
+        .sort((a,b) => a[0].localeCompare(b[0]))
+        .map(([key, val]) => ({ month: key, ...val }));
+  }, [filteredRain, filteredHarvests]);
+
   return (
     <div className="space-y-6 pb-20">
        <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
           <h2 className="text-white font-bold text-lg flex items-center justify-center gap-2">
              <BarChart3 className="w-5 h-5 text-purple-400" />
-             Reporte Gerencial
+             Inteligencia de Negocio
           </h2>
-          <p className="text-xs text-slate-400 mt-1">Estado de Resultados y Rentabilidad</p>
+          <p className="text-xs text-slate-400 mt-1">Análisis para Toma de Decisiones</p>
        </div>
 
        {/* FLEXIBLE DATE FILTERS */}
        <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-           
+           {/* (Date Filter UI - same as before) */}
            <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <div className={`p-2 rounded-lg ${useDateFilter ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-slate-200 text-slate-500'}`}>
                         <CalendarRange className="w-5 h-5" />
                     </div>
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Rango de Fechas:</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Rango de Análisis:</span>
                 </div>
                 
                 <div className="flex bg-slate-200 dark:bg-slate-900/50 p-1 rounded-lg w-full sm:w-auto">
@@ -185,80 +226,71 @@ export const StatsView: React.FC<StatsViewProps> = ({
            
            {useDateFilter && (
                <div className="animate-fade-in pt-2 border-t border-slate-200 dark:border-slate-700">
-                    
-                    {/* Date Inputs */}
                     <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
                             <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Desde</label>
-                            <input 
-                                type="date" 
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-xs font-bold outline-none"
-                            />
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-xs font-bold outline-none" />
                         </div>
                         <div>
                             <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Hasta</label>
-                            <input 
-                                type="date" 
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-xs font-bold outline-none"
-                            />
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-xs font-bold outline-none" />
                         </div>
                     </div>
-
-                    {/* Quick Buttons */}
                     <div className="flex gap-2 overflow-x-auto pb-1">
-                        <button onClick={() => setRange('today')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            Hoy
-                        </button>
-                        <button onClick={() => setRange('month')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            Este Mes
-                        </button>
-                        <button onClick={() => setRange('3months')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            Últimos 3 Meses
-                        </button>
-                        <button onClick={() => setRange('year')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            Este Año
-                        </button>
+                        <button onClick={() => setRange('today')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">Hoy</button>
+                        <button onClick={() => setRange('month')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">Este Mes</button>
+                        <button onClick={() => setRange('3months')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">Últimos 3 Meses</button>
+                        <button onClick={() => setRange('year')} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">Este Año</button>
                     </div>
                </div>
            )}
        </div>
 
-       {/* BUSINESS INTELLIGENCE KPIs (NEW) */}
-       <div className="grid grid-cols-2 gap-4">
-           {/* ROI Card */}
-           <div className={`p-4 rounded-xl border ${financialSummary.roi >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                    <Target className={`w-4 h-4 ${financialSummary.roi >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
-                    <span className="text-xs font-bold uppercase text-slate-500">ROI Global</span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                    <span className={`text-2xl font-bold font-mono ${financialSummary.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {financialSummary.roi.toFixed(1)}%
-                    </span>
-                    {financialSummary.roi > 0 && <TrendingUp className="w-4 h-4 text-emerald-500" />}
-                    {financialSummary.roi < 0 && <TrendingDown className="w-4 h-4 text-red-500" />}
-                </div>
-                <p className="text-[10px] text-slate-400 leading-tight mt-1">
-                    Retorno total sobre la inversión de la finca.
-                </p>
+       {/* COST STRUCTURE VISUALIZATION */}
+       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+           <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-4 flex items-center gap-2">
+               <Layers className="w-4 h-4" /> Estructura de Costos
+           </h3>
+           <div className="flex h-8 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+               {financialSummary.pLabor > 0 && (
+                   <div style={{ width: `${financialSummary.pLabor}%` }} className="bg-amber-500 h-full flex items-center justify-center text-[10px] font-bold text-white transition-all duration-500">
+                       {financialSummary.pLabor > 10 && `${financialSummary.pLabor.toFixed(0)}%`}
+                   </div>
+               )}
+               {financialSummary.pInputs > 0 && (
+                   <div style={{ width: `${financialSummary.pInputs}%` }} className="bg-emerald-500 h-full flex items-center justify-center text-[10px] font-bold text-white transition-all duration-500">
+                        {financialSummary.pInputs > 10 && `${financialSummary.pInputs.toFixed(0)}%`}
+                   </div>
+               )}
+               {financialSummary.pMaint > 0 && (
+                   <div style={{ width: `${financialSummary.pMaint}%` }} className="bg-orange-500 h-full flex items-center justify-center text-[10px] font-bold text-white transition-all duration-500">
+                        {financialSummary.pMaint > 10 && `${financialSummary.pMaint.toFixed(0)}%`}
+                   </div>
+               )}
+               {financialSummary.pAdmin > 0 && (
+                   <div style={{ width: `${financialSummary.pAdmin}%` }} className="bg-slate-500 h-full flex items-center justify-center text-[10px] font-bold text-white transition-all duration-500">
+                        {financialSummary.pAdmin > 10 && `${financialSummary.pAdmin.toFixed(0)}%`}
+                   </div>
+               )}
            </div>
-
-           {/* Margin Card */}
-           <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2 mb-2">
-                    <Percent className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-bold uppercase text-slate-500">Margen Neto</span>
-                </div>
-                <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
-                    {financialSummary.margin.toFixed(1)}%
-                </span>
-                <p className="text-[10px] text-slate-400 leading-tight mt-1">
-                    Porcentaje de ganancia real sobre ventas totales.
-                </p>
+           
+           <div className="flex justify-between mt-3 text-xs flex-wrap gap-2">
+               <div className="flex items-center gap-1.5">
+                   <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                   <span className="text-slate-600 dark:text-slate-300">Mano de Obra</span>
+               </div>
+               <div className="flex items-center gap-1.5">
+                   <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                   <span className="text-slate-600 dark:text-slate-300">Insumos</span>
+               </div>
+               <div className="flex items-center gap-1.5">
+                   <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                   <span className="text-slate-600 dark:text-slate-300">Maquinaria</span>
+               </div>
+               <div className="flex items-center gap-1.5">
+                   <div className="w-3 h-3 rounded-full bg-slate-500"></div>
+                   <span className="text-slate-600 dark:text-slate-300">Administrativo</span>
+               </div>
            </div>
        </div>
 
@@ -271,7 +303,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
            
            <div className="space-y-3">
                <div className="flex justify-between items-center text-sm">
-                   <span className="text-slate-600 dark:text-slate-300">Ingresos (Cosechas)</span>
+                   <span className="text-slate-600 dark:text-slate-300">Ingresos (Cosechas + Otros)</span>
                    <span className="font-mono font-bold text-emerald-500">+ {formatCurrency(financialSummary.totalIncome)}</span>
                </div>
                <div className="w-full border-t border-slate-100 dark:border-slate-700"></div>
@@ -287,6 +319,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
                    <span>Gastos Maquinaria</span>
                    <span>- {formatCurrency(financialSummary.maintExpense)}</span>
                </div>
+               <div className="flex justify-between items-center text-xs text-slate-500">
+                   <span>Gastos Administrativos</span>
+                   <span>- {formatCurrency(financialSummary.generalExpense)}</span>
+               </div>
                <div className="w-full border-t border-slate-200 dark:border-slate-600 my-2"></div>
                
                <div className="flex justify-between items-center text-lg">
@@ -297,6 +333,90 @@ export const StatsView: React.FC<StatsViewProps> = ({
                </div>
            </div>
        </div>
+
+       {/* BUSINESS INTELLIGENCE KPIs */}
+       <div className="grid grid-cols-2 gap-4">
+           {/* ROI Card */}
+           <div className={`p-4 rounded-xl border ${financialSummary.roi >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                    <Target className={`w-4 h-4 ${financialSummary.roi >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
+                    <span className="text-xs font-bold uppercase text-slate-500">ROI Global</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                    <span className={`text-2xl font-bold font-mono ${financialSummary.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {financialSummary.roi.toFixed(1)}%
+                    </span>
+                    {financialSummary.roi > 0 && <TrendingUp className="w-4 h-4 text-emerald-500" />}
+                    {financialSummary.roi < 0 && <TrendingDown className="w-4 h-4 text-red-500" />}
+                </div>
+           </div>
+
+           {/* Margin Card */}
+           <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 mb-2">
+                    <Percent className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs font-bold uppercase text-slate-500">Margen Neto</span>
+                </div>
+                <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                    {financialSummary.margin.toFixed(1)}%
+                </span>
+           </div>
+       </div>
+
+        {/* --- CLIMATE CORRELATION ANALYSIS (NEW) --- */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-lg overflow-hidden">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-yellow-500" /> 
+                        Correlación Lluvia vs Producción
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                        ¿Cómo afecta el clima a sus ingresos mensuales?
+                    </p>
+                </div>
+            </div>
+
+            {correlationData.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs italic">
+                    Sin datos suficientes para correlacionar.
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {correlationData.map(item => (
+                        <div key={item.month} className="flex flex-col gap-1">
+                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{item.month}</span>
+                            <div className="flex items-center gap-2">
+                                {/* Rain Bar */}
+                                <div className="flex-1 flex items-center gap-2">
+                                    <CloudRain className="w-3 h-3 text-blue-400" />
+                                    <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-900 rounded-r-full relative">
+                                        <div 
+                                            className="h-full bg-blue-500 rounded-r-full" 
+                                            style={{ width: `${Math.min((item.rain / 500) * 100, 100)}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-[10px] text-blue-500 w-10 text-right">{item.rain}mm</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {/* Income Bar */}
+                                <div className="flex-1 flex items-center gap-2">
+                                    <Sprout className="w-3 h-3 text-emerald-400" />
+                                    <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-900 rounded-r-full relative">
+                                        <div 
+                                            className="h-full bg-emerald-500 rounded-r-full" 
+                                            style={{ width: `${Math.min((item.income / 10000000) * 100, 100)}%` }} // Scaling logic (e.g., 10M max visual)
+                                        ></div>
+                                    </div>
+                                    <span className="text-[10px] text-emerald-500 w-16 text-right">{formatCurrency(item.income)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
 
        {/* PROFITABILITY BY LOT */}
        <div className="space-y-3">
@@ -312,53 +432,37 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 ) : (
                     expensesByCenter.map((item, idx) => (
                     <div key={idx} className="pb-3 border-b border-slate-100 dark:border-slate-700/50 last:border-0 last:pb-0">
-                        
                         <div className="flex justify-between items-start mb-2">
                             <div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-slate-800 dark:text-white font-bold text-base block">{item.name}</span>
                                     {item.area > 0 && <span className="text-[9px] text-slate-400 bg-slate-100 dark:bg-slate-700 px-1 rounded">{item.area} Ha</span>}
                                 </div>
-                                
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.lotProfit >= 0 ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
                                         {item.lotProfit >= 0 ? 'Ganancia: ' : 'Pérdida: '} {formatCurrency(item.lotProfit)}
                                     </span>
-                                    
-                                    {/* ROI Badge */}
-                                    {item.lotRoi !== 0 && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.lotRoi >= 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' : 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'}`}>
-                                            ROI: {item.lotRoi.toFixed(1)}%
-                                        </span>
-                                    )}
-
-                                    {/* Cost Per Ha Badge */}
-                                    {item.costPerHa > 0 && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1">
-                                            <Ruler className="w-3 h-3" />
-                                            {formatCurrency(item.costPerHa)} / Ha
-                                        </span>
-                                    )}
                                 </div>
                             </div>
                         </div>
-
                         {/* Visual Bar: Income vs Expense */}
                         <div className="relative h-6 bg-slate-100 dark:bg-slate-900 rounded-md overflow-hidden flex text-[10px] font-bold text-white items-center mt-2">
-                            {/* Expense Bar */}
                             <div style={{ width: '50%' }} className="h-full bg-red-500/20 flex justify-end items-center pr-2 border-r border-slate-500/20">
                                 <span className="text-red-500">{formatCurrency(item.totalLotCost)}</span>
                             </div>
-                            {/* Income Bar */}
                             <div style={{ width: '50%' }} className="h-full bg-emerald-500/20 flex justify-start items-center pl-2">
                                 <span className="text-emerald-500">{formatCurrency(item.income)}</span>
                             </div>
                         </div>
-                        <div className="flex justify-between text-[9px] text-slate-400 mt-1 px-1">
-                            <span>GASTOS TOTALES</span>
-                            <span>INGRESOS TOTALES</span>
-                        </div>
-
+                        
+                        {/* Metrics per Hectare (If Area exists) */}
+                        {item.area > 0 && (
+                            <div className="mt-2 flex justify-end">
+                                <span className="text-[9px] text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded">
+                                    Costo/Ha: {formatCurrency(item.costPerHa)}
+                                </span>
+                            </div>
+                        )}
                     </div>
                     ))
                 )}

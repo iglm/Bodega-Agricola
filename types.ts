@@ -154,6 +154,7 @@ export interface MaintenanceLog {
   type: 'Preventivo' | 'Correctivo' | 'Combustible';
   cost: number;
   description: string;
+  usageAmount?: number; // Horas o Kilómetros al momento del gasto
 }
 
 // 4. Rain / Pluviometry
@@ -162,6 +163,16 @@ export interface RainLog {
   date: string;
   millimeters: number;
   notes?: string;
+}
+
+// 5. General Finances (NEW - The Missing Link for "Gerencia Total")
+export interface FinanceLog {
+  id: string;
+  date: string;
+  type: 'INCOME' | 'EXPENSE';
+  category: 'Servicios' | 'Impuestos' | 'Bancario' | 'Transporte' | 'Administracion' | 'Otros' | 'Prestamo' | 'Capital';
+  amount: number;
+  description: string;
 }
 
 export interface AppState {
@@ -182,4 +193,5 @@ export interface AppState {
   machines: Machine[];
   maintenanceLogs: MaintenanceLog[];
   rainLogs: RainLog[];
+  financeLogs: FinanceLog[]; // Added for Admin/Overhead
 }
