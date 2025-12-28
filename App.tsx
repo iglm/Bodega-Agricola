@@ -505,7 +505,16 @@ function App() {
         )}
 
         {currentTab === 'harvest' && (
-             <HarvestView harvests={data.harvests || []} costCenters={data.costCenters} onAddHarvest={handleAddHarvest} onDeleteHarvest={handleDeleteHarvest} isAdmin={isAdminUnlocked} />
+             <HarvestView 
+                harvests={data.harvests || []} 
+                costCenters={data.costCenters} 
+                onAddHarvest={handleAddHarvest} 
+                onDeleteHarvest={handleDeleteHarvest} 
+                isAdmin={isAdminUnlocked}
+                // DATA LINKING: Passing movements and labor logs to calculate real-time investment
+                allMovements={activeMovements}
+                allLaborLogs={data.laborLogs || []}
+             />
         )}
 
         {currentTab === 'management' && (

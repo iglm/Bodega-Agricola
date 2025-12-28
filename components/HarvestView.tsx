@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { HarvestLog, CostCenter } from '../types';
+import React, { useState, useMemo } from 'react';
+import { HarvestLog, CostCenter, Movement, LaborLog } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { Sprout, Plus, MapPin, DollarSign, Calendar, X, Save, TrendingUp } from 'lucide-react';
+import { Sprout, Plus, MapPin, DollarSign, Calendar, X, Save, TrendingUp, AlertCircle } from 'lucide-react';
 
 interface HarvestViewProps {
   harvests: HarvestLog[];
@@ -10,9 +10,20 @@ interface HarvestViewProps {
   onAddHarvest: (h: Omit<HarvestLog, 'id'>) => void;
   onDeleteHarvest: (id: string) => void;
   isAdmin: boolean;
+  // Data Linking Props
+  allMovements?: Movement[];
+  allLaborLogs?: LaborLog[];
 }
 
-export const HarvestView: React.FC<HarvestViewProps> = ({ harvests, costCenters, onAddHarvest, onDeleteHarvest, isAdmin }) => {
+export const HarvestView: React.FC<HarvestViewProps> = ({ 
+    harvests, 
+    costCenters, 
+    onAddHarvest, 
+    onDeleteHarvest, 
+    isAdmin,
+    allMovements = [],
+    allLaborLogs = []
+}) => {
   const [showForm, setShowForm] = useState(false);
   
   // Form State
@@ -23,6 +34,32 @@ export const HarvestView: React.FC<HarvestViewProps> = ({ harvests, costCenters,
   const [unit, setUnit] = useState('Kg');
   const [totalValue, setTotalValue] = useState('');
   const [notes, setNotes] = useState('');
+
+  // --- DATA LINKING LOGIC ---
+  // Calculate total investment for the selected cost center to show context
+  const selectedLotInvestment = useMemo(() => {
+      if (!costCenterId) return null;
+      
+      const inputCost = allMovements
+        .filter(m => m.costCenterId === costCenterId && m.type === 'OUT')
+        .reduce((sum, m) => sum + m.calculatedCost, 0);
+      
+      const laborCost = allLaborLogs
+        .filter(l => l.costCenterId === costCenterId)
+        .reduce((sum, l) => sum + l.value, 0);
+
+      // Previous harvest income for this lot (to show total balance)
+      const previousIncome = harvests
+        .filter(h => h.costCenterId === costCenterId)
+        .reduce((sum, h) => sum + h.totalValue, 0);
+
+      return {
+          totalSpent: inputCost + laborCost,
+          inputCost,
+          laborCost,
+          previousIncome
+      };
+  }, [costCenterId, allMovements, allLaborLogs, harvests]);
 
   const totalRevenue = harvests.reduce((acc, h) => acc + h.totalValue, 0);
 
@@ -128,7 +165,7 @@ export const HarvestView: React.FC<HarvestViewProps> = ({ harvests, costCenters,
         {/* Modal Form */}
         {showForm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-                <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up">
+                <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
                     <div className="bg-yellow-600/20 p-4 border-b border-yellow-600/30 flex justify-between items-center">
                         <h3 className="text-yellow-500 font-bold flex items-center gap-2">
                             <Sprout className="w-5 h-5" /> Nueva Cosecha
@@ -137,19 +174,44 @@ export const HarvestView: React.FC<HarvestViewProps> = ({ harvests, costCenters,
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Lote / Origen</label>
                             <select 
                                 value={costCenterId}
                                 onChange={e => setCostCenterId(e.target.value)}
-                                className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white outline-none"
+                                className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500 transition-colors"
                                 required
                             >
                                 <option value="">Seleccionar Lote...</option>
                                 {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
+
+                        {/* --- SMART CONTEXT CARD (NEW) --- */}
+                        {selectedLotInvestment && (
+                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 space-y-2">
+                                <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase border-b border-slate-700 pb-1">
+                                    <AlertCircle className="w-3 h-3" /> Contexto Financiero del Lote
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                        <p className="text-slate-500">Inversión Total</p>
+                                        <p className="text-red-400 font-mono font-bold">{formatCurrency(selectedLotInvestment.totalSpent)}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-slate-500">Ventas Previas</p>
+                                        <p className="text-emerald-400 font-mono font-bold">{formatCurrency(selectedLotInvestment.previousIncome)}</p>
+                                    </div>
+                                </div>
+                                <div className="text-[10px] text-slate-500 flex justify-between">
+                                    <span>(Insumos: {formatCurrency(selectedLotInvestment.inputCost)})</span>
+                                    <span>(Mano Obra: {formatCurrency(selectedLotInvestment.laborCost)})</span>
+                                </div>
+                            </div>
+                        )}
+
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Cultivo / Producto</label>
                             <input 
@@ -196,12 +258,12 @@ export const HarvestView: React.FC<HarvestViewProps> = ({ harvests, costCenters,
                                 type="number" 
                                 value={totalValue}
                                 onChange={e => setTotalValue(e.target.value)}
-                                className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg p-3 text-white outline-none font-mono text-lg"
+                                className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg p-3 text-white outline-none font-mono text-lg focus:ring-1 focus:ring-emerald-500"
                                 placeholder="0"
                                 required
                             />
                         </div>
-                        <button type="submit" className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 mt-2">
+                        <button type="submit" className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 mt-2 shadow-lg">
                             <Save className="w-5 h-5" /> Guardar Cosecha
                         </button>
                     </form>

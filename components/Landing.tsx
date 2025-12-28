@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { ShieldCheck, User, CheckCircle, Lock, Mail, Sprout, Scale, ScrollText, BookOpen, Code } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, User, CheckCircle, Lock, Mail, Sprout, Scale, FileText, AlertTriangle, BookOpen, Gavel, Server } from 'lucide-react';
 
 interface LandingProps {
   onEnter: () => void;
@@ -8,142 +8,145 @@ interface LandingProps {
 }
 
 export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-      <div className="max-w-4xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col max-h-[95vh] overflow-hidden">
-        
-        {/* Header: Developer & App Info */}
-        <div className="p-6 bg-slate-800/50 border-b border-slate-700 flex flex-col md:flex-row items-center justify-between gap-6 flex-shrink-0">
-            
-            {/* App Brand */}
-            <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-green-800 flex items-center justify-center shadow-lg border border-emerald-500/30">
-                    <Sprout className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-black text-white tracking-tight">AgroBodega Pro</h1>
-                    <p className="text-emerald-400 text-xs uppercase font-bold tracking-wider">Gestión Técnica & Financiera</p>
-                </div>
-            </div>
+  const [accepted, setAccepted] = useState(false);
 
-            {/* Developer Info */}
-            <div className="flex items-center gap-4 bg-slate-800 p-3 rounded-xl border border-slate-700/50 shadow-sm">
-                <div className="w-12 h-12 rounded-full bg-slate-700 border-2 border-emerald-500 flex items-center justify-center overflow-hidden relative">
-                    <User className="w-6 h-6 text-emerald-400" />
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] overflow-y-auto">
+      <div className="max-w-5xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col md:flex-row md:overflow-hidden md:max-h-[90vh] h-auto my-auto">
+        
+        {/* Left Panel: Brand & Developer Identity */}
+        <div className="md:w-2/5 bg-gradient-to-br from-emerald-900 to-slate-900 p-8 flex flex-col justify-between relative overflow-hidden shrink-0">
+            {/* Background Accents */}
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_50%_120%,rgba(16,185,129,0.4),transparent)]"></div>
+            
+            <div className="relative z-10">
+                <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/50 mb-6">
+                    <Sprout className="w-12 h-12 text-white" />
                 </div>
-                <div>
-                    <h2 className="text-sm font-bold text-white">Lucas Mateo Tabares Franco</h2>
-                    <div className="flex flex-col text-[10px] text-slate-400 font-medium space-y-0.5">
-                        <span className="flex items-center gap-1.5"><BookOpen className="w-3 h-3 text-emerald-500"/> Ingeniero Agrónomo</span>
-                        <span className="flex items-center gap-1.5"><Code className="w-3 h-3 text-blue-500"/> Desarrollador Full Stack</span>
+                <h1 className="text-4xl font-black text-white tracking-tight mb-2">AgroBodega <span className="text-emerald-400">Pro</span></h1>
+                <p className="text-emerald-200/80 font-medium text-sm mb-6">Suite de Gestión Agrícola Integral</p>
+                
+                <div className="space-y-4 hidden md:block">
+                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
+                        <div className="p-2 bg-blue-500/20 rounded-lg">
+                            <Server className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-white font-bold text-xs">Offline-First Technology</p>
+                            <p className="text-slate-400 text-[10px]">Sus datos nunca salen de su dispositivo.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
+                        <div className="p-2 bg-purple-500/20 rounded-lg">
+                            <Lock className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <div>
+                            <p className="text-white font-bold text-xs">Encriptación Local</p>
+                            <p className="text-slate-400 text-[10px]">Seguridad de nivel bancario local.</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <div className="relative z-10 mt-8 pt-8 border-t border-white/10">
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-3">Desarrollado por</p>
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-emerald-500 flex items-center justify-center shrink-0">
+                        <User className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-bold text-sm">Lucas Mateo Tabares Franco</h3>
+                        <div className="flex flex-col gap-0.5 mt-1">
+                            <span className="text-[10px] text-emerald-300 bg-emerald-900/30 px-2 py-0.5 rounded w-fit border border-emerald-500/30">Ingeniero Agrónomo</span>
+                            <span className="text-[10px] text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded w-fit border border-blue-500/30">Desarrollador Full Stack</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        {/* Scrollable Legal Content */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar bg-slate-50 dark:bg-slate-900 text-slate-300 shadow-inner">
-            
-            <div className="max-w-3xl mx-auto space-y-8">
-                
-                {/* Intro / Services Note */}
-                <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-900/30 text-center">
-                    <p className="text-emerald-400 font-bold text-sm uppercase tracking-wide">Soluciones Tecnológicas para el Agro</p>
-                    <p className="text-xs text-slate-400 mt-2 leading-relaxed max-w-2xl mx-auto">
-                        Esta aplicación combina el conocimiento técnico agronómico con desarrollo de software avanzado para optimizar la rentabilidad de su finca.
-                        Desarrollada para funcionar 100% offline, garantizando que su información permanezca segura en su dispositivo.
+        {/* Right Panel: Legal Contract */}
+        <div className="md:w-3/5 bg-slate-50 dark:bg-slate-950 flex flex-col h-full">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <Scale className="w-5 h-5 text-slate-500" />
+                    Marco Legal y Términos de Uso
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">Última actualización: Octubre 2023</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 text-xs text-justify leading-relaxed text-slate-600 dark:text-slate-400 font-serif space-y-4 custom-scrollbar bg-white dark:bg-slate-950 select-none min-h-[200px]">
+                <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg mb-4">
+                    <p className="font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" /> AVISO IMPORTANTE DE RESPONSABILIDAD
+                    </p>
+                    <p className="mt-1 text-slate-700 dark:text-slate-300">
+                        Este software es una herramienta de asistencia técnica y contable. El usuario asume total responsabilidad por la interpretación de los datos agronómicos y financieros. El desarrollador no se hace responsable por pérdidas de cosecha derivadas de decisiones basadas en esta herramienta.
                     </p>
                 </div>
 
-                {/* Legal Framework Title */}
-                <div className="flex items-center gap-3 border-b border-slate-700 pb-3">
-                    <Scale className="w-6 h-6 text-slate-400" />
-                    <h3 className="text-lg font-bold text-white">Marco Legal y Términos de Uso</h3>
-                </div>
+                <h3 className="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1">1. PROPIEDAD INTELECTUAL Y DERECHOS DE AUTOR</h3>
+                <p>
+                    De conformidad con la <strong>Ley 23 de 1982</strong> y la Decisión 351 del Acuerdo de Cartagena, este software, incluyendo su código fuente, algoritmos, base de datos y diseño de interfaz, es propiedad intelectual exclusiva de <strong>LUCAS MATEO TABARES FRANCO</strong>.
+                </p>
+                <p>
+                    <strong>Queda estrictamente prohibida:</strong> La reproducción, copia, distribución, ingeniería inversa, descompilación o modificación no autorizada de este software. La violación de estos términos constituye un delito bajo la <strong>Ley 1273 de 2009 (Delitos Informáticos)</strong>, acarreando sanciones penales y civiles.
+                </p>
 
-                {/* Legal Content */}
-                <div className="text-xs text-justify leading-relaxed space-y-6 font-serif text-slate-400 select-none">
-                    
-                    <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-                        <p className="font-bold text-slate-200 text-center text-sm">
-                            CONTRATO DE LICENCIA DE USUARIO FINAL (EULA)
-                        </p>
-                        <p className="text-center mt-1 text-[10px] text-slate-500">Lea detenidamente los siguientes términos antes de ingresar.</p>
-                    </div>
+                <h3 className="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1 mt-4">2. POLÍTICA DE PRIVACIDAD Y HABEAS DATA</h3>
+                <p>
+                    En cumplimiento de la <strong>Ley Estatutaria 1581 de 2012</strong> y el Decreto 1377 de 2013, se informa que esta aplicación opera bajo una arquitectura de "Almacenamiento Local" (Local Storage).
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                    <li><strong>Soberanía de Datos:</strong> El desarrollador NO tiene acceso, no recolecta, ni transmite sus datos financieros o de inventario a servidores externos.</li>
+                    <li><strong>Responsabilidad del Usuario:</strong> Es responsabilidad exclusiva del usuario realizar copias de seguridad (Backups) utilizando la función de exportación de la aplicación. La pérdida del dispositivo o el borrado de datos del navegador es irreversible sin un backup manual.</li>
+                </ul>
 
-                    <section>
-                        <h4 className="font-bold text-slate-200 text-sm mb-2 border-b border-slate-700 pb-1 w-fit">
-                            CAPÍTULO I: PROPIEDAD INTELECTUAL
-                        </h4>
-                        <p className="mb-2">
-                            <strong>ARTÍCULO 1. TITULARIDAD.</strong> De conformidad con la <strong>Ley 23 de 1982</strong> (Sobre Derechos de Autor en Colombia) y la Decisión 351 del Acuerdo de Cartagena, se declara que el software <strong>"AgroBodega Pro"</strong>, incluyendo su código fuente, estructura de base de datos, algoritmos de cálculo agronómico, diseño de interfaz gráfica (UI) y experiencia de usuario (UX), es propiedad intelectual exclusiva e inalienable del Ingeniero <strong>LUCAS MATEO TABARES FRANCO</strong> (en adelante, "EL AUTOR").
-                        </p>
-                        <p>
-                            <strong>ARTÍCULO 2. RESTRICCIONES.</strong> Queda estrictamente prohibido al usuario, bajo pena de las sanciones civiles y penales estipuladas en el Código Penal Colombiano (Artículos 270, 271 y 272 sobre violación a los derechos morales y patrimoniales de autor):
-                        </p>
-                        <ul className="list-disc pl-5 mt-1 space-y-1">
-                            <li>Realizar ingeniería inversa, descompilación, desensamblaje o cualquier intento de derivar el código fuente.</li>
-                            <li>Modificar, adaptar, traducir o crear trabajos derivados basados en el Software.</li>
-                            <li>Alquilar, arrendar, prestar, revender, sublicenciar o distribuir el Software a terceros sin autorización escrita del AUTOR.</li>
-                        </ul>
-                    </section>
+                <h3 className="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1 mt-4">3. LICENCIA DE USO</h3>
+                <p>
+                    Se otorga una licencia personal, intransferible, no exclusiva y revocable para el uso de AgroBodega Pro con fines de gestión agropecuaria. El uso indebido para fines ilícitos resultará en la terminación inmediata de esta licencia.
+                </p>
 
-                    <section>
-                        <h4 className="font-bold text-slate-200 text-sm mb-2 border-b border-slate-700 pb-1 w-fit">
-                            CAPÍTULO II: HABEAS DATA Y PRIVACIDAD
-                        </h4>
-                        <p className="mb-2">
-                            <strong>ARTÍCULO 3. ARQUITECTURA DE DATOS.</strong> En cumplimiento estricto de la <strong>Ley Estatutaria 1581 de 2012</strong> y el Decreto Reglamentario 1377 de 2013, se informa que esta aplicación opera bajo una arquitectura de "Almacenamiento Local Descentralizado" (Local Storage).
-                        </p>
-                        <p className="mb-2">
-                            <strong>ARTÍCULO 4. PRIVACIDAD ABSOLUTA.</strong> El AUTOR certifica que:
-                        </p>
-                        <ul className="list-disc pl-5 mt-1 space-y-1">
-                            <li>La aplicación <strong>NO</strong> transmite datos a servidores externos ni nubes controladas por el desarrollador.</li>
-                            <li>Toda la información financiera, inventarios y costos reside física y exclusivamente en su dispositivo.</li>
-                            <li>El AUTOR no tiene capacidad técnica para acceder a sus datos comerciales.</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h4 className="font-bold text-slate-200 text-sm mb-2 border-b border-slate-700 pb-1 w-fit">
-                            CAPÍTULO III: LIMITACIÓN DE RESPONSABILIDAD
-                        </h4>
-                        <p className="mb-2">
-                            <strong>ARTÍCULO 5. EXCLUSIÓN DE GARANTÍAS (AS-IS).</strong> El software se entrega "TAL CUAL". El AUTOR no garantiza que el funcionamiento sea ininterrumpido o libre de errores.
-                        </p>
-                        <p>
-                            <strong>ARTÍCULO 6. RESPONSABILIDAD DEL USUARIO.</strong> El USUARIO asume total responsabilidad por la interpretación de los cálculos agronómicos y la realización de copias de seguridad (Backups) periódicas.
-                        </p>
-                    </section>
-
-                    <div className="pt-4 border-t border-slate-700 text-center">
-                        <p className="font-bold text-slate-200">ING. LUCAS MATEO TABARES FRANCO</p>
-                        <p>Matrícula Profesional Vigente</p>
-                        <p>Colombia - 2025</p>
-                    </div>
-
+                <div className="pt-4 mt-6 border-t border-slate-200 dark:border-slate-800 text-center italic text-slate-400">
+                    <p>"La tecnología al servicio del campo colombiano"</p>
+                    <p className="font-bold mt-1">Ing. Lucas Mateo Tabares Franco - Colombia</p>
                 </div>
             </div>
 
-        </div>
+            <div className="p-6 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
+                <label className="flex items-start gap-3 cursor-pointer group mb-4 select-none bg-slate-200 dark:bg-slate-800/50 p-3 rounded-xl border border-transparent hover:border-slate-400 transition-all">
+                    <div className="relative flex items-center pt-0.5">
+                        <input 
+                            type="checkbox" 
+                            className="peer h-6 w-6 cursor-pointer appearance-none rounded border-2 border-slate-400 bg-white dark:bg-slate-800 checked:bg-emerald-500 checked:border-emerald-500 transition-all"
+                            checked={accepted}
+                            onChange={(e) => setAccepted(e.target.checked)}
+                        />
+                        <CheckCircle className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                    </div>
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                        He leído y acepto los Términos Legales, Política de Privacidad y Derechos de Autor.
+                    </span>
+                </label>
 
-        {/* Footer Actions */}
-        <div className="p-6 bg-slate-800/50 border-t border-slate-700 flex flex-col gap-3 flex-shrink-0">
-            <div className="flex items-center gap-2 justify-center text-[10px] text-slate-500 mb-2">
-                <ScrollText className="w-3 h-3" />
-                <span>Al hacer clic en "Aceptar e Ingresar", usted confirma haber leído y entendido los términos legales expuestos.</span>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-                <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors text-sm font-bold">
-                    <Mail className="w-4 h-4" /> Contactar Soporte
-                </button>
                 <button 
                     onClick={onEnter}
-                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg shadow-emerald-900/30 transition-all transform active:scale-[0.98] text-sm font-bold"
+                    disabled={!accepted}
+                    className={`w-full py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
+                        accepted 
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-900/20 hover:scale-[1.02] active:scale-95' 
+                        : 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-600 cursor-not-allowed'
+                    }`}
                 >
-                    <CheckCircle className="w-5 h-5" /> ACEPTAR E INGRESAR
+                    {accepted ? (
+                        <>
+                            <Gavel className="w-5 h-5" /> INGRESAR AL SISTEMA
+                        </>
+                    ) : (
+                        <>
+                            <Lock className="w-4 h-4" /> DEBE ACEPTAR LOS TÉRMINOS
+                        </>
+                    )}
                 </button>
             </div>
         </div>
