@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Movement, Supplier, CostCenter, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark } from 'lucide-react';
+import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark, MousePointer2 } from 'lucide-react';
 
 interface StatsViewProps {
   movements: Movement[];
@@ -12,7 +12,7 @@ interface StatsViewProps {
   harvests?: HarvestLog[]; 
   maintenanceLogs?: MaintenanceLog[]; 
   rainLogs?: RainLog[];
-  financeLogs?: FinanceLog[]; // Added
+  financeLogs?: FinanceLog[]; 
 }
 
 export const StatsView: React.FC<StatsViewProps> = ({ 
@@ -33,6 +33,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth);
   const [useDateFilter, setUseDateFilter] = useState(true);
+  
+  // Lot Analysis State
+  const [selectedLotId, setSelectedLotId] = useState<string>('');
 
   // Helper to set ranges
   const setRange = (type: 'month' | '3months' | 'year' | 'today') => {
@@ -41,7 +44,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
       
       switch(type) {
           case 'today':
-              // Start and End are today
               break;
           case 'month':
               start = new Date(end.getFullYear(), end.getMonth(), 1);
@@ -78,7 +80,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
      const laborExpense = filteredLabor.reduce((acc, l) => acc + l.value, 0);
      const maintExpense = filteredMaint.reduce((acc, m) => acc + m.cost, 0);
      
-     // Overhead Costs (NEW)
+     // Overhead Costs
      const generalExpense = filteredFinance.filter(f => f.type === 'EXPENSE').reduce((acc, f) => acc + f.amount, 0);
      
      const totalExpenses = inventoryExpense + laborExpense + maintExpense + generalExpense;
@@ -107,12 +109,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }, [filteredMovements, filteredLabor, filteredMaint, filteredHarvests, filteredFinance]);
 
 
-  // 2. Calculate Expenses by Cost Center with Efficiency Metrics
+  // 2. Calculate Expenses by Cost Center (General Table)
   const expensesByCenter = useMemo(() => {
     const data: Record<string, { inventoryCost: number, laborCost: number, income: number }> = {};
     let totalGlobalExpense = 0;
 
-    // Inventory Movements (OUT)
     filteredMovements.filter(m => m.type === 'OUT').forEach(m => {
         const key = m.costCenterId || 'unknown';
         if (!data[key]) data[key] = { inventoryCost: 0, laborCost: 0, income: 0 };
@@ -120,7 +121,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
         if (m.costCenterId) totalGlobalExpense += m.calculatedCost;
     });
 
-    // Labor Logs
     filteredLabor.forEach(l => {
         const key = l.costCenterId || 'unknown';
         if (!data[key]) data[key] = { inventoryCost: 0, laborCost: 0, income: 0 };
@@ -128,14 +128,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
         if (l.costCenterId) totalGlobalExpense += l.value;
     });
 
-    // Harvest Income
     filteredHarvests.forEach(h => {
         const key = h.costCenterId || 'unknown';
         if (!data[key]) data[key] = { inventoryCost: 0, laborCost: 0, income: 0 };
         data[key].income += h.totalValue;
     });
     
-    // Transform to Display Data
     return Object.entries(data)
       .map(([id, values]) => {
           const center = costCenters.find(c => c.id === id);
@@ -154,20 +152,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
               lotProfit,
               area,
               costPerHa,
-              lotRoi,
-              percent: totalGlobalExpense > 0 ? (totalLotCost / totalGlobalExpense) * 100 : 0 
+              lotRoi
           };
       })
       .filter(item => item.totalLotCost > 0 || item.income > 0)
       .sort((a, b) => b.totalLotCost - a.totalLotCost);
   }, [filteredMovements, costCenters, filteredLabor, filteredHarvests]);
 
-  // 3. Climate vs Production Correlation (NEW DECISION TOOL)
+  // 3. Climate Correlation Data
   const correlationData = useMemo(() => {
-      // Aggregate monthly
       const monthlyStats: Record<string, { rain: number, income: number }> = {};
-      
-      const getMonthKey = (dateStr: string) => dateStr.substring(0, 7); // YYYY-MM
+      const getMonthKey = (dateStr: string) => dateStr.substring(0, 7); 
 
       filteredRain.forEach(r => {
           const k = getMonthKey(r.date);
@@ -181,11 +176,85 @@ export const StatsView: React.FC<StatsViewProps> = ({
           monthlyStats[k].income += h.totalValue;
       });
 
-      // Sort by date key
       return Object.entries(monthlyStats)
         .sort((a,b) => a[0].localeCompare(b[0]))
         .map(([key, val]) => ({ month: key, ...val }));
   }, [filteredRain, filteredHarvests]);
+
+  // 4. LOT SPECIFIC STACKED CHART DATA (NEW)
+  const lotDetailedStats = useMemo(() => {
+      if (!selectedLotId) return null;
+
+      // Calculate Proration Factor based on Area
+      const totalArea = costCenters.reduce((acc, c) => acc + (c.area || 0), 0);
+      const selectedLot = costCenters.find(c => c.id === selectedLotId);
+      const lotArea = selectedLot?.area || 0;
+      
+      // If total area is 0, avoid division by zero. If lot area is 0, factor is 0.
+      const prorationFactor = totalArea > 0 ? (lotArea / totalArea) : 0;
+
+      const monthlyData: Record<string, { inputs: number, labor: number, machinery: number, admin: number, revenue: number }> = {};
+
+      const getMonthKey = (dateStr: string) => dateStr.substring(0, 7); // YYYY-MM
+
+      // A. Direct Inputs
+      filteredMovements.forEach(m => {
+          if (m.type === 'OUT' && m.costCenterId === selectedLotId) {
+              const k = getMonthKey(m.date);
+              if (!monthlyData[k]) monthlyData[k] = { inputs: 0, labor: 0, machinery: 0, admin: 0, revenue: 0 };
+              monthlyData[k].inputs += m.calculatedCost;
+          }
+      });
+
+      // B. Direct Labor
+      filteredLabor.forEach(l => {
+          if (l.costCenterId === selectedLotId) {
+              const k = getMonthKey(l.date);
+              if (!monthlyData[k]) monthlyData[k] = { inputs: 0, labor: 0, machinery: 0, admin: 0, revenue: 0 };
+              monthlyData[k].labor += l.value;
+          }
+      });
+
+      // C. Indirect Machinery (Prorated)
+      filteredMaint.forEach(m => {
+          const k = getMonthKey(m.date);
+          if (!monthlyData[k]) monthlyData[k] = { inputs: 0, labor: 0, machinery: 0, admin: 0, revenue: 0 };
+          monthlyData[k].machinery += (m.cost * prorationFactor);
+      });
+
+      // D. Indirect Admin (Prorated)
+      filteredFinance.forEach(f => {
+          if (f.type === 'EXPENSE') {
+              const k = getMonthKey(f.date);
+              if (!monthlyData[k]) monthlyData[k] = { inputs: 0, labor: 0, machinery: 0, admin: 0, revenue: 0 };
+              monthlyData[k].admin += (f.amount * prorationFactor);
+          }
+      });
+
+      // E. Revenue
+      filteredHarvests.forEach(h => {
+          if (h.costCenterId === selectedLotId) {
+              const k = getMonthKey(h.date);
+              if (!monthlyData[k]) monthlyData[k] = { inputs: 0, labor: 0, machinery: 0, admin: 0, revenue: 0 };
+              monthlyData[k].revenue += h.totalValue;
+          }
+      });
+
+      const chartData = Object.entries(monthlyData)
+        .sort((a,b) => a[0].localeCompare(b[0]))
+        .map(([month, data]) => {
+            const totalCost = data.inputs + data.labor + data.machinery + data.admin;
+            return { month, ...data, totalCost };
+        });
+
+      return {
+          chartData,
+          lotName: selectedLot?.name || 'Desconocido',
+          prorationFactor
+      };
+
+  }, [selectedLotId, costCenters, filteredMovements, filteredLabor, filteredMaint, filteredFinance, filteredHarvests]);
+
 
   return (
     <div className="space-y-6 pb-20">
@@ -246,10 +315,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
            )}
        </div>
 
-       {/* COST STRUCTURE VISUALIZATION */}
+       {/* COST STRUCTURE VISUALIZATION (GLOBAL) */}
        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
            <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-4 flex items-center gap-2">
-               <Layers className="w-4 h-4" /> Estructura de Costos
+               <Layers className="w-4 h-4" /> Estructura de Costos (Global)
            </h3>
            <div className="flex h-8 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-900">
                {financialSummary.pLabor > 0 && (
@@ -334,36 +403,142 @@ export const StatsView: React.FC<StatsViewProps> = ({
            </div>
        </div>
 
-       {/* BUSINESS INTELLIGENCE KPIs */}
-       <div className="grid grid-cols-2 gap-4">
-           {/* ROI Card */}
-           <div className={`p-4 rounded-xl border ${financialSummary.roi >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                    <Target className={`w-4 h-4 ${financialSummary.roi >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
-                    <span className="text-xs font-bold uppercase text-slate-500">ROI Global</span>
+        {/* --- STACKED BAR CHART: COST BREAKDOWN PER LOT (NEW) --- */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+                        <MousePointer2 className="w-4 h-4 text-indigo-500" />
+                        Micro-Gerencia por Lote
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                        Desglose mensual de costos directos e indirectos (prorrateados).
+                    </p>
                 </div>
-                <div className="flex items-baseline gap-1">
-                    <span className={`text-2xl font-bold font-mono ${financialSummary.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {financialSummary.roi.toFixed(1)}%
-                    </span>
-                    {financialSummary.roi > 0 && <TrendingUp className="w-4 h-4 text-emerald-500" />}
-                    {financialSummary.roi < 0 && <TrendingDown className="w-4 h-4 text-red-500" />}
-                </div>
-           </div>
+            </div>
 
-           {/* Margin Card */}
-           <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2 mb-2">
-                    <Percent className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-bold uppercase text-slate-500">Margen Neto</span>
-                </div>
-                <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
-                    {financialSummary.margin.toFixed(1)}%
-                </span>
-           </div>
-       </div>
+            {/* LOT SELECTOR */}
+            <div className="mb-4">
+                <select 
+                    value={selectedLotId}
+                    onChange={(e) => setSelectedLotId(e.target.value)}
+                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm text-slate-700 dark:text-white outline-none focus:border-indigo-500"
+                >
+                    <option value="">-- Seleccionar Lote para Analizar --</option>
+                    {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+            </div>
 
-        {/* --- CLIMATE CORRELATION ANALYSIS (NEW) --- */}
+            {selectedLotId && lotDetailedStats && lotDetailedStats.chartData.length > 0 ? (
+                <div className="mt-4">
+                    {/* PRORATION INFO */}
+                    <div className="text-[10px] text-slate-500 mb-4 bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-200 dark:border-slate-700">
+                        <span className="font-bold">Nota Contable:</span> Los costos de Maquinaria y Administrativos se estiman prorrateando el 
+                        <span className="font-bold text-indigo-500"> {(lotDetailedStats.prorationFactor * 100).toFixed(1)}% </span> 
+                        del gasto global (según área del lote).
+                    </div>
+
+                    {/* CHART CONTAINER */}
+                    <div className="w-full overflow-x-auto">
+                        <div className="min-w-[300px] h-64 flex items-end gap-2 pb-6 relative">
+                            {/* Y-Axis Grid Lines (Simplified) */}
+                            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
+                                <div className="border-t border-slate-500 w-full"></div>
+                                <div className="border-t border-slate-500 w-full"></div>
+                                <div className="border-t border-slate-500 w-full"></div>
+                                <div className="border-t border-slate-500 w-full"></div>
+                            </div>
+
+                            {lotDetailedStats.chartData.map((data, idx) => {
+                                const maxMonthlyCost = Math.max(...lotDetailedStats.chartData.map(d => d.totalCost));
+                                const heightScale = maxMonthlyCost > 0 ? 200 / maxMonthlyCost : 0; // Scale to 200px max height
+
+                                return (
+                                    <div key={idx} className="flex-1 flex flex-col items-center group relative min-w-[40px]">
+                                        {/* Total Label on Hover */}
+                                        <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[9px] p-1 rounded z-10 whitespace-nowrap pointer-events-none">
+                                            Total: {formatCurrency(data.totalCost)}
+                                        </div>
+
+                                        {/* STACKED BAR */}
+                                        <div className="w-full max-w-[30px] flex flex-col-reverse rounded-t-sm overflow-hidden bg-slate-100 dark:bg-slate-700 relative">
+                                            {/* 1. Inputs (Emerald) */}
+                                            {data.inputs > 0 && (
+                                                <div 
+                                                    style={{ height: `${data.inputs * heightScale}px` }} 
+                                                    className="w-full bg-emerald-500 hover:bg-emerald-400 transition-colors"
+                                                    title={`Insumos: ${formatCurrency(data.inputs)}`}
+                                                ></div>
+                                            )}
+                                            {/* 2. Labor (Amber) */}
+                                            {data.labor > 0 && (
+                                                <div 
+                                                    style={{ height: `${data.labor * heightScale}px` }} 
+                                                    className="w-full bg-amber-500 hover:bg-amber-400 transition-colors"
+                                                    title={`Mano de Obra: ${formatCurrency(data.labor)}`}
+                                                ></div>
+                                            )}
+                                            {/* 3. Machinery (Orange) */}
+                                            {data.machinery > 0 && (
+                                                <div 
+                                                    style={{ height: `${data.machinery * heightScale}px` }} 
+                                                    className="w-full bg-orange-500 hover:bg-orange-400 transition-colors"
+                                                    title={`Maquinaria (Est): ${formatCurrency(data.machinery)}`}
+                                                ></div>
+                                            )}
+                                            {/* 4. Admin (Slate/Blue) */}
+                                            {data.admin > 0 && (
+                                                <div 
+                                                    style={{ height: `${data.admin * heightScale}px` }} 
+                                                    className="w-full bg-slate-500 hover:bg-slate-400 transition-colors"
+                                                    title={`Admin (Est): ${formatCurrency(data.admin)}`}
+                                                ></div>
+                                            )}
+                                        </div>
+
+                                        {/* X-Axis Label */}
+                                        <span className="text-[9px] text-slate-500 mt-2 transform -rotate-45 origin-top-left translate-y-1">
+                                            {data.month}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* LEGEND */}
+                    <div className="flex flex-wrap justify-center gap-3 mt-2">
+                        <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                            <span className="text-[10px] text-slate-500">Insumos</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                            <span className="text-[10px] text-slate-500">Mano Obra</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            <span className="text-[10px] text-slate-500">Maquinaria</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+                            <span className="text-[10px] text-slate-500">Admin</span>
+                        </div>
+                    </div>
+
+                </div>
+            ) : selectedLotId ? (
+                <div className="text-center py-8 text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    No hay datos de costos para este lote en el rango de fechas seleccionado.
+                </div>
+            ) : (
+                <div className="text-center py-8 text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    Seleccione un lote arriba para ver el desglose detallado.
+                </div>
+            )}
+        </div>
+
+        {/* --- CLIMATE CORRELATION ANALYSIS --- */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-lg overflow-hidden">
             <div className="flex justify-between items-start mb-4">
                 <div>
