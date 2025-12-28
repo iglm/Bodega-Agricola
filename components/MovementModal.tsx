@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine } from '../types';
 import { getBaseUnitType, convertToBase, calculateCost, formatCurrency, formatBaseQuantity } from '../services/inventoryService';

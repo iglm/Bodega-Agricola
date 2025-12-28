@@ -12,7 +12,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] overflow-y-auto">
-      <div className="max-w-5xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col md:flex-row md:overflow-hidden md:max-h-[90vh] h-auto my-auto">
+      <div className="max-w-5xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col md:flex-row md:overflow-hidden md:max-h-[90vh] h-auto my-auto transition-all duration-300">
         
         {/* Left Panel: Brand & Developer Identity */}
         <div className="md:w-2/5 bg-gradient-to-br from-emerald-900 to-slate-900 p-8 flex flex-col justify-between relative overflow-hidden shrink-0">
@@ -75,7 +75,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
                 <p className="text-xs text-slate-500 mt-1">Última actualización: Octubre 2023</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 text-xs text-justify leading-relaxed text-slate-600 dark:text-slate-400 font-serif space-y-4 custom-scrollbar bg-white dark:bg-slate-950 select-none min-h-[200px]">
+            <div className="flex-1 p-6 text-xs text-justify leading-relaxed text-slate-600 dark:text-slate-400 font-serif space-y-4 md:overflow-y-auto custom-scrollbar bg-white dark:bg-slate-950 select-none min-h-[200px]">
                 <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg mb-4">
                     <p className="font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" /> AVISO IMPORTANTE DE RESPONSABILIDAD
@@ -113,8 +113,8 @@ export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
                 </div>
             </div>
 
-            <div className="p-6 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
-                <label className="flex items-start gap-3 cursor-pointer group mb-4 select-none bg-slate-200 dark:bg-slate-800/50 p-3 rounded-xl border border-transparent hover:border-slate-400 transition-all">
+            <div className="p-6 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0 sticky bottom-0 z-20">
+                <label className="flex items-start gap-3 cursor-pointer group mb-4 select-none bg-slate-200 dark:bg-slate-800/50 p-4 rounded-xl border border-transparent hover:border-slate-400 transition-all shadow-sm">
                     <div className="relative flex items-center pt-0.5">
                         <input 
                             type="checkbox" 
@@ -124,7 +124,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
                         />
                         <CheckCircle className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                     </div>
-                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-bold">
                         He leído y acepto los Términos Legales, Política de Privacidad y Derechos de Autor.
                     </span>
                 </label>
@@ -148,6 +148,12 @@ export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
                         </>
                     )}
                 </button>
+                
+                <div className="mt-4 flex justify-center gap-4">
+                    <button className="text-[10px] text-slate-500 hover:text-blue-500 flex items-center gap-1 transition-colors">
+                        <FileText className="w-3 h-3" /> Ver EULA (PDF)
+                    </button>
+                </div>
             </div>
         </div>
 
