@@ -1,8 +1,7 @@
 
 import React, { useRef, useState } from 'react';
 import { AppState } from '../types';
-// Add Save to the list of imports from lucide-react
-import { X, Database, Download, Upload, AlertTriangle, ShieldCheck, Loader2, CheckCircle, FileJson, Info, Trash2, ShieldAlert, Save } from 'lucide-react';
+import { X, Database, Download, Upload, AlertTriangle, ShieldCheck, Loader2, CheckCircle, FileJson, Info, Trash2 } from 'lucide-react';
 
 interface DataModalProps {
   fullState: AppState;
@@ -29,7 +28,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
   };
 
   const handleClearData = () => {
-      const confirmText = "PELIGRO: Esta acción eliminará permanentemente TODOS los datos de la aplicación (Fincas, Inventarios, Nómina, etc) cumpliendo con su derecho a la eliminación de datos.\n\nPara continuar, escriba 'ELIMINAR TODO' abajo.";
+      const confirmText = "PELIGRO: Esta acción eliminará permanentemente TODOS los datos de la aplicación (Fincas, Inventarios, Nómina, etc).\n\nPara continuar, escriba 'ELIMINAR TODO' abajo.";
       const userInput = prompt(confirmText);
       
       if (userInput === 'ELIMINAR TODO') {
@@ -100,7 +99,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                 </div>
                 <div>
                     <h3 className="text-white font-bold text-xl">Gestión de Datos</h3>
-                    <p className="text-xs text-slate-400">Privacidad y Seguridad</p>
+                    <p className="text-xs text-slate-400">Copias de Seguridad y Privacidad</p>
                 </div>
             </div>
             <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
@@ -110,33 +109,31 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
 
         <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
             
-            <div className="bg-indigo-900/20 p-4 rounded-xl border border-indigo-700/50 flex gap-3">
-                <ShieldCheck className="w-10 h-10 text-indigo-400 flex-shrink-0" />
-                <div>
-                    <h4 className="text-indigo-400 font-bold text-xs uppercase mb-1">Tu Privacidad Primero</h4>
-                    <p className="text-[10px] text-slate-300 leading-relaxed">
-                        Sus datos viven <strong>exclusivamente en este dispositivo</strong>. AgroSuite 360 no recolecta su información personal ni financiera en servidores remotos.
-                    </p>
-                </div>
+            <div className="bg-orange-900/20 p-4 rounded-xl border border-orange-700/50">
+                <h4 className="text-orange-500 font-bold text-sm flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-4 h-4" /> Importante
+                </h4>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                    Sus datos viven <strong>exclusivamente en este dispositivo</strong>. 
+                </p>
             </div>
 
             <div className="space-y-3">
-                <h4 className="text-emerald-400 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                    <Download className="w-3 h-3" /> Copia de Seguridad
+                <h4 className="text-emerald-400 text-sm uppercase font-bold flex items-center gap-2">
+                    <Download className="w-4 h-4" /> Exportar / Guardar
                 </h4>
                 <button 
                     onClick={handleDownloadBackup}
                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 transition-colors shadow-lg shadow-emerald-900/20 group"
                 >
-                    {/* Fix: Save icon is now imported */}
-                    <Save className="w-5 h-5 text-white" />
+                    <ShieldCheck className="w-5 h-5 text-white" />
                     Descargar Backup (.JSON)
                 </button>
             </div>
 
             <div className="space-y-3">
-                <h4 className="text-blue-400 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                    <Upload className="w-3 h-3" /> Restaurar Información
+                <h4 className="text-blue-400 text-sm uppercase font-bold flex items-center gap-2">
+                    <Upload className="w-4 h-4" /> Importar / Restaurar
                 </h4>
                 
                 {isRestoring ? (
@@ -147,7 +144,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                 ) : (
                     <label className={`w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-300 hover:text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 transition-colors cursor-pointer group ${restoreError ? 'border-red-500' : ''}`}>
                         <FileJson className="w-5 h-5" />
-                        Seleccionar Archivo JSON
+                        Seleccionar Archivo
                         <input 
                             ref={fileInputRef}
                             type="file" 
@@ -161,20 +158,18 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
             </div>
 
             <div className="pt-4 border-t border-slate-700/50">
-                <h4 className="text-red-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2 mb-3">
-                    <Trash2 className="w-3 h-3" /> Control de Datos (Requisito Play Store)
+                <h4 className="text-red-500 text-sm uppercase font-bold flex items-center gap-2 mb-3">
+                    <Trash2 className="w-4 h-4" /> Privacidad y Eliminación
                 </h4>
-                <div className="bg-red-950/20 p-3 rounded-lg border border-red-900/30 mb-3">
-                    <p className="text-[9px] text-red-400 leading-tight">
-                        De acuerdo con las políticas de Google Play, usted tiene derecho a solicitar la eliminación total de su cuenta y datos. Al presionar el botón de abajo, se borrará toda su actividad local inmediatamente.
-                    </p>
-                </div>
                 <button 
                     onClick={handleClearData}
-                    className="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-3 transition-colors shadow-lg shadow-red-900/20"
+                    className="w-full bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-500/30 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-3 transition-colors"
                 >
-                    <Trash2 className="w-4 h-4" /> Eliminar Definitivamente mis Datos
+                    Borrar todos los datos de la App
                 </button>
+                <p className="text-[10px] text-slate-500 mt-2 text-center">
+                    Cumplimiento de políticas de protección de datos personales.
+                </p>
             </div>
 
         </div>

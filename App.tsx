@@ -33,7 +33,7 @@ import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCente
 import { loadData, saveData, saveDataNow, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost, processInventoryMovement } from './services/inventoryService';
 import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
 import { ParsedCommand } from './services/aiService';
-import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Pickaxe, Tractor, HelpCircle, Globe, Landmark, FileSpreadsheet, User as UserIcon, LogOut, Crown, Calendar, CheckCircle, Star, ShieldAlert, Trash2, Mail, ShieldCheck } from 'lucide-react';
+import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Pickaxe, Tractor, HelpCircle, Globe, Landmark, FileSpreadsheet, User as UserIcon, LogOut, Crown, Calendar, CheckCircle, Star, ShieldAlert, Trash2, Mail } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState<User | null>(null);
@@ -125,21 +125,8 @@ function App() {
     setShowProfileMenu(false);
   };
 
-  /**
-   * REQUISITO PLAY STORE: ELIMINACIÓN DE CUENTA Y DATOS
-   * Esta función garantiza que el usuario tenga control total sobre su información.
-   */
   const handleDeleteAccount = () => {
-      const confirmed = window.confirm(
-        "⚠️ SOLICITUD DE ELIMINACIÓN DE CUENTA ⚠️\n\n" +
-        "Esta acción eliminará de forma irreversible:\n" +
-        "- Todos tus registros financieros e inventarios.\n" +
-        "- Configuraciones de fincas y personal.\n" +
-        "- Tu sesión de usuario vinculada.\n\n" +
-        "¿Deseas proceder con la eliminación total de tus datos?"
-      );
-      
-      if (confirmed) {
+      if (confirm("⚠️ ¿ELIMINAR CUENTA Y DATOS? ⚠️\n\nEsta acción borrará permanentemente todas tus finanzas, inventarios y registros de este dispositivo de acuerdo con las políticas de privacidad. Esta acción no se puede deshacer.")) {
           localStorage.clear();
           window.location.reload();
       }
@@ -353,7 +340,7 @@ function App() {
                                 )}
                                 <div className="border-t border-slate-100 dark:border-slate-700 mt-1 pt-1">
                                     <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><LogOut className="w-4 h-4" /> Cerrar Sesión</button>
-                                    <button onClick={handleDeleteAccount} className="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-900/20 flex items-center gap-2 transition-colors"><Trash2 className="w-4 h-4" /> Eliminar Cuenta y Datos</button>
+                                    <button onClick={handleDeleteAccount} className="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Eliminar Cuenta y Datos</button>
                                 </div>
                             </div>
                         </div>
