@@ -81,7 +81,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
      // Operational Costs
      const inventoryExpense = filteredMovements.filter(m => m.type === 'OUT').reduce((acc, m) => acc + m.calculatedCost, 0);
      const laborExpense = filteredLabor.reduce((acc, l) => acc + l.value, 0);
-     const maintExpense = filteredMaint.reduce((acc, m) => acc + m.cost, 0);
+     
+     // FIX: Double counting prevention. 
+     // If maintenance comes from inventory (description starts with 'Repuesto Inventario'), 
+     // it is already counted in inventoryExpense. We exclude it from maintExpense for the CASH FLOW summary.
+     const maintExpense = filteredMaint
+        .filter(m => !m.description.startsWith('Repuesto Inventario'))
+        .reduce((acc, m) => acc + m.cost, 0);
      
      // Overhead Costs
      const generalExpense = filteredFinance.filter(f => f.type === 'EXPENSE').reduce((acc, f) => acc + f.amount, 0);
@@ -231,6 +237,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
       const directLabor = relevantLabor.reduce((sum, l) => sum + l.value, 0);
       
       // Indirect Costs (Prorated)
+      // Note: Here we keep totalMachinery as is because the user might want to know allocated cost including inventory parts for unit cost analysis
       const totalMachinery = filteredMaint.reduce((sum, m) => sum + m.cost, 0);
       const totalAdmin = filteredFinance.filter(f => f.type === 'EXPENSE').reduce((sum, f) => sum + f.amount, 0);
       

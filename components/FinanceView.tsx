@@ -69,14 +69,14 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ financeLogs, onAddTran
                 <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
                     <button 
                         type="button"
-                        onClick={() => setType('EXPENSE')}
+                        onClick={() => { setType('EXPENSE'); setCategory('Servicios'); }}
                         className={`flex-1 py-2 text-xs font-bold rounded flex items-center justify-center gap-2 transition-all ${type === 'EXPENSE' ? 'bg-white dark:bg-slate-700 text-red-500 shadow-sm' : 'text-slate-500'}`}
                     >
                         <TrendingDown className="w-4 h-4" /> Gasto General
                     </button>
                     <button 
                         type="button"
-                        onClick={() => setType('INCOME')}
+                        onClick={() => { setType('INCOME'); setCategory('Otros'); }}
                         className={`flex-1 py-2 text-xs font-bold rounded flex items-center justify-center gap-2 transition-all ${type === 'INCOME' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm' : 'text-slate-500'}`}
                     >
                         <TrendingUp className="w-4 h-4" /> Otro Ingreso
@@ -102,9 +102,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ financeLogs, onAddTran
                                 </>
                             ) : (
                                 <>
+                                    <option>Otros</option>
                                     <option>Prestamo</option>
                                     <option>Capital</option>
-                                    <option>Otros</option>
                                 </>
                             )}
                         </select>

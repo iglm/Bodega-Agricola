@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Category, Unit, InventoryItem, Supplier } from '../types';
-import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus } from 'lucide-react';
+import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle } from 'lucide-react';
 import { convertToBase } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
 
@@ -234,75 +234,80 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                 </span>
              </div>
 
-             {/* Transparency/Traceability Fields */}
-             {/* Always visible but maybe semi-transparent if quantity is 0, to encourage entry */}
-             <div className={`space-y-3 pt-3 border-t border-blue-200 dark:border-blue-800/50 transition-opacity ${!initialQuantity || initialQuantity === '0' ? 'opacity-50' : 'opacity-100'}`}>
-                 <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-blue-600 dark:text-blue-300 font-bold uppercase flex items-center gap-1">
-                        <Receipt className="w-3 h-3" /> Evidencia de Compra (Contabilidad)
-                    </p>
-                    {(!initialQuantity || initialQuantity === '0') && <span className="text-[9px] text-slate-400 italic">Ingrese cantidad arriba para activar</span>}
-                 </div>
-                 
-                 {/* Supplier */}
-                 <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Proveedor (Opcional)</label>
-                    <select
-                        value={selectedSupplierId}
-                        onChange={e => setSelectedSupplierId(e.target.value)}
-                        disabled={!initialQuantity || initialQuantity === '0'}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-white outline-none text-xs disabled:cursor-not-allowed"
-                    >
-                        <option value="">-- Seleccionar o Dejar Vacio --</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    {suppliers.length === 0 && (
-                        <p className="text-[9px] text-slate-400 mt-1">
-                            * Puede registrar el insumo sin proveedor y editarlo luego en el historial.
-                        </p>
-                    )}
-                 </div>
+             {/* Transparency/Traceability Fields - IMPROVED UI */}
+             <div className={`mt-4 pt-2 transition-all duration-300 ${!initialQuantity || initialQuantity === '0' ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                
+                <div className="bg-white/60 dark:bg-black/20 rounded-xl p-3 border-2 border-dashed border-slate-300 dark:border-slate-600 relative">
+                    <span className="absolute -top-2.5 left-2 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-slate-300 dark:border-slate-600">
+                        <Receipt className="w-3 h-3" /> COMPROBANTE (OPCIONAL)
+                    </span>
 
-                 <div className="grid grid-cols-2 gap-3">
-                     {/* Invoice Number */}
-                     <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">N° Factura (Opcional)</label>
-                        <input 
-                            type="text" 
-                            value={invoiceNumber}
-                            onChange={e => setInvoiceNumber(e.target.value)}
-                            disabled={!initialQuantity || initialQuantity === '0'}
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-white outline-none text-xs disabled:cursor-not-allowed"
-                            placeholder="#12345"
-                        />
-                     </div>
-                     
-                     {/* Invoice Photo */}
-                     <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Foto Recibo (Opcional)</label>
-                        <div 
-                            onClick={() => {
-                                if(initialQuantity && initialQuantity !== '0') invoiceInputRef.current?.click()
-                            }}
-                            className={`w-full h-[38px] border border-dashed rounded-lg flex items-center justify-center transition-colors ${!initialQuantity || initialQuantity === '0' ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-900/50' : 'cursor-pointer hover:border-blue-500'} ${invoiceImage ? 'bg-emerald-100 border-emerald-500 text-emerald-600' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-400'}`}
-                        >
-                            {isProcessingInvoiceImg ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"></div>
-                            ) : invoiceImage ? (
-                                <span className="text-[10px] font-bold flex items-center gap-1"><FileText className="w-3 h-3"/> LISTO</span>
-                            ) : (
-                                <span className="text-[10px] flex items-center gap-1"><Camera className="w-3 h-3"/> Subir</span>
+                    <div className="space-y-3 mt-1">
+                        {/* Supplier */}
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Proveedor</label>
+                            <div className="relative">
+                                <Users className="absolute left-2 top-2.5 w-3 h-3 text-slate-400" />
+                                <select
+                                    value={selectedSupplierId}
+                                    onChange={e => setSelectedSupplierId(e.target.value)}
+                                    disabled={!initialQuantity || initialQuantity === '0'}
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-2 pl-7 pr-2 text-slate-700 dark:text-slate-200 outline-none text-xs focus:border-blue-500 transition-colors"
+                                >
+                                    <option value="">-- Seleccionar --</option>
+                                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                            </div>
+                            {suppliers.length === 0 && (
+                                <p className="text-[9px] text-slate-400 mt-1 italic pl-1">* Agregue proveedores en Maestros</p>
                             )}
                         </div>
-                        <input 
-                            type="file" 
-                            ref={invoiceInputRef} 
-                            className="hidden" 
-                            accept="image/*"
-                            onChange={(e) => handleImageSelect(e, true)}
-                        />
-                     </div>
-                 </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Invoice Number */}
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">N° Factura</label>
+                                <div className="relative">
+                                    <FileText className="absolute left-2 top-2.5 w-3 h-3 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        value={invoiceNumber}
+                                        onChange={e => setInvoiceNumber(e.target.value)}
+                                        disabled={!initialQuantity || initialQuantity === '0'}
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-2 pl-7 pr-2 text-slate-700 dark:text-slate-200 outline-none text-xs focus:border-blue-500 transition-colors"
+                                        placeholder="#000"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Photo Upload */}
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Foto Recibo</label>
+                                <div 
+                                    onClick={() => {
+                                        if(initialQuantity && initialQuantity !== '0') invoiceInputRef.current?.click()
+                                    }}
+                                    className={`w-full h-[34px] border rounded-lg flex items-center justify-center transition-all cursor-pointer ${invoiceImage ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-blue-400 hover:text-blue-500'}`}
+                                >
+                                    {isProcessingInvoiceImg ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent"></div>
+                                    ) : invoiceImage ? (
+                                        <span className="text-[9px] font-bold flex items-center gap-1"><CheckCircle className="w-3 h-3"/> CARGADA</span>
+                                    ) : (
+                                        <span className="text-[9px] font-bold flex items-center gap-1"><Camera className="w-3 h-3"/> SUBIR</span>
+                                    )}
+                                </div>
+                                <input 
+                                    type="file" 
+                                    ref={invoiceInputRef} 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={(e) => handleImageSelect(e, true)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
              </div>
           </div>
 
