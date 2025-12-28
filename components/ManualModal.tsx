@@ -1,174 +1,359 @@
 
-import React from 'react';
-import { X, BookOpen, Calculator, Settings, TrendingUp, Calendar, Zap, Sprout, Tractor, Lock, Wallet, MousePointerClick, Coffee, Activity } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, BookOpen, Calculator, Settings, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ChevronRight, CheckCircle, HelpCircle, Download, ArrowRight, DollarSign, Users, Tractor } from 'lucide-react';
+import { generateManualPDF } from '../services/reportService';
 
 interface ManualModalProps {
   onClose: () => void;
 }
 
+type Section = 'intro' | 'inventory' | 'labor' | 'production' | 'analysis' | 'crops';
+
 export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-slate-800 w-full max-w-3xl rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-slide-up">
-        
-        {/* Header */}
-        <div className="bg-slate-900 p-4 border-b border-slate-700 flex justify-between items-center flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-900/30 p-2 rounded-lg border border-emerald-500/30">
-              <BookOpen className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <h3 className="text-white font-bold text-lg leading-none">Guía de Gestión Cafetera</h3>
-              <p className="text-xs text-slate-400 mt-1">Manual Técnico y Análisis Empresarial</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+  const [activeSection, setActiveSection] = useState<Section>('intro');
+  const [activeCrop, setActiveCrop] = useState<'cafe' | 'aguacate' | 'platano'>('cafe');
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8 text-slate-300">
-          
-          <div className="bg-gradient-to-r from-emerald-900/40 to-slate-900 p-4 rounded-xl border-l-4 border-emerald-500">
-             <h4 className="text-emerald-400 font-bold mb-2 flex items-center gap-2">
-                 <Coffee className="w-4 h-4" /> Caso de Estudio: Finca "La Esperanza"
-             </h4>
-             <p className="text-sm text-slate-300">
-                 Este manual utiliza ejemplos reales basados en una finca cafetera colombiana para explicar cómo ingresar datos y, lo más importante, <strong>cómo analizarlos para ganar más dinero.</strong>
-             </p>
-          </div>
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'intro':
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-gradient-to-br from-emerald-900 to-slate-900 p-6 rounded-2xl border border-emerald-500/30 text-center">
+              <h4 className="text-2xl font-bold text-white mb-2">Bienvenido a AgroBodega Pro</h4>
+              <p className="text-slate-300">Su asistente digital para convertir la finca en una empresa rentable.</p>
+            </div>
 
-          {/* Module 1: Insumos */}
-          <section>
-            <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-blue-400" />
-              1. Control de Costos (Inventario)
-            </h4>
-            <div className="text-sm space-y-3">
-                <p>El error #1 es no saber cuánto vale aplicar una bomba de fumigación. El sistema usa <strong>Promedio Ponderado</strong> para solucionar esto.</p>
-                
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                    <strong className="text-blue-300 block mb-1">Ejemplo Real:</strong>
-                    <ul className="list-disc list-inside text-slate-400 space-y-1">
-                        <li>Compra 10 litros de Fertilizante Foliar a $40.000 c/u.</li>
-                        <li>A la semana, el precio sube y compra 5 litros a $50.000.</li>
-                        <li>El sistema recalcula automáticamente: Su costo promedio ya no es $40.000, ahora es <strong>$43.333 por litro</strong>.</li>
-                    </ul>
-                    <p className="mt-2 text-xs text-slate-500 italic">
-                        Al sacar el producto para el "Lote El Guamo", el sistema descontará el valor exacto ($43.333), permitiéndole saber el costo real de la fertilización.
-                    </p>
+            <div className="space-y-4">
+              <h5 className="font-bold text-white flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-emerald-500" />
+                Flujo de Trabajo Exitoso
+              </h5>
+              {/* Visual Flowchart using CSS */}
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-bold text-slate-300">
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-600 flex-1 w-full text-center hover:border-blue-500 transition-colors">
+                  <Package className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                  1. Comprar Insumos
+                  <br /><span className="text-[10px] text-slate-500 font-normal">(Entradas Almacén)</span>
                 </div>
-            </div>
-          </section>
-
-          {/* Module 2: Labores */}
-          <section>
-            <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-amber-400" />
-              2. Mano de Obra y Nómina
-            </h4>
-            <div className="text-sm space-y-3">
-                <p>Registre cada jornal diariamente, aunque pague quincenalmente. Esto evita "fugas" de dinero y olvidos.</p>
-                <div className="grid md:grid-cols-2 gap-3">
-                    <div className="bg-slate-700/30 p-3 rounded-lg border border-slate-600">
-                        <strong className="text-amber-300 block mb-1">Ejemplo: Plateo</strong>
-                        <p className="text-xs">
-                            Don Pedro envía a "Juan" a platear el "Lote 1". Registra el jornal en la app ($60.000). El sistema carga ese costo al Lote 1 automáticamente.
-                        </p>
-                    </div>
-                    <div className="bg-slate-700/30 p-3 rounded-lg border border-slate-600">
-                        <strong className="text-amber-300 block mb-1">Ejemplo: Recolección</strong>
-                        <p className="text-xs">
-                            Si paga por kilos, registre en "Valor Jornal" el total del día (Ej: 100kg a $800 = $80.000). En notas escriba "100kg recolección".
-                        </p>
-                    </div>
+                <ArrowRight className="hidden md:block text-slate-600" />
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-600 flex-1 w-full text-center hover:border-amber-500 transition-colors">
+                  <Pickaxe className="w-6 h-6 mx-auto mb-2 text-amber-500" />
+                  2. Ejecutar Labores
+                  <br /><span className="text-[10px] text-slate-500 font-normal">(Registrar Jornales)</span>
                 </div>
+                <ArrowRight className="hidden md:block text-slate-600" />
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-600 flex-1 w-full text-center hover:border-yellow-500 transition-colors">
+                  <Sprout className="w-6 h-6 mx-auto mb-2 text-yellow-500" />
+                  3. Vender Cosecha
+                  <br /><span className="text-[10px] text-slate-500 font-normal">(Registrar Ingresos)</span>
+                </div>
+              </div>
             </div>
-          </section>
 
-          {/* Module 3: Production */}
-          <section>
-            <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-yellow-500" />
-              3. Producción (Ingresos)
-            </h4>
-            <div className="text-sm bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-               <p className="mb-2">Para saber si una finca es negocio, hay que registrar cada venta.</p>
-               <ol className="list-decimal list-inside space-y-2 text-slate-400">
-                   <li>Vende 2 cargas de café pergamino seco.</li>
-                   <li>Va a la pestaña <strong>Producción</strong>.</li>
-                   <li>Selecciona el lote de origen (Ej: Lote La Cañada).</li>
-                   <li>Ingresa el valor total de la venta (Ej: $3.800.000).</li>
-               </ol>
-               <p className="mt-2 text-emerald-400 text-xs font-bold">
-                   ¡Importante! Sin este paso, el sistema le dirá que está perdiendo dinero, porque solo vería gastos.
+            <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
+               <p className="text-sm text-slate-300 flex gap-3">
+                  <HelpCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                  <span>
+                    <strong>¿Por qué usar esta app?</strong><br/>
+                    Muchos agricultores solo anotan lo que venden, pero olvidan anotar "pequeños" gastos como combustible, repuestos o el jornal de medio día. Al final del año, no saben por qué no hay dinero. Esta app captura <strong>todo</strong> para darle el costo real de producir un kilo de su producto.
+                  </span>
                </p>
             </div>
-          </section>
+          </div>
+        );
 
-           {/* Module 4: KPIs (New Analysis) */}
-           <section>
-            <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-purple-400" />
-              4. Análisis Empresarial (KPIs)
-            </h4>
-            <div className="text-sm space-y-4">
-                <p>En la pestaña <strong>Reportes</strong>, encontrará dos nuevos indicadores vitales para la toma de decisiones:</p>
-                
-                {/* ROI Explanation */}
-                <div className="flex gap-3">
-                    <div className="bg-purple-500/20 p-2 h-fit rounded-lg">
-                        <TrendingUp className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <div>
-                        <h5 className="font-bold text-white">ROI (Retorno de Inversión)</h5>
-                        <p className="text-slate-400 text-xs mt-1">
-                            Responde a: <em>"¿Por cada $1.000 pesos que metí a la finca, cuántos recuperé?"</em>
-                        </p>
-                        <ul className="text-xs text-slate-500 list-disc list-inside mt-1 bg-black/20 p-2 rounded">
-                            <li><strong>ROI Positivo (Ej: 20%):</strong> El negocio es sano. Ganó 20 centavos por cada peso invertido.</li>
-                            <li><strong>ROI Negativo (Ej: -10%):</strong> Cuidado. Está gastando más de lo que produce. Revise costos de fertilización o mano de obra.</li>
-                        </ul>
+      case 'crops':
+        return (
+          <div className="space-y-6 animate-fade-in">
+             <div className="flex gap-2 overflow-x-auto pb-2">
+                <button 
+                  onClick={() => setActiveCrop('cafe')}
+                  className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all ${activeCrop === 'cafe' ? 'bg-red-900/50 text-red-200 border border-red-500' : 'bg-slate-800 text-slate-400'}`}
+                >
+                  ☕ Cultivo de Café
+                </button>
+                <button 
+                  onClick={() => setActiveCrop('aguacate')}
+                  className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all ${activeCrop === 'aguacate' ? 'bg-emerald-900/50 text-emerald-200 border border-emerald-500' : 'bg-slate-800 text-slate-400'}`}
+                >
+                  🥑 Aguacate Hass
+                </button>
+                <button 
+                  onClick={() => setActiveCrop('platano')}
+                  className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all ${activeCrop === 'platano' ? 'bg-yellow-900/50 text-yellow-200 border border-yellow-500' : 'bg-slate-800 text-slate-400'}`}
+                >
+                  🍌 Plátano / Banano
+                </button>
+             </div>
+
+             {activeCrop === 'cafe' && (
+                <div className="space-y-4">
+                    <h4 className="text-xl font-bold text-white">Gestión Cafetera</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h5 className="font-bold text-amber-500 mb-2 flex items-center gap-2"><Pickaxe className="w-4 h-4"/> Recolección (Jornales)</h5>
+                            <p className="text-xs text-slate-400 mb-3">En temporada, se paga por kilos recolectados, no por día.</p>
+                            {/* Mock UI */}
+                            <div className="bg-slate-900 p-3 rounded border border-slate-600 text-xs">
+                                <div className="mb-2"><span className="text-slate-500">Labor:</span> <span className="text-white">Recolección</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Valor Jornal:</span> <span className="text-emerald-400">$ 85.000</span></div>
+                                <div className="text-[10px] text-slate-500 italic border-t border-slate-700 pt-1">
+                                    Nota: "Juan Pérez recogió 100kg a $850 el kilo"
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h5 className="font-bold text-red-400 mb-2 flex items-center gap-2"><Settings className="w-4 h-4"/> Beneficio (Maquinaria)</h5>
+                            <p className="text-xs text-slate-400 mb-3">Registre el gasto de la despulpadora.</p>
+                            {/* Mock UI */}
+                            <div className="bg-slate-900 p-3 rounded border border-slate-600 text-xs">
+                                <div className="mb-2"><span className="text-slate-500">Máquina:</span> <span className="text-white">Despulpadora #1</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Tipo:</span> <span className="text-orange-400">Combustible / Energía</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Costo:</span> <span className="text-white">$ 20.000</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+             )}
 
-                {/* Margin Explanation */}
-                <div className="flex gap-3">
-                    <div className="bg-blue-500/20 p-2 h-fit rounded-lg">
-                        <Wallet className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                        <h5 className="font-bold text-white">Margen Neto</h5>
-                        <p className="text-slate-400 text-xs mt-1">
-                            Responde a: <em>"De la plata que recibí por el café, ¿cuánto es realmente ganancia libre?"</em>
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1">
-                            Si vende $1.000.000 y su margen es 30%, significa que $700.000 se fueron en gastos y le quedaron $300.000 libres.
-                        </p>
+             {activeCrop === 'aguacate' && (
+                <div className="space-y-4">
+                    <h4 className="text-xl font-bold text-white">Gestión Aguacatera</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h5 className="font-bold text-blue-400 mb-2 flex items-center gap-2"><Package className="w-4 h-4"/> Insumos Foliares</h5>
+                            <p className="text-xs text-slate-400 mb-3">El aguacate requiere aplicaciones precisas. Use la calculadora de dosis.</p>
+                            {/* Mock UI */}
+                            <div className="bg-slate-900 p-3 rounded border border-slate-600 text-xs">
+                                <div className="mb-2"><span className="text-slate-500">Producto:</span> <span className="text-white">Fertilizante Foliar K</span></div>
+                                <div className="mb-2 flex justify-between">
+                                    <span>Salida:</span>
+                                    <span className="text-red-400 font-bold">- 2 Litros</span>
+                                </div>
+                                <div className="text-[10px] text-blue-400 mt-1">
+                                    * La app calcula el costo exacto basado en el precio de compra.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h5 className="font-bold text-yellow-500 mb-2 flex items-center gap-2"><Sprout className="w-4 h-4"/> Venta Exportación</h5>
+                            <p className="text-xs text-slate-400 mb-3">Registre ventas por calibres si es necesario en las notas.</p>
+                            {/* Mock UI */}
+                            <div className="bg-slate-900 p-3 rounded border border-slate-600 text-xs">
+                                <div className="mb-2"><span className="text-slate-500">Cultivo:</span> <span className="text-white">Aguacate Hass</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Cantidad:</span> <span className="text-white">2.5 Toneladas</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Valor Total:</span> <span className="text-emerald-400 font-bold font-mono">$ 12.500.000</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+             )}
 
-                <div className="mt-2 bg-slate-700/30 p-2 rounded border border-slate-600">
-                    <p className="text-xs text-slate-300">
-                        <MousePointerClick className="w-3 h-3 inline mr-1" />
-                        <strong>Consejo de Experto:</strong> Use el filtro de fechas para comparar su ROI en época de cosecha (debe ser alto) vs. época de sostenimiento (será negativo, y es normal). Lo importante es que el <strong>Anual</strong> sea positivo.
+             {activeCrop === 'platano' && (
+                <div className="space-y-4">
+                    <h4 className="text-xl font-bold text-white">Gestión Plátano / Banano</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h5 className="font-bold text-amber-500 mb-2 flex items-center gap-2"><Pickaxe className="w-4 h-4"/> Labores Culturales</h5>
+                            <p className="text-xs text-slate-400 mb-3">Deshije, Deshoje y Embolse son costos altos.</p>
+                            {/* Mock UI */}
+                            <div className="bg-slate-900 p-3 rounded border border-slate-600 text-xs">
+                                <div className="mb-2"><span className="text-slate-500">Labor:</span> <span className="text-white">Deshije y Plateo</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Lote:</span> <span className="text-purple-400">Lote El Río</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Valor:</span> <span className="text-white">$ 60.000 (Jornal)</span></div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h5 className="font-bold text-yellow-500 mb-2 flex items-center gap-2"><Sprout className="w-4 h-4"/> Venta Semanal</h5>
+                            <p className="text-xs text-slate-400 mb-3">El plátano da flujo de caja constante. Registre cada corte.</p>
+                            {/* Mock UI */}
+                            <div className="bg-slate-900 p-3 rounded border border-slate-600 text-xs">
+                                <div className="mb-2"><span className="text-slate-500">Producto:</span> <span className="text-white">Plátano Dominico</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Cantidad:</span> <span className="text-white">40 Canastillas</span></div>
+                                <div className="mb-2"><span className="text-slate-500">Total Venta:</span> <span className="text-emerald-400 font-bold">$ 1.200.000</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+             )}
+          </div>
+        );
+
+      case 'inventory':
+        return (
+            <div className="space-y-6 animate-fade-in">
+                <h4 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Calculator className="w-6 h-6 text-blue-400" />
+                    Matemática de Inventario
+                </h4>
+
+                <div className="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                    <h5 className="font-bold text-blue-300 mb-3">1. Conversión de Unidades Inteligente</h5>
+                    <div className="flex items-center gap-4 text-xs text-slate-300 bg-slate-900/50 p-4 rounded-lg">
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-white mb-1">1</div>
+                            <div className="uppercase font-bold text-blue-500">Bulto (50kg)</div>
+                        </div>
+                        <ArrowRight className="w-6 h-6 text-slate-500" />
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-white mb-1">50.000</div>
+                            <div className="uppercase font-bold text-emerald-500">Gramos</div>
+                        </div>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-400">
+                        La app guarda todo en gramos o mililitros internamente. Si usted gasta "200 gramos" de un bulto, el sistema descuenta exactamente esa fracción.
                     </p>
                 </div>
-            </div>
-          </section>
 
+                <div className="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                    <h5 className="font-bold text-purple-300 mb-3">2. Costo Promedio Ponderado</h5>
+                    <p className="text-sm text-slate-400 mb-4">
+                        Si compra insumos a diferentes precios, ¿cuál es el costo real? El sistema lo promedia.
+                    </p>
+                    {/* Visual Bar Graph CSS */}
+                    <div className="space-y-2 text-xs">
+                        <div className="flex items-center gap-2">
+                            <div className="w-20 text-right text-slate-400">Compra 1</div>
+                            <div className="flex-1 bg-blue-900/30 h-6 rounded relative overflow-hidden">
+                                <div className="absolute top-0 left-0 h-full bg-blue-500" style={{width: '60%'}}></div>
+                                <span className="absolute top-1 left-2 text-white font-bold drop-shadow-md">$40.000</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-20 text-right text-slate-400">Compra 2</div>
+                            <div className="flex-1 bg-blue-900/30 h-6 rounded relative overflow-hidden">
+                                <div className="absolute top-0 left-0 h-full bg-blue-400" style={{width: '80%'}}></div>
+                                <span className="absolute top-1 left-2 text-white font-bold drop-shadow-md">$50.000 (Más caro)</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-600">
+                            <div className="w-20 text-right text-purple-300 font-bold">PROMEDIO</div>
+                            <div className="flex-1 bg-purple-900/30 h-8 rounded relative overflow-hidden border border-purple-500">
+                                <div className="absolute top-0 left-0 h-full bg-purple-500" style={{width: '70%'}}></div>
+                                <span className="absolute top-2 left-2 text-white font-bold drop-shadow-md">$45.000 (Costo Real)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+      case 'analysis':
+        return (
+            <div className="space-y-6 animate-fade-in">
+                <h4 className="text-xl font-bold text-white flex items-center gap-2">
+                    <BarChart3 className="w-6 h-6 text-purple-400" />
+                    Interpretación de Ganancias (KPIs)
+                </h4>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                        <h5 className="font-bold text-emerald-400 mb-2">ROI (Retorno Inversión)</h5>
+                        <div className="h-32 flex items-end justify-center gap-4 bg-slate-900/50 rounded-lg p-4 border border-slate-800">
+                            {/* Visual Bars */}
+                            <div className="flex flex-col items-center gap-1 w-12">
+                                <div className="w-full bg-slate-600 h-16 rounded-t"></div>
+                                <span className="text-[9px] text-slate-400">Gasto</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 w-12">
+                                <div className="w-full bg-emerald-500 h-24 rounded-t relative">
+                                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-emerald-700 text-[9px] font-bold px-1 rounded">+20%</div>
+                                </div>
+                                <span className="text-[9px] text-emerald-400 font-bold">Venta</span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-3">
+                            Si el ROI es positivo (barras verdes más altas), usted está ganando dinero por cada peso invertido.
+                        </p>
+                    </div>
+
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                        <h5 className="font-bold text-blue-400 mb-2">Margen Neto</h5>
+                        <div className="relative h-32 bg-slate-900/50 rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+                            <div className="w-32 h-32 rounded-full border-8 border-slate-700 relative">
+                                <div className="absolute inset-0 rounded-full border-8 border-blue-500 border-t-transparent border-l-transparent transform rotate-45"></div>
+                                <div className="absolute inset-0 flex items-center justify-center flex-col">
+                                    <span className="text-2xl font-bold text-white">30%</span>
+                                    <span className="text-[8px] text-slate-400">LIBRE</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-3">
+                            Es el porcentaje de dinero que le queda limpio después de pagar trabajadores, insumos y mantenimiento.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 backdrop-blur-md p-2 animate-fade-in">
+      <div className="bg-slate-900 w-full max-w-5xl h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex overflow-hidden animate-slide-up">
+        
+        {/* Sidebar Navigation */}
+        <div className="w-20 md:w-64 bg-slate-950 border-r border-slate-800 flex flex-col flex-shrink-0">
+            <div className="p-4 border-b border-slate-800 flex items-center gap-3">
+                <BookOpen className="w-8 h-8 text-emerald-500" />
+                <span className="font-bold text-white hidden md:block">Manual Pro</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto py-4 space-y-1">
+                <button onClick={() => setActiveSection('intro')} className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'intro' ? 'bg-slate-800 border-r-4 border-emerald-500' : 'text-slate-400'}`}>
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="hidden md:block text-sm font-bold">Inicio y Flujo</span>
+                </button>
+                <button onClick={() => setActiveSection('crops')} className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'crops' ? 'bg-slate-800 border-r-4 border-emerald-500' : 'text-slate-400'}`}>
+                    <Sprout className="w-5 h-5" />
+                    <span className="hidden md:block text-sm font-bold">Casos por Cultivo</span>
+                </button>
+                <button onClick={() => setActiveSection('inventory')} className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'inventory' ? 'bg-slate-800 border-r-4 border-emerald-500' : 'text-slate-400'}`}>
+                    <Calculator className="w-5 h-5" />
+                    <span className="hidden md:block text-sm font-bold">Costos Insumos</span>
+                </button>
+                <button onClick={() => setActiveSection('analysis')} className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'analysis' ? 'bg-slate-800 border-r-4 border-emerald-500' : 'text-slate-400'}`}>
+                    <BarChart3 className="w-5 h-5" />
+                    <span className="hidden md:block text-sm font-bold">Análisis Financiero</span>
+                </button>
+            </div>
+
+            <div className="p-4 border-t border-slate-800">
+                <button onClick={generateManualPDF} className="w-full bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg flex flex-col md:flex-row items-center justify-center gap-2 text-xs font-bold transition-colors border border-slate-700">
+                    <Download className="w-4 h-4" />
+                    <span className="hidden md:block">Descargar PDF</span>
+                </button>
+            </div>
         </div>
 
-        {/* Footer */}
-        <div className="bg-slate-900 p-4 border-t border-slate-700 flex justify-between items-center">
-            <p className="text-[10px] text-slate-500">Desarrollado por Lucas Mateo Tabares Franco</p>
-            <button 
-                onClick={onClose}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors"
-            >
-                Entendido, ir a la App
-            </button>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col h-full bg-slate-900">
+             {/* Header Mobile/Desktop */}
+             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                 <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                    {activeSection === 'intro' && 'Introducción'}
+                    {activeSection === 'crops' && 'Guía Práctica por Cultivo'}
+                    {activeSection === 'inventory' && 'Cálculo de Costos'}
+                    {activeSection === 'analysis' && 'Indicadores de Rentabilidad'}
+                 </h3>
+                 <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors">
+                    <X className="w-5 h-5" />
+                 </button>
+             </div>
+
+             {/* Scrollable Content */}
+             <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+                 {renderContent()}
+             </div>
         </div>
 
       </div>

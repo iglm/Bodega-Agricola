@@ -638,3 +638,116 @@ export const generateGlobalReport = (data: AppState) => {
     addFooter(doc);
     doc.save(`Informe_Gerencial_Unificado_${new Date().toISOString().split('T')[0]}.pdf`);
 };
+
+// --- MANUAL PDF GENERATOR ---
+export const generateManualPDF = () => {
+    const doc = new jsPDF();
+    const currentDate = new Date();
+    
+    // Header
+    doc.setFillColor(6, 78, 59); // Emerald 900
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("AgroBodega Pro", 14, 20);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Manual de Usuario & Guía de Gestión", 200, 20, { align: 'right' });
+
+    let y = 40;
+    const pageWidth = 180;
+    const lineHeight = 5;
+
+    const addSectionTitle = (title: string) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFontSize(16);
+        doc.setTextColor(6, 78, 59); // Emerald
+        doc.setFont("helvetica", "bold");
+        doc.text(title, 14, y);
+        y += 8;
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(6, 78, 59);
+        doc.line(14, y-2, 100, y-2);
+        y += 5;
+    };
+
+    const addParagraph = (text: string) => {
+        doc.setFontSize(10);
+        doc.setTextColor(20, 20, 20);
+        doc.setFont("helvetica", "normal");
+        const splitText = doc.splitTextToSize(text, pageWidth);
+        if (y + splitText.length * lineHeight > 280) { doc.addPage(); y = 20; }
+        doc.text(splitText, 14, y);
+        y += splitText.length * lineHeight + 5;
+    };
+
+    const addBox = (title: string, text: string) => {
+        doc.setFontSize(10);
+        const splitText = doc.splitTextToSize(text, pageWidth - 10);
+        const boxHeight = splitText.length * lineHeight + 15;
+        
+        if (y + boxHeight > 280) { doc.addPage(); y = 20; }
+        
+        doc.setFillColor(240, 253, 244); // Light Green
+        doc.setDrawColor(22, 163, 74); // Green Border
+        doc.rect(14, y, pageWidth, boxHeight, 'FD');
+        
+        doc.setTextColor(22, 101, 52);
+        doc.setFont("helvetica", "bold");
+        doc.text(title, 19, y + 8);
+        
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "normal");
+        doc.text(splitText, 19, y + 14);
+        
+        y += boxHeight + 10;
+    };
+
+    // INTRO
+    addSectionTitle("Guía Técnica de Cultivos");
+    addParagraph("Este manual detalla el manejo administrativo para los cultivos principales soportados por AgroBodega Pro.");
+
+    // CULTIVO 1: CAFÉ
+    addSectionTitle("1. Cultivo de Café");
+    addParagraph("El manejo del café se divide en Recolección (Mano de obra variable) y Beneficio (Maquinaria).");
+    addBox("Recolección (Jornales)", 
+    "- En temporada, NO registre jornales por día. Use 'Valor Jornal' para el total pagado por kilos.\n" +
+    "- Ejemplo: 'Juan Pérez recogió 100kg a $850 el kilo'.\n" +
+    "- Valor a ingresar: $85.000.\n" +
+    "- Nota: '100kg recolección lote 1'.");
+    
+    // CULTIVO 2: AGUACATE
+    addSectionTitle("2. Cultivo de Aguacate Hass");
+    addParagraph("El aguacate requiere un control estricto de insumos foliares y ventas para exportación.");
+    addBox("Fertilización Foliar",
+    "- Use la calculadora de dosis en la app.\n" +
+    "- Ingrese el producto y la cantidad total gastada en la fumigada.\n" +
+    "- El sistema descontará automáticamente del inventario usando el costo promedio.");
+    addBox("Venta / Exportación",
+    "- Registre el ingreso total de la venta.\n" +
+    "- En notas, especifique si hubo rechazo o el porcentaje de calibres (Ej: 60% calibre 18).");
+
+    // CULTIVO 3: PLÁTANO
+    addSectionTitle("3. Cultivo de Plátano / Banano");
+    addParagraph("El flujo de caja es semanal. Es vital registrar cada corte para ver la rentabilidad real.");
+    addBox("Labores Culturales",
+    "- Deshije, Deshoje, Embolse.\n" +
+    "- Estas labores suelen pagarse por contrato o al día.\n" +
+    "- Registrelo en la pestaña 'Mano de Obra' seleccionando la labor correspondiente.");
+
+    // MODULE 4
+    addSectionTitle("4. Análisis Financiero (KPIs)");
+    addParagraph("Cómo leer los indicadores de la pestaña Reportes:");
+    
+    addBox("ROI (Retorno de Inversión)", 
+    "Responde a: '¿Por cada $1.000 pesos invertidos, cuántos recuperé?'\n" +
+    "ROI Positivo = Ganancia.\nROI Negativo = Pérdida.");
+
+    addBox("Margen Neto", 
+    "Porcentaje de ganancia libre después de gastos.\n" +
+    "Ejemplo: Si vende 1 millón y su margen es 30%, le quedaron $300.000 libres.");
+
+    addFooter(doc);
+    doc.save("Manual_AgroBodega_Pro_Cultivos.pdf");
+};

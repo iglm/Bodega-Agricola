@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { HarvestLog, CostCenter } from '../types';
 import { formatCurrency } from '../services/inventoryService';

@@ -24,7 +24,7 @@ import { PayrollModal } from './components/PayrollModal'; // New
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
 import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
-import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe, Tractor } from 'lucide-react';
+import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe, Tractor, HelpCircle } from 'lucide-react';
 
 function App() {
   const [view, setView] = useState<'landing' | 'app'>('landing');
@@ -423,6 +423,9 @@ function App() {
             </div>
 
             <div className="flex items-center gap-2">
+                <button onClick={() => setShowManual(true)} className="p-1.5 rounded-lg transition-colors bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800" title="Manual de Ayuda">
+                    <HelpCircle className="w-4 h-4" />
+                </button>
                 <button onClick={handleLock} className={`p-1.5 rounded-lg transition-colors border ${isAdminUnlocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-red-50 dark:bg-red-900/20 text-red-500 border-red-200 dark:border-red-800'}`}>
                     {isAdminUnlocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                 </button>

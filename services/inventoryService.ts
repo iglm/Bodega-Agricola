@@ -1,3 +1,4 @@
+
 import { InventoryItem, Movement, Unit, AppState, Warehouse } from '../types';
 
 const STORAGE_KEY = 'agrobodega_pro_data_v1';

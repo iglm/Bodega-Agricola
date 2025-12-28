@@ -120,13 +120,15 @@ export const StatsView: React.FC<StatsViewProps> = ({
       .map(([id, values]) => {
           const center = costCenters.find(c => c.id === id);
           const name = center ? center.name : (id === 'unknown' ? 'Gastos Generales / Sin Lote' : 'Lote Eliminado');
-          const area = center?.area;
+          const area = center?.area || 0;
           
           const totalLotCost = values.inventoryCost + values.laborCost;
           const lotProfit = values.income - totalLotCost;
-          const costPerHa = area && area > 0 ? totalLotCost / area : 0;
           
-          // Lote ROI
+          // Costo por Hectárea = Costo Total / Hectáreas
+          const costPerHa = area > 0 ? totalLotCost / area : 0;
+          
+          // Lote ROI = (Ganancia Lote / Costo Total Lote) * 100
           const lotRoi = totalLotCost > 0 ? (lotProfit / totalLotCost) * 100 : 0;
 
           return { 
@@ -231,7 +233,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
            <div className={`p-4 rounded-xl border ${financialSummary.roi >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'}`}>
                 <div className="flex items-center gap-2 mb-2">
                     <Target className={`w-4 h-4 ${financialSummary.roi >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
-                    <span className="text-xs font-bold uppercase text-slate-500">ROI (Retorno)</span>
+                    <span className="text-xs font-bold uppercase text-slate-500">ROI Global</span>
                 </div>
                 <div className="flex items-baseline gap-1">
                     <span className={`text-2xl font-bold font-mono ${financialSummary.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -241,9 +243,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     {financialSummary.roi < 0 && <TrendingDown className="w-4 h-4 text-red-500" />}
                 </div>
                 <p className="text-[10px] text-slate-400 leading-tight mt-1">
-                    {financialSummary.roi >= 0 
-                        ? 'Estás recuperando la inversión y generando valor.' 
-                        : 'Los costos superan a los ingresos en este periodo.'}
+                    Retorno total sobre la inversión de la finca.
                 </p>
            </div>
 
@@ -257,7 +257,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     {financialSummary.margin.toFixed(1)}%
                 </span>
                 <p className="text-[10px] text-slate-400 leading-tight mt-1">
-                    De cada $100 vendidos, te quedan ${financialSummary.margin.toFixed(0)} de utilidad real.
+                    Porcentaje de ganancia real sobre ventas totales.
                 </p>
            </div>
        </div>
@@ -311,18 +311,32 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </div>
                 ) : (
                     expensesByCenter.map((item, idx) => (
-                    <div key={idx} className="pb-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0 last:pb-0">
+                    <div key={idx} className="pb-3 border-b border-slate-100 dark:border-slate-700/50 last:border-0 last:pb-0">
                         
                         <div className="flex justify-between items-start mb-2">
                             <div>
-                                <span className="text-slate-800 dark:text-white font-bold text-base block">{item.name}</span>
-                                <div className="flex gap-2 mt-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-800 dark:text-white font-bold text-base block">{item.name}</span>
+                                    {item.area > 0 && <span className="text-[9px] text-slate-400 bg-slate-100 dark:bg-slate-700 px-1 rounded">{item.area} Ha</span>}
+                                </div>
+                                
+                                <div className="flex flex-wrap gap-2 mt-2">
                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.lotProfit >= 0 ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
                                         {item.lotProfit >= 0 ? 'Ganancia: ' : 'Pérdida: '} {formatCurrency(item.lotProfit)}
                                     </span>
+                                    
+                                    {/* ROI Badge */}
                                     {item.lotRoi !== 0 && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.lotRoi >= 0 ? 'text-emerald-500 border-emerald-500/30' : 'text-red-500 border-red-500/30'}`}>
-                                            ROI: {item.lotRoi.toFixed(0)}%
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.lotRoi >= 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' : 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'}`}>
+                                            ROI: {item.lotRoi.toFixed(1)}%
+                                        </span>
+                                    )}
+
+                                    {/* Cost Per Ha Badge */}
+                                    {item.costPerHa > 0 && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1">
+                                            <Ruler className="w-3 h-3" />
+                                            {formatCurrency(item.costPerHa)} / Ha
                                         </span>
                                     )}
                                 </div>
@@ -330,7 +344,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                         </div>
 
                         {/* Visual Bar: Income vs Expense */}
-                        <div className="relative h-6 bg-slate-100 dark:bg-slate-900 rounded-md overflow-hidden flex text-[10px] font-bold text-white items-center">
+                        <div className="relative h-6 bg-slate-100 dark:bg-slate-900 rounded-md overflow-hidden flex text-[10px] font-bold text-white items-center mt-2">
                             {/* Expense Bar */}
                             <div style={{ width: '50%' }} className="h-full bg-red-500/20 flex justify-end items-center pr-2 border-r border-slate-500/20">
                                 <span className="text-red-500">{formatCurrency(item.totalLotCost)}</span>
@@ -341,8 +355,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
                             </div>
                         </div>
                         <div className="flex justify-between text-[9px] text-slate-400 mt-1 px-1">
-                            <span>GASTOS</span>
-                            <span>INGRESOS</span>
+                            <span>GASTOS TOTALES</span>
+                            <span>INGRESOS TOTALES</span>
                         </div>
 
                     </div>
