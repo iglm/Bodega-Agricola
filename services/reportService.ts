@@ -22,35 +22,40 @@ const BRAND_COLORS = {
 const AUTHOR_NAME = "Lucas Mateo Tabares Franco";
 const CONTACT_EMAIL = "mateotabares7@gmail.com";
 
-// --- EXTENSIVE DUMMY DATA GENERATOR (12-MONTH REAL COFFEE CYCLE) ---
+// --- EXTENSIVE DUMMY DATA GENERATOR (12-MONTH REAL COFFEE CYCLE WITH RENOVATION) ---
 export const getCoffeeExampleData = (): AppState => {
     const id = "hacienda_real_demo";
     const warehouseId = id;
     
-    // --- 1. CONFIGURATION (AGRONOMIC DATA PROVIDED BY USER) ---
+    // --- 1. CONFIGURATION (AGRONOMIC DATA) ---
     // Costs
     const JORNAL_VALUE = 140000;
-    const FERTILIZER_PRICE_PER_BULTO = 130000; // 26-4-22
-    const HERBICIDE_PRICE_PER_LITER = 30000;
-    const INSECTICIDE_PRICE_PER_100CC = 100000; // 100cc costs 100k
+    const PICKING_PRICE_PER_KG_CHERRY = 1200; 
+    
+    // Supplies Costs
+    const FERTILIZER_PROD_PRICE = 130000; // 26-4-22 Production
+    const FERTILIZER_RENOV_PRICE = 160000; // DAP/High Phosphorus for Renovation
+    const HERBICIDE_PRICE = 30000;
+    const INSECTICIDE_PRICE = 100000;
+    
+    // Sales Prices
     const COFFEE_PRICE_PER_CARGA = 2800000;
-    const COFFEE_PRICE_PER_KG_CPS = COFFEE_PRICE_PER_CARGA / 125; // 22,400
+    const COFFEE_PRICE_PER_KG_CPS = COFFEE_PRICE_PER_CARGA / 125; 
+    const CHERRY_TO_CPS_RATIO = 5; 
     
-    // Production & Doses
-    const HECTARES_LOT_1 = 5; // Main production lot
-    const KG_FERT_PER_HA_YEAR = 1200; 
-    const HERBICIDE_DOSE_HA = 3; // Liters
-    const INSECTICIDE_DOSE_HA = 100; // cc (ml) per Ha
+    // Areas (80/20 Rule)
+    const HA_PRODUCTION = 4.0; // 80% Productive
+    const HA_RENOVATION = 1.0; // 20% Investment (Zoca/Renovation) - ONLY EXPENSES
     
-    // Labor Efficiency
-    const JORNALES_GUADANA_HA = 2;
-    const JORNALES_HERBICIDA_HA = 3;
-    const JORNALES_BROCA_HA = 3;
-
+    // Doses
+    const KG_FERT_PROD_YEAR = 1200; // kg/ha
+    const KG_FERT_RENOV_YEAR = 400; // Less qty, different formula
+    
     // 2. MASTER DATA
     const costCenters = [
-        { id: "c1", warehouseId, name: "Lote 1 - La Esperanza (Producción)", area: HECTARES_LOT_1, budget: 150000000 },
-        { id: "c2", warehouseId, name: "Infraestructura (Casa/Beneficio)", area: 0.5 }
+        { id: "c1", warehouseId, name: "Lote 1 - La Esperanza (Producción)", area: HA_PRODUCTION, budget: 150000000, description: "Café Variedad Castillo - Edad 4 años" },
+        { id: "c2", warehouseId, name: "Lote 2 - El Futuro (Renovación/Zoca)", area: HA_RENOVATION, budget: 25000000, description: "Zoca de 6 meses - Solo Inversión" },
+        { id: "c3", warehouseId, name: "Infraestructura (Casa/Beneficio)", area: 0.5 }
     ];
 
     const personnel = [
@@ -64,17 +69,18 @@ export const getCoffeeExampleData = (): AppState => {
     const activities = [
         { id: "a1", warehouseId, name: "Recolección Café (Kg)" },
         { id: "a2", warehouseId, name: "Desyerba (Guadaña)" },
-        { id: "a3", warehouseId, name: "Desyerba Química (Herbicida)" },
-        { id: "a4", warehouseId, name: "Fertilización Edáfica" },
-        { id: "a5", warehouseId, name: "Control Broca (Fumigación)" },
+        { id: "a3", warehouseId, name: "Fertilización Edáfica" },
+        { id: "a4", warehouseId, name: "Deschuponada / Poda" }, // Critical for Renovation
+        { id: "a5", warehouseId, name: "Control Broca" },
         { id: "a6", warehouseId, name: "Administración" }
     ];
 
     const inventory: InventoryItem[] = [
-        { id: "i1", warehouseId, name: "Fertilizante 26-4-22 (Producción)", category: Category.FERTILIZANTE, currentQuantity: 2500000, baseUnit: 'g', lastPurchasePrice: FERTILIZER_PRICE_PER_BULTO, lastPurchaseUnit: Unit.BULTO_50KG, averageCost: FERTILIZER_PRICE_PER_BULTO/50000 },
-        { id: "i2", warehouseId, name: "Herbicida MataMaleza", category: Category.HERBICIDA, currentQuantity: 20000, baseUnit: 'ml', lastPurchasePrice: HERBICIDE_PRICE_PER_LITER, lastPurchaseUnit: Unit.LITRO, averageCost: HERBICIDE_PRICE_PER_LITER/1000 },
-        { id: "i3", warehouseId, name: "Insecticida BrocaFin", category: Category.INSECTICIDA, currentQuantity: 1000, baseUnit: 'ml', lastPurchasePrice: INSECTICIDE_PRICE_PER_100CC, lastPurchaseUnit: Unit.MILILITRO, averageCost: INSECTICIDE_PRICE_PER_100CC/100 }, // High value per ml
-        { id: "i4", warehouseId, name: "Combustible (Gasolina)", category: Category.OTRO, currentQuantity: 15000, baseUnit: 'ml', lastPurchasePrice: 15000, lastPurchaseUnit: Unit.LITRO, averageCost: 15 }
+        { id: "i1", warehouseId, name: "Fertilizante 26-4-22 (Producción)", category: Category.FERTILIZANTE, currentQuantity: 1500000, baseUnit: 'g', lastPurchasePrice: FERTILIZER_PROD_PRICE, lastPurchaseUnit: Unit.BULTO_50KG, averageCost: FERTILIZER_PROD_PRICE/50000 },
+        { id: "i2", warehouseId, name: "DAP 18-46-0 (Renovación)", category: Category.FERTILIZANTE, currentQuantity: 200000, baseUnit: 'g', lastPurchasePrice: FERTILIZER_RENOV_PRICE, lastPurchaseUnit: Unit.BULTO_50KG, averageCost: FERTILIZER_RENOV_PRICE/50000 },
+        { id: "i3", warehouseId, name: "Herbicida MataMaleza", category: Category.HERBICIDA, currentQuantity: 20000, baseUnit: 'ml', lastPurchasePrice: HERBICIDE_PRICE, lastPurchaseUnit: Unit.LITRO, averageCost: HERBICIDE_PRICE/1000 },
+        { id: "i4", warehouseId, name: "Insecticida BrocaFin", category: Category.INSECTICIDA, currentQuantity: 1000, baseUnit: 'ml', lastPurchasePrice: INSECTICIDE_PRICE, lastPurchaseUnit: Unit.MILILITRO, averageCost: INSECTICIDE_PRICE/100 },
+        { id: "i5", warehouseId, name: "Combustible (Gasolina)", category: Category.OTRO, currentQuantity: 15000, baseUnit: 'ml', lastPurchasePrice: 15000, lastPurchaseUnit: Unit.LITRO, averageCost: 15 }
     ];
 
     const machines = [
@@ -91,198 +97,141 @@ export const getCoffeeExampleData = (): AppState => {
     const financeLogs: FinanceLog[] = [];
 
     const today = new Date();
-    
-    // Tracking monthly expenses for the 10% Admin Rule
     let currentMonthExpenses = 0;
-    let lastProcessedMonth = -1;
 
-    // We simulate backwards from today (Day 365 to 0)
-    // However, to calculate monthly totals correctly, we should probably iterate forward or grouping later.
-    // For simplicity, we'll iterate backwards and post-process the admin fees? 
-    // Better: Iterate Backwards, and at the 'change' of a month (which is the End of the previous month effectively), dump the admin fee.
-    
     for (let i = 0; i <= 365; i++) {
-        // Go forward in time to make monthly calc easier? No, let's stick to generating past data.
-        // Day 365 ago -> Day 0 (Today).
         const d = new Date(today);
-        d.setDate(today.getDate() - (365 - i)); // Start from 1 year ago
+        d.setDate(today.getDate() - (365 - i)); 
         const dateStr = d.toISOString().split('T')[0];
-        const month = d.getMonth(); // 0-11
+        const month = d.getMonth(); 
         const day = d.getDate();
         const isSunday = d.getDay() === 0;
 
         let dailyExpense = 0;
 
-        // --- A. WEATHER ---
+        // --- A. RAIN ---
         if ([3, 4, 9, 10].includes(month) && Math.random() > 0.3) {
             rainLogs.push({ id: `rain_${i}`, warehouseId, date: dateStr, millimeters: Math.floor(Math.random() * 40) + 5 });
-        } else if (Math.random() > 0.7) {
-            rainLogs.push({ id: `rain_${i}`, warehouseId, date: dateStr, millimeters: Math.floor(Math.random() * 15) });
         }
 
-        // --- B. WEEDING (DESYERBA) - Every 2 Months (Jan, Mar, May...) ---
-        // Frequency: 6 times a year. 
-        // Logic: Alternate between Guadaña (Even months) and Herbicida (Odd months of weeding)
-        // Weeding Months: 0, 2, 4, 6, 8, 10 (Jan, Mar, May, Jul, Sep, Nov)
-        if (day === 10 && (month % 2 === 0)) {
-            const isChemical = (month % 4 !== 0); // Alternate methods
+        // --- B. LOT 1 (PRODUCTION) ACTIVITIES ---
+        
+        // Fertilization Lot 1 (Mar & Sep)
+        if (day === 8 && (month === 2 || month === 8)) {
+            const kgNeeded = (KG_FERT_PROD_YEAR / 2) * HA_PRODUCTION; 
+            const bultos = kgNeeded / 50;
+            const cost = bultos * FERTILIZER_PROD_PRICE;
             
-            if (isChemical) {
-                // HERBICIDE METHOD
-                // 3 Liters/Ha * 5 Ha = 15 Liters
-                // 3 Jornales/Ha * 5 Ha = 15 Jornales
-                
-                const litersNeeded = HERBICIDE_DOSE_HA * HECTARES_LOT_1;
-                const costProduct = litersNeeded * HERBICIDE_PRICE_PER_LITER;
-                const laborCount = JORNALES_HERBICIDA_HA * HECTARES_LOT_1;
-                const costLabor = laborCount * JORNAL_VALUE;
-
-                movements.push({
-                    id: `mov_herb_${i}`, warehouseId, date: dateStr, type: 'OUT',
-                    itemId: 'i2', itemName: "Herbicida MataMaleza", quantity: litersNeeded, unit: Unit.LITRO,
-                    calculatedCost: costProduct, costCenterId: "c1", costCenterName: "Lote 1", notes: `Desyerba Química (${litersNeeded}L para ${HECTARES_LOT_1} Ha)`
-                });
-
-                laborLogs.push({
-                    id: `l_herb_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
-                    activityId: "a3", activityName: "Desyerba Química (Herbicida)", costCenterId: "c1", costCenterName: "Lote 1",
-                    value: costLabor, notes: `Contrato Aplicación (${laborCount} jornales)`, paid: true
-                });
-
-                dailyExpense += (costProduct + costLabor);
-
-            } else {
-                // MECHANICAL METHOD (GUADAÑA)
-                // 2 Jornales/Ha * 5 Ha = 10 Jornales
-                // + Gasolina (Approx 1 Galon/Ha -> 4L/Ha -> 20L total)
-                
-                const laborCount = JORNALES_GUADANA_HA * HECTARES_LOT_1;
-                const costLabor = laborCount * JORNAL_VALUE;
-                const fuelLiters = 4 * HECTARES_LOT_1;
-                const costFuel = fuelLiters * 15000;
-
-                laborLogs.push({
-                    id: `l_guad_${i}`, warehouseId, date: dateStr, personnelId: "p5", personnelName: "Pedro Diaz (Guadañador)",
-                    activityId: "a2", activityName: "Desyerba (Guadaña)", costCenterId: "c1", costCenterName: "Lote 1",
-                    value: costLabor, notes: `Guadañada General (${laborCount} jornales)`, paid: true
-                });
-
-                movements.push({
-                    id: `mov_fuel_${i}`, warehouseId, date: dateStr, type: 'OUT',
-                    itemId: 'i4', itemName: "Combustible (Gasolina)", quantity: fuelLiters, unit: Unit.LITRO,
-                    calculatedCost: costFuel, machineId: "m2", machineName: "Guadaña Stihl", notes: "Combustible Guadaña Lote 1"
-                });
-
-                dailyExpense += (costLabor + costFuel);
-            }
-        }
-
-        // --- C. BROCA CONTROL - Twice a Year (Feb & Aug) ---
-        if (day === 20 && (month === 1 || month === 7)) {
-            // 100cc/Ha * 5 Ha = 500cc
-            // 3 Jornales/Ha * 5 Ha = 15 Jornales
-            
-            const ccNeeded = INSECTICIDE_DOSE_HA * HECTARES_LOT_1; // 500
-            const costProduct = (ccNeeded / 100) * INSECTICIDE_PRICE_PER_100CC; // 5 * 100k = 500k
-            const laborCount = JORNALES_BROCA_HA * HECTARES_LOT_1; // 15
-            const costLabor = laborCount * JORNAL_VALUE; // 15 * 140k = 2.1M
-
             movements.push({
-                id: `mov_broca_${i}`, warehouseId, date: dateStr, type: 'OUT',
-                itemId: 'i3', itemName: "Insecticida BrocaFin", quantity: ccNeeded, unit: Unit.MILILITRO,
-                calculatedCost: costProduct, costCenterId: "c1", costCenterName: "Lote 1", notes: `Control Broca (${ccNeeded}cc en 1000L agua)`
+                id: `mov_fert_p_${i}`, warehouseId, date: dateStr, type: 'OUT',
+                itemId: 'i1', itemName: "Fertilizante 26-4-22 (Producción)", quantity: bultos, unit: Unit.BULTO_50KG,
+                calculatedCost: cost, costCenterId: "c1", costCenterName: "Lote 1 (Producción)", notes: `Abonada Semestral`
             });
-
             laborLogs.push({
-                id: `l_broca_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
-                activityId: "a5", activityName: "Control Broca (Fumigación)", costCenterId: "c1", costCenterName: "Lote 1",
-                value: costLabor, notes: `Fumigación Broca (${laborCount} jornales)`, paid: true
+                id: `l_fert_p_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
+                activityId: "a3", activityName: "Fertilización Edáfica", costCenterId: "c1", costCenterName: "Lote 1 (Producción)",
+                value: 1200000, notes: "Contrato Abonada Lote 1", paid: true
             });
-
-            dailyExpense += (costProduct + costLabor);
+            dailyExpense += (cost + 1200000);
         }
 
-        // --- D. FERTILIZATION (Mar & Sep) ---
-        if (day === 5 && (month === 2 || month === 8)) {
-            const kgNeeded = (KG_FERT_PER_HA_YEAR / 2) * HECTARES_LOT_1; // 600 * 5 = 3000kg
-            const bultos = kgNeeded / 50; // 60 Bultos
-            const costProduct = bultos * FERTILIZER_PRICE_PER_BULTO;
-            const laborCost = 1500000; // Contract value for application
-
-            movements.push({
-                id: `mov_fert_${i}`, warehouseId, date: dateStr, type: 'OUT',
-                itemId: 'i1', itemName: "Fertilizante 26-4-22", quantity: bultos, unit: Unit.BULTO_50KG,
-                calculatedCost: costProduct, costCenterId: "c1", costCenterName: "Lote 1", notes: `Fertilización Semestral (${bultos} bultos)`
-            });
-
-            laborLogs.push({
-                id: `l_fert_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
-                activityId: "a4", activityName: "Fertilización Edáfica", costCenterId: "c1", costCenterName: "Lote 1",
-                value: laborCost, notes: "Contrato Abonada", paid: true
-            });
-
-            dailyExpense += (costProduct + laborCost);
-        }
-
-        // --- E. HARVEST (Mitaca Apr-May, Main Oct-Dec) ---
+        // Harvest Lot 1 (Mitaca & Main)
         let harvestFactor = 0;
-        if ([9, 10, 11].includes(month)) harvestFactor = 0.7 / 90; // High peak
-        else if ([3, 4].includes(month)) harvestFactor = 0.3 / 60; // Mitaca
+        if ([9, 10, 11].includes(month)) harvestFactor = 0.7 / 90; 
+        else if ([3, 4].includes(month)) harvestFactor = 0.3 / 60; 
 
         if (harvestFactor > 0 && !isSunday && Math.random() > 0.2) {
-            // Production Calculation
-            const totalAnnualYield = 1800 * HECTARES_LOT_1; // 9000kg CPS
-            const dailyKgCPS = (totalAnnualYield * harvestFactor) * (0.8 + Math.random() * 0.4);
+            const annualYield = 1800 * HA_PRODUCTION; 
+            const dailyKgCPS = (annualYield * harvestFactor) * (0.8 + Math.random() * 0.4);
             const dailyRevenue = dailyKgCPS * COFFEE_PRICE_PER_KG_CPS;
-
-            // Harvest Labor Cost (Rule: ~50% of revenue goes to pickers/processing in specific harvest season context)
-            // Or strictly: User said "mano de obra para cosechar se utiliza un 50% de los gastos totales". 
-            // Usually pickers are paid per Kg Cherry. 1kg CPS = 5kg Cherry. 
-            // If revenue is 22,400/kg CPS. Cherry revenue equiv is ~4,500. 
-            // Picker pays ~800-1000. That's about 22%.
-            // BUT, user said 50% of TOTAL EXPENSES. This implies Harvest Labor is massive.
-            // Let's model it as a high per-kg cost to match the user's "50% rule".
-            // Let's say picking + processing + transport = 50% of the Revenue value roughly.
             
-            const dailyLaborCost = dailyRevenue * 0.45; // 45% of revenue is labor cost
+            const kgCherry = dailyKgCPS * CHERRY_TO_CPS_RATIO;
+            const pickingCost = kgCherry * PICKING_PRICE_PER_KG_CHERRY;
 
             harvests.push({
-                id: `h_${i}`, warehouseId, date: dateStr, costCenterId: "c1", costCenterName: "Lote 1",
+                id: `h_${i}`, warehouseId, date: dateStr, costCenterId: "c1", costCenterName: "Lote 1 (Producción)",
                 cropName: "Café Pergamino Seco", quantity: Math.round(dailyKgCPS), unit: "Kg",
-                totalValue: Math.round(dailyRevenue), notes: "Recolección diaria"
+                totalValue: Math.round(dailyRevenue), notes: "Recolección"
             });
 
             laborLogs.push({
-                id: `l_cosecha_${i}`, warehouseId, date: dateStr, personnelId: "p4", personnelName: "Cuadrilla Recolección #1",
-                activityId: "a1", activityName: "Recolección Café (Kg)", costCenterId: "c1", costCenterName: "Lote 1",
-                value: Math.round(dailyLaborCost), notes: `Pago recolección ${Math.round(dailyKgCPS*5)}kg cereza`, paid: true
+                id: `l_pick_${i}`, warehouseId, date: dateStr, personnelId: "p4", personnelName: "Cuadrilla Recolección #1",
+                activityId: "a1", activityName: "Recolección Café (Kg)", costCenterId: "c1", costCenterName: "Lote 1 (Producción)",
+                value: Math.round(pickingCost), notes: `Pago ${Math.round(kgCherry)}kg Cereza`, paid: true
             });
-
-            dailyExpense += dailyLaborCost;
+            dailyExpense += pickingCost;
         }
 
-        // --- TRACK EXPENSES ---
+        // --- C. LOT 2 (RENOVATION/ZOCA) ACTIVITIES ---
+        // Note: NO HARVEST HERE. Only Expenses.
+
+        // Fertilization Lot 2 (More frequent for growth? Let's say every 3 months)
+        if (day === 15 && (month % 3 === 0)) {
+            const kgNeeded = (KG_FERT_RENOV_YEAR / 4) * HA_RENOVATION; // Quarterly dose
+            const bultos = Math.max(1, Math.round(kgNeeded / 50)); 
+            const cost = bultos * FERTILIZER_RENOV_PRICE;
+
+            movements.push({
+                id: `mov_fert_r_${i}`, warehouseId, date: dateStr, type: 'OUT',
+                itemId: 'i2', itemName: "DAP 18-46-0 (Renovación)", quantity: bultos, unit: Unit.BULTO_50KG,
+                calculatedCost: cost, costCenterId: "c2", costCenterName: "Lote 2 (Renovación)", notes: `Abonada Crecimiento Zoca`
+            });
+            laborLogs.push({
+                id: `l_fert_r_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez (Contratista)",
+                activityId: "a3", activityName: "Fertilización Edáfica", costCenterId: "c2", costCenterName: "Lote 2 (Renovación)",
+                value: 150000, notes: "Jornal abonada zoca", paid: true
+            });
+            dailyExpense += (cost + 150000);
+        }
+
+        // "Deschuponada" (Selecting shoots) - Critical for Zoca
+        // Happens twice a year
+        if (day === 20 && (month === 1 || month === 7)) {
+            laborLogs.push({
+                id: `l_desch_${i}`, warehouseId, date: dateStr, personnelId: "p5", personnelName: "Pedro Diaz (Guadañador)",
+                activityId: "a4", activityName: "Deschuponada / Poda", costCenterId: "c2", costCenterName: "Lote 2 (Renovación)",
+                value: 280000, notes: "Selección de chupones (2 jornales)", paid: true
+            });
+            dailyExpense += 280000;
+        }
+
+        // Weeding (Both Lots)
+        if (day === 10 && (month % 2 === 0)) {
+            // Lot 1 (Production)
+            laborLogs.push({
+                id: `l_weed_1_${i}`, warehouseId, date: dateStr, personnelId: "p5", personnelName: "Pedro Diaz",
+                activityId: "a2", activityName: "Desyerba (Guadaña)", costCenterId: "c1", costCenterName: "Lote 1 (Producción)",
+                value: 300000, paid: true
+            });
+            
+            // Lot 2 (Renovation) - Needs more care, manual plateo usually
+            laborLogs.push({
+                id: `l_weed_2_${i}`, warehouseId, date: dateStr, personnelId: "p3", personnelName: "Jose Lopez",
+                activityId: "a2", activityName: "Desyerba (Guadaña)", costCenterId: "c2", costCenterName: "Lote 2 (Renovación)",
+                value: 140000, notes: "Plateo a mano zoca", paid: true
+            });
+            dailyExpense += 440000;
+        }
+
+        // --- TRACK EXPENSES & ADMIN ---
         currentMonthExpenses += dailyExpense;
 
-        // --- END OF MONTH: ADMIN EXPENSES (10% RULE) ---
-        // If tomorrow is a new month (or we hit end of loop), calc admin
         const tomorrow = new Date(d);
         tomorrow.setDate(d.getDate() + 1);
         if (tomorrow.getMonth() !== month || i === 365) {
             if (currentMonthExpenses > 0) {
-                const adminCost = currentMonthExpenses * 0.10; // 10% of total operational
-                
+                const adminCost = currentMonthExpenses * 0.10; 
                 financeLogs.push({
                     id: `fin_admin_${month}`, warehouseId, date: dateStr, type: 'EXPENSE', category: 'Administracion',
-                    amount: Math.round(adminCost), description: `Gastos Admin Mes ${month+1} (10% Operativo)`
+                    amount: Math.round(adminCost), description: `Gastos Admin Mes ${month+1} (10%)`
                 });
             }
-            currentMonthExpenses = 0; // Reset for next month
+            currentMonthExpenses = 0;
         }
     }
 
     return {
-        warehouses: [{ id: warehouseId, name: "Hacienda El Cafetal (MODELO EXPERTO)", created: new Date().toISOString() }],
+        warehouses: [{ id: warehouseId, name: "Hacienda El Cafetal (RENTA + ZOCA)", created: new Date().toISOString() }],
         activeWarehouseId: warehouseId,
         suppliers: [
             { id: "s1", warehouseId, name: "AgroInsumos del Centro" },
@@ -1106,6 +1055,19 @@ export const generateManualPDF = () => {
     const text3 = "Impuestos, servicios públicos, gasolina de gerencia, etc. Estos costos se prorratean automáticamente entre los lotes productivos según su área (si se define).";
     const splitText3 = doc.splitTextToSize(text3, 180);
     doc.text(splitText3, 14, y + 16);
+
+    // Page 5: Tips (New)
+    doc.addPage();
+    y = addHeader(doc, "TIPS DE EXPERTO", "Manejo de Inversión", "Manual Usuario");
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Manejo de Lotes Improductivos (Renovación/Zocas)", 14, y + 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const textTip = "En toda finca agrícola (especialmente Café), una parte del área siempre está en renovación (Zoca o Siembra Nueva). Estos lotes generan gastos pero CERO ingresos.\n\nPara manejarlos en AgroSuite 360:\n1. Cree un 'Destino' separado llamado 'Lote Renovación'.\n2. Asigne todos los gastos de siembra, fertilizante de arraigo y desyerbas a este lote.\n3. En los Reportes, verá que este lote tiene pérdidas. ESTO ES CORRECTO. Le permitirá saber cuánto le cuesta levantar una hectárea hasta producción.";
+    const splitTip = doc.splitTextToSize(textTip, 180);
+    doc.text(splitTip, 14, y + 16);
 
     addFooter(doc);
     doc.save("Manual_AgroSuite360.pdf");
