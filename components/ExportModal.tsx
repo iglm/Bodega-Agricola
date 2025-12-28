@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard, GraduationCap } from 'lucide-react';
 import { AppState } from '../types';
 import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate, getCoffeeExampleData } from '../services/reportService';
-import { processExcelImport, saveData } from '../services/inventoryService';
+import { processExcelImport } from '../services/inventoryService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -14,7 +14,9 @@ interface ExportModalProps {
   onExportHarvestPDF?: () => void;
   onExportMachineryPDF?: () => void;
   onClose: () => void;
-  fullData?: AppState; 
+  activeData?: AppState; // Data for the current farm (for reports)
+  globalState?: AppState; // Full application state (for imports/database ops)
+  onImportSuccess: (newState: AppState) => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
@@ -26,13 +28,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onExportHarvestPDF,
     onExportMachineryPDF,
     onClose,
-    fullData
+    activeData,
+    globalState,
+    onImportSuccess
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGlobalReport = () => {
-      if (fullData) {
-          generateGlobalReport(fullData);
+      if (activeData) {
+          generateGlobalReport(activeData);
           onClose();
       } else {
           alert("Datos no disponibles para reporte unificado.");
@@ -40,14 +44,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   const handleDownloadFieldTemplates = () => {
-      if (fullData) {
-          generateFieldTemplates(fullData, false);
+      if (activeData) {
+          generateFieldTemplates(activeData, false);
       }
   };
 
   const handleDownloadExcelTemplate = () => {
-      if (fullData) {
-        generateExcelImportTemplate(fullData, false);
+      if (activeData) {
+        generateExcelImportTemplate(activeData, false);
       }
   };
 
@@ -63,20 +67,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleUploadExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file || !fullData) return;
+      // Use globalState to ensure we don't overwrite other farms' data during import
+      const targetState = globalState || activeData; 
+      
+      if (!file || !targetState) return;
 
       if (!confirm("Se procesará el archivo Excel y se agregarán los nuevos registros a su base de datos. ¿Desea continuar?")) {
           if (fileInputRef.current) fileInputRef.current.value = '';
           return;
       }
 
-      processExcelImport(file, fullData).then(result => {
+      processExcelImport(file, targetState).then(result => {
           alert(result.message);
           if (result.success && result.newState) {
-              // We need to trigger a global state update. 
-              // Since this component doesn't have setState, we save to LocalStorage and reload page to reflect changes safely.
-              saveData(result.newState);
-              window.location.reload(); 
+              onImportSuccess(result.newState);
           }
           if (fileInputRef.current) fileInputRef.current.value = '';
       });
@@ -152,168 +156,70 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
             {/* SECTION: EXAMPLES (NEW) */}
             <div className="space-y-3 bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                <h4 className="text-sm font-bold text-blue-400 uppercase flex items-center gap-2 border-b border-blue-500/20 pb-2 mb-2">
-                    <GraduationCap className="w-4 h-4" /> Zona de Aprendizaje
+                <h4 className="text-sm font-bold text-blue-400 uppercase flex items-center gap-2 mb-2">
+                    <GraduationCap className="w-4 h-4" /> Ejemplos de Llenado
                 </h4>
                 <p className="text-[10px] text-slate-300 mb-2 leading-tight">
-                    ¿Dudas sobre cómo llenar las plantillas? Descargue ejemplos con datos ficticios de café.
+                    ¿No sabe cómo empezar? Descargue estos archivos con datos ficticios de una finca cafetera para entender cómo estructurar su información.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                     <button 
-                        onClick={handleDownloadExampleExcel}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-blue-500/50 transition-all group"
-                    >
-                        <span className="text-blue-400 font-bold text-[10px] text-center group-hover:text-white mb-1">Excel Relleno</span>
-                        <FileSpreadsheet className="w-4 h-4 text-slate-500 group-hover:text-blue-400" />
-                    </button>
-                    <button 
                         onClick={handleDownloadExamplePDF}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-blue-500/50 transition-all group"
+                        className="flex items-center justify-center gap-2 p-2 bg-slate-900/50 border border-slate-700 hover:border-blue-500 rounded-lg text-xs font-bold text-slate-300 transition-colors"
                     >
-                        <span className="text-blue-400 font-bold text-[10px] text-center group-hover:text-white mb-1">PDF Relleno</span>
-                        <FileText className="w-4 h-4 text-slate-500 group-hover:text-blue-400" />
+                        <FileText className="w-3 h-3 text-blue-400" /> PDF Ejemplo
+                    </button>
+                    <button 
+                        onClick={handleDownloadExampleExcel}
+                        className="flex items-center justify-center gap-2 p-2 bg-slate-900/50 border border-slate-700 hover:border-green-500 rounded-lg text-xs font-bold text-slate-300 transition-colors"
+                    >
+                        <FileSpreadsheet className="w-3 h-3 text-green-500" /> Excel Ejemplo
                     </button>
                 </div>
             </div>
 
-            {/* UNIFIED REPORT BUTTON */}
-            {fullData && (
-                <div>
-                    <button 
-                        onClick={handleGlobalReport}
-                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-900/40 hover:scale-[1.02] transition-transform group"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white/20 p-2 rounded-lg">
-                                <PieChart className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="text-left">
-                                <h4 className="text-white font-bold text-sm uppercase">Informe Gerencial Unificado</h4>
-                                <p className="text-blue-100 text-[10px]">Todo en uno (Finanzas, Lotes, Cosechas)</p>
-                            </div>
-                        </div>
-                        <FileText className="w-5 h-5 text-blue-200" />
-                    </button>
-                </div>
-            )}
-
-            <div className="border-t border-slate-700"></div>
-
-            {/* SECTION 1: INVENTORY */}
-            <div className="space-y-3">
-                <h4 className="text-xs font-bold text-emerald-400 uppercase flex items-center gap-2">
-                    <Download className="w-4 h-4" /> Inventario & Insumos
-                </h4>
+            {/* SECTION: EXPORTS */}
+            <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold text-slate-400 uppercase border-b border-slate-700 pb-1">Exportar Reportes Oficiales</h4>
+                
                 <div className="grid grid-cols-2 gap-3">
-                    {/* PDF Option */}
-                    <button 
-                        onClick={onExportPDF}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-red-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-red-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileText className="w-4 h-4 text-red-500" />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Reporte PDF</span>
+                    <button onClick={onExportPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <FileText className="w-5 h-5 text-emerald-400" />
+                        <span className="text-[10px] font-bold text-white">Inventario PDF</span>
+                    </button>
+                    
+                    <button onClick={onExportExcel} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                        <span className="text-[10px] font-bold text-white">Todo a Excel</span>
                     </button>
 
-                    {/* Excel Option */}
-                    <button 
-                        onClick={onExportExcel}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-emerald-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Excel Completo</span>
-                    </button>
-                </div>
-
-                {/* Order Generation */}
-                <button 
-                    onClick={onGenerateOrder}
-                    className="w-full flex items-center justify-between p-3 bg-blue-900/20 border border-blue-500/30 rounded-xl hover:bg-blue-900/40 hover:border-blue-500/60 transition-all group"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                             <ShoppingCart className="w-4 h-4 text-blue-400" />
-                        </div>
-                        <div className="text-left">
-                            <h4 className="text-white font-bold text-xs">Pedido Sugerido</h4>
-                            <p className="text-xs text-slate-400">Items en stock bajo</p>
-                        </div>
-                    </div>
-                </button>
-            </div>
-
-            <div className="border-t border-slate-700"></div>
-
-            {/* SECTION 2: PRODUCTION & MACHINERY (NEW) */}
-            <div className="space-y-3">
-                <h4 className="text-xs font-bold text-yellow-400 uppercase flex items-center gap-2">
-                    <Sprout className="w-4 h-4" /> Producción y Maquinaria
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                     {/* Harvest PDF */}
-                     <button 
-                        onClick={onExportHarvestPDF}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-yellow-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-yellow-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <Sprout className="w-4 h-4 text-yellow-500" />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Cosechas (PDF)</span>
+                    <button onClick={onGenerateOrder} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <ShoppingCart className="w-5 h-5 text-red-400" />
+                        <span className="text-[10px] font-bold text-white">Pedido Sugerido</span>
                     </button>
 
-                    {/* Machinery PDF */}
-                    <button 
-                        onClick={onExportMachineryPDF}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-orange-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-orange-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <Tractor className="w-4 h-4 text-orange-500" />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Maquinaria (PDF)</span>
+                    <button onClick={handleGlobalReport} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <PieChart className="w-5 h-5 text-purple-400" />
+                        <span className="text-[10px] font-bold text-white">Informe Gerencial</span>
+                    </button>
+
+                    <button onClick={onExportLaborPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <Pickaxe className="w-5 h-5 text-amber-400" />
+                        <span className="text-[10px] font-bold text-white">Jornales PDF</span>
+                    </button>
+
+                    <button onClick={onExportHarvestPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <Sprout className="w-5 h-5 text-yellow-400" />
+                        <span className="text-[10px] font-bold text-white">Cosechas PDF</span>
+                    </button>
+
+                    <button onClick={onExportMachineryPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
+                        <Tractor className="w-5 h-5 text-orange-400" />
+                        <span className="text-[10px] font-bold text-white">Maquinaria PDF</span>
                     </button>
                 </div>
             </div>
 
-            <div className="border-t border-slate-700"></div>
-
-            {/* SECTION 3: LABOR */}
-            <div className="space-y-3">
-                <h4 className="text-xs font-bold text-amber-400 uppercase flex items-center gap-2">
-                    <Pickaxe className="w-4 h-4" /> Mano de Obra
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                    {/* Labor PDF */}
-                    <button 
-                        onClick={onExportLaborPDF}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-red-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-red-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileText className="w-4 h-4 text-red-500" />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Reporte PDF</span>
-                    </button>
-
-                    {/* Labor Excel */}
-                    <button 
-                        onClick={onExportLaborExcel}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-emerald-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <span className="text-slate-300 group-hover:text-white font-bold text-[10px]">Excel Completo</span>
-                    </button>
-                </div>
-            </div>
-            
-             <div className="mt-2 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
-                 <p className="text-[10px] text-slate-500 text-center">
-                     Los reportes se generan y descargan localmente en su dispositivo.
-                 </p>
-             </div>
         </div>
       </div>
     </div>

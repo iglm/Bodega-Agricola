@@ -593,7 +593,9 @@ function App() {
             onExportLaborExcel={() => { generateLaborExcel(getExportData()); setShowExport(false); }}
             onExportHarvestPDF={() => { generateHarvestPDF(getExportData()); setShowExport(false); }}
             onExportMachineryPDF={() => { generateMachineryPDF(getExportData()); setShowExport(false); }}
-            fullData={getExportData()}
+            activeData={getExportData()}
+            globalState={data}
+            onImportSuccess={handleRestoreData}
         />
       )}
       {historyModalItem && <HistoryModal item={historyModalItem} movements={activeMovements.filter(m => m.itemId === historyModalItem.id)} onClose={() => setHistoryModalItem(null)} />}
