@@ -2,6 +2,7 @@
   "name": "AgroSuite 360",
   "description": "Sistema integral de gestión agrícola: Inventario, Nómina, Maquinaria y Producción. Desarrollado por Lucas Mateo Tabares Franco.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone"
   ]
 }
