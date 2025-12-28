@@ -1,6 +1,6 @@
 
-import React, { useRef } from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard, GraduationCap } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard, GraduationCap, Loader2 } from 'lucide-react';
 import { AppState } from '../types';
 import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate, getCoffeeExampleData } from '../services/reportService';
 import { processExcelImport } from '../services/inventoryService';
@@ -33,6 +33,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onImportSuccess
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleGlobalReport = () => {
       if (activeData) {
@@ -65,7 +66,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       generateFieldTemplates(exampleData, true);
   };
 
-  const handleUploadExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       // Use globalState to ensure we don't overwrite other farms' data during import
       const targetState = globalState || activeData; 
@@ -77,13 +78,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           return;
       }
 
-      processExcelImport(file, targetState).then(result => {
-          alert(result.message);
-          if (result.success && result.newState) {
-              onImportSuccess(result.newState);
-          }
-          if (fileInputRef.current) fileInputRef.current.value = '';
-      });
+      setIsImporting(true);
+
+      try {
+        const result = await processExcelImport(file, targetState);
+        alert(result.message);
+        if (result.success && result.newState) {
+            onImportSuccess(result.newState);
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+        alert("Error inesperado al cargar el archivo. Intente nuevamente.");
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
   };
 
   return (
@@ -145,15 +154,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
                 </div>
 
-                <label className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer group mt-2 shadow-sm hover:shadow-md">
-                    <Upload className="w-4 h-4 group-hover:animate-bounce" />
-                    Subir Excel Diligenciado
+                <label className={`w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer group mt-2 shadow-sm hover:shadow-md ${isImporting ? 'opacity-50 cursor-wait' : ''}`}>
+                    {isImporting ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Procesando Archivo...
+                        </>
+                    ) : (
+                        <>
+                            <Upload className="w-4 h-4 group-hover:animate-bounce" />
+                            Subir Excel Diligenciado
+                        </>
+                    )}
                     <input 
                         ref={fileInputRef}
                         type="file" 
                         accept=".xlsx, .xls"
                         onChange={handleUploadExcel}
                         className="hidden" 
+                        disabled={isImporting}
                     />
                 </label>
             </div>

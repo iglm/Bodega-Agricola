@@ -98,10 +98,24 @@ const parseExcelDate = (excelDate: any): string => {
 export const processExcelImport = async (file: File, currentState: AppState): Promise<{ success: boolean, message: string, newState?: AppState }> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
+    
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        if (!data) throw new Error("No data read from file");
+
+        // Safely get XLSX functions handling potential ESM default export issues
+        // @ts-ignore
+        const readFn = XLSX.read || XLSX.default?.read;
+        // @ts-ignore
+        const utilsFn = XLSX.utils || XLSX.default?.utils;
+
+        if (!readFn || !utilsFn) {
+            throw new Error("Librería de Excel no inicializada correctamente. Intente recargar la página.");
+        }
+
+        // Use 'array' type for robustness with binary files (.xlsx)
+        const workbook = readFn(data, { type: 'array' });
         
         let newState = { ...currentState };
         let logsAdded = 0;
@@ -116,10 +130,10 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
         };
 
         // 1. JORNALES_NOMINA
-        const laborSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('jornales'));
+        const laborSheet = workbook.SheetNames.find((n: string) => n.toLowerCase().includes('jornales'));
         if (laborSheet) {
-          const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[laborSheet]);
-          rows.forEach((row, index) => {
+          const rows = utilsFn.sheet_to_json(workbook.Sheets[laborSheet]) as any[];
+          rows.forEach((row: any, index: number) => {
              if (row.Trabajador?.toString().includes("EJEMPLO")) return; // Skip example
 
              const person = findId(newState.personnel, row.Trabajador);
@@ -149,10 +163,10 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
         }
 
         // 2. COSECHAS
-        const harvestSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('cosechas'));
+        const harvestSheet = workbook.SheetNames.find((n: string) => n.toLowerCase().includes('cosechas'));
         if (harvestSheet) {
-           const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[harvestSheet]);
-           rows.forEach(row => {
+           const rows = utilsFn.sheet_to_json(workbook.Sheets[harvestSheet]) as any[];
+           rows.forEach((row: any) => {
               if (row.Lote?.toString().includes("Lote 1")) return; 
               const lot = findId(newState.costCenters, row.Lote);
               if (lot) {
@@ -176,10 +190,10 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
         }
 
         // 3. MOVIMIENTOS
-        const movSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('inventario'));
+        const movSheet = workbook.SheetNames.find((n: string) => n.toLowerCase().includes('inventario'));
         if (movSheet) {
-            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[movSheet]);
-            rows.forEach(row => {
+            const rows = utilsFn.sheet_to_json(workbook.Sheets[movSheet]) as any[];
+            rows.forEach((row: any) => {
                 if (row.Producto?.toString().includes("Urea")) return;
                 
                 const item = findId(newState.inventory, row.Producto);
@@ -219,10 +233,10 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
         }
 
         // 4. MAQUINARIA
-        const machSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('maquinaria'));
+        const machSheet = workbook.SheetNames.find((n: string) => n.toLowerCase().includes('maquinaria'));
         if (machSheet) {
-            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[machSheet]);
-            rows.forEach(row => {
+            const rows = utilsFn.sheet_to_json(workbook.Sheets[machSheet]) as any[];
+            rows.forEach((row: any) => {
                 if(row.Maquina?.toString().includes("Tractor")) return;
                 const mach = findId(newState.machines, row.Maquina);
                 if (mach) {
@@ -244,10 +258,10 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
         }
 
         // 5. LLUVIAS
-        const rainSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('lluvias'));
+        const rainSheet = workbook.SheetNames.find((n: string) => n.toLowerCase().includes('lluvias'));
         if (rainSheet) {
-            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[rainSheet]);
-            rows.forEach(row => {
+            const rows = utilsFn.sheet_to_json(workbook.Sheets[rainSheet]) as any[];
+            rows.forEach((row: any) => {
                 if(!row.Milimetros) return;
                 newState.rainLogs = [...newState.rainLogs, {
                     id: crypto.randomUUID(),
@@ -261,10 +275,10 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
         }
 
         // 6. FINANZAS
-        const finSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('gastos'));
+        const finSheet = workbook.SheetNames.find((n: string) => n.toLowerCase().includes('gastos'));
         if (finSheet) {
-            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[finSheet]);
-            rows.forEach(row => {
+            const rows = utilsFn.sheet_to_json(workbook.Sheets[finSheet]) as any[];
+            rows.forEach((row: any) => {
                 if(!row.Monto) return;
                 const type = row.Tipo && row.Tipo.toUpperCase().includes('INGRESO') ? 'INCOME' : 'EXPENSE';
                 newState.financeLogs = [...newState.financeLogs, {
@@ -291,15 +305,22 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
             newState 
           });
         } else {
-          resolve({ success: false, message: "No se encontraron datos nuevos válidos. Asegúrese de que los nombres en el Excel sean IDÉNTICOS a los creados en la App." });
+          resolve({ success: false, message: "No se encontraron datos nuevos válidos en el archivo. Asegúrese de usar la plantilla correcta y que los nombres coincidan." });
         }
 
-      } catch (err) {
-        console.error(err);
-        resolve({ success: false, message: "Error crítico: El archivo no tiene el formato correcto. Use la plantilla descargada." });
+      } catch (err: any) {
+        console.error("Excel Read Error:", err);
+        resolve({ success: false, message: `Error crítico al leer el archivo: ${err.message || 'Formato desconocido'}` });
       }
     };
-    reader.readAsBinaryString(file);
+
+    reader.onerror = (err) => {
+        console.error("FileReader Error:", err);
+        resolve({ success: false, message: "Error del navegador al leer el archivo. Intente de nuevo." });
+    };
+
+    // Use readAsArrayBuffer for better binary file support in modern browsers
+    reader.readAsArrayBuffer(file);
   });
 };
 
