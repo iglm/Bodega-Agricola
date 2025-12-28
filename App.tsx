@@ -20,10 +20,12 @@ import { HarvestView } from './components/HarvestView';
 import { ManagementView } from './components/ManagementView'; 
 import { FinanceView } from './components/FinanceView'; 
 import { PayrollModal } from './components/PayrollModal';
+import { AIAssistant } from './components/AIAssistant'; // IMPORT AI
 
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog, FinanceLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
 import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
+import { ParsedCommand } from './services/aiService'; // IMPORT AI TYPES
 import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Pickaxe, Tractor, HelpCircle, Globe, Landmark, FileSpreadsheet } from 'lucide-react';
 
 function App() {
@@ -116,7 +118,6 @@ function App() {
   }, [data, view]);
 
   // --- MULTI-FARM DATA ISOLATION ---
-  // We filter EVERYTHING by the activeWarehouseId (Farm ID)
   const activeId = data.activeWarehouseId;
 
   const activeInventory = useMemo(() => data.inventory.filter(i => i.warehouseId === activeId), [data.inventory, activeId]);
@@ -160,15 +161,11 @@ function App() {
       setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }));
   };
 
-  // --- NEW: Convert Planned Task to Actual Logs (Multi-Creation) ---
   const handleConvertEvent = (event: AgendaEvent, laborValue: number, machineValue?: number) => {
       const todayDate = new Date().toISOString().split('T')[0];
-      
       const updates: Partial<AppState> = {
           agenda: data.agenda.map(a => a.id === event.id ? { ...a, completed: true } : a)
       };
-
-      // 1. Create Labor Log
       if (event.personnelId && event.costCenterId && event.activityId) {
           const newLaborLog: LaborLog = {
               id: crypto.randomUUID(),
@@ -186,21 +183,18 @@ function App() {
           };
           updates.laborLogs = [...data.laborLogs, newLaborLog];
       }
-
-      // 2. Create Machine Log (Optional)
       if (event.machineId && machineValue && machineValue > 0) {
           const newMaintLog: MaintenanceLog = {
               id: crypto.randomUUID(),
               warehouseId: activeId,
               machineId: event.machineId,
               date: todayDate,
-              type: 'Combustible', // Default assumption for task execution
+              type: 'Combustible', 
               cost: machineValue,
               description: `Uso en labor: ${event.activityName || 'Trabajo'} en ${event.costCenterName || 'Campo'}`
           };
           updates.maintenanceLogs = [...data.maintenanceLogs, newMaintLog];
       }
-
       setData(prev => ({ ...prev, ...updates }));
   };
 
@@ -228,7 +222,6 @@ function App() {
       setData(prev => ({ ...prev, financeLogs: (prev.financeLogs || []).filter(f => f.id !== id) }));
   };
 
-  // MULTI-FARM Management
   const handleCreateWarehouse = (name: string) => {
     const newId = crypto.randomUUID();
     const newWarehouse: Warehouse = { id: newId, name, created: new Date().toISOString() };
@@ -287,7 +280,6 @@ function App() {
     const activeExists = safeData.warehouses.find(w => w.id === safeData.activeWarehouseId);
     if (!activeExists) safeData.activeWarehouseId = safeData.warehouses[0].id;
 
-    // Ensure migration checks on restore
     if (!safeData.activities) safeData.activities = [];
     if (!safeData.laborLogs) safeData.laborLogs = [];
     if (!safeData.harvests) safeData.harvests = [];
@@ -438,16 +430,64 @@ function App() {
     handleAddMovement({ itemId: item.id, itemName: item.name, type, quantity: diffInPurchaseUnits, unit: item.lastPurchaseUnit, calculatedCost: 0, notes }, type === 'IN' ? costPerPurchaseUnit : undefined);
   };
 
+  // --- AI COMMAND EXECUTOR ---
+  const handleAICommand = (cmd: ParsedCommand) => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      switch(cmd.action) {
+          case 'ADD_LABOR': {
+              const { personName, activityName, lotName, value } = cmd.data;
+              const person = activePersonnel.find(p => p.name.includes(personName)) || activePersonnel[0];
+              const act = activeActivities.find(a => a.name.includes(activityName)) || activeActivities[0];
+              const lot = activeCostCenters.find(c => c.name.includes(lotName)) || activeCostCenters[0];
+              
+              if(person && act && lot) {
+                  handleAddLaborLog({
+                      date: today,
+                      personnelId: person.id,
+                      personnelName: person.name,
+                      activityId: act.id,
+                      activityName: act.name,
+                      costCenterId: lot.id,
+                      costCenterName: lot.name,
+                      value: value || 0,
+                      notes: 'Registro Automático vía IA'
+                  });
+              }
+              break;
+          }
+          case 'ADD_MOVEMENT_OUT': {
+              const { itemName, quantity, lotName } = cmd.data;
+              const item = activeInventory.find(i => i.name.toLowerCase().includes(itemName.toLowerCase()));
+              const lot = activeCostCenters.find(c => c.name.includes(lotName));
+              
+              if(item) {
+                  handleAddMovement({
+                      itemId: item.id,
+                      itemName: item.name,
+                      type: 'OUT',
+                      quantity: quantity || 1,
+                      unit: item.lastPurchaseUnit,
+                      calculatedCost: 0, // Recalc in handler
+                      costCenterId: lot?.id,
+                      costCenterName: lot?.name,
+                      notes: 'Salida Automática vía IA'
+                  });
+              }
+              break;
+          }
+          // Note: Implementing minimal set for brevity. Extend for Harvests/Entires.
+      }
+  };
+
   // Export Data should only include current farm
   const getExportData = (): AppState => ({ 
       ...data, 
-      // Master Data (Filtered for specific export)
       suppliers: activeSuppliers,
       costCenters: activeCostCenters,
       personnel: activePersonnel,
       activities: activeActivities,
       machines: activeMachines,
-      // Transaction Data (Filtered)
       inventory: activeInventory, 
       movements: activeMovements,
       laborLogs: activeLaborLogs,
@@ -592,7 +632,7 @@ function App() {
                 onAddEvent={handleAddAgenda}
                 onToggleEvent={handleToggleAgenda}
                 onDeleteEvent={handleDeleteAgenda}
-                onConvertEvent={handleConvertEvent} // New Prop
+                onConvertEvent={handleConvertEvent}
                 onAddMachine={handleAddMachine}
                 onAddMaintenance={handleAddMaintenance}
                 onDeleteMachine={handleDeleteMachine}
@@ -629,6 +669,9 @@ function App() {
             <Plus className="w-8 h-8" />
         </button>
       )}
+
+      {/* FLOATING AI ASSISTANT */}
+      <AIAssistant data={getExportData()} onExecuteCommand={handleAICommand} />
 
       {showAddForm && <InventoryForm suppliers={activeSuppliers} onSave={handleAddItem} onCancel={() => setShowAddForm(false)} />}
       {showLaborForm && <LaborForm personnel={activePersonnel} costCenters={activeCostCenters} activities={activeActivities} onSave={handleAddLaborLog} onCancel={() => setShowLaborForm(false)} onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} />}
