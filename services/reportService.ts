@@ -617,36 +617,86 @@ export const generateExcelImportTemplate = (data: AppState, prefillData: boolean
 export const generatePDF = (data: AppState) => {
   const doc = new jsPDF();
   const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
-  
-  let y = addHeader(doc, "REPORTE DE INVENTARIO", "Estado actual de Bodega", activeWarehouseName);
+  const currentDate = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  // Attractive Header using Brand Colors
+  let y = addHeader(doc, "REPORTE DE INVENTARIO", `Generado el ${currentDate}`, activeWarehouseName, BRAND_COLORS.primary);
+
+  // Summary Metrics Section
+  const totalValue = data.inventory.reduce((acc, item) => acc + (item.currentQuantity * getCostPerGramOrMl(item)), 0);
+  const lowStockCount = data.inventory.filter(i => i.minStock && i.currentQuantity <= i.minStock).length;
+
+  // Draw a summary panel
+  doc.setFillColor(...BRAND_COLORS.light);
+  doc.roundedRect(14, y, 182, 22, 3, 3, 'F');
+  
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND_COLORS.primary);
+  doc.setFont("helvetica", "bold");
+  doc.text("VALOR TOTAL ESTIMADO EN BODEGA:", 20, y + 10);
+  doc.setFontSize(15);
+  doc.setTextColor(...BRAND_COLORS.slate);
+  doc.text(formatCurrency(totalValue), 20, y + 17);
+  
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.setFont("helvetica", "normal");
+  doc.text("Alertas de Stock:", 150, y + 10);
+  doc.setTextColor(lowStockCount > 0 ? [220, 38, 38] : BRAND_COLORS.primary);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${lowStockCount} PRODUCTOS`, 150, y + 16);
+  
+  y += 32;
+
+  // Prepare Table Data
   const inventoryData = data.inventory.map(item => {
-    const totalValue = item.currentQuantity * getCostPerGramOrMl(item);
+    const itemTotal = item.currentQuantity * getCostPerGramOrMl(item);
+    const isLow = item.minStock && item.currentQuantity <= item.minStock;
     return [
       item.name,
       item.category,
-      `${formatBaseQuantity(item.currentQuantity, item.baseUnit)}`,
-      formatCurrency(totalValue)
+      formatBaseQuantity(item.currentQuantity, item.baseUnit),
+      formatCurrency(itemTotal),
+      isLow ? 'RECOMPRA' : 'ESTABLE'
     ];
   });
 
+  // Table Generation
   autoTable(doc, {
-    startY: y + 5,
-    head: [['Producto', 'Categoría', 'Stock Actual', 'Valor Est.']],
+    startY: y,
+    head: [['Producto', 'Categoría', 'Stock Actual', 'Valor Est.', 'Estado']],
     body: inventoryData,
-    theme: 'striped',
-    headStyles: { fillColor: BRAND_COLORS.primary }
+    theme: 'grid',
+    styles: { 
+        fontSize: 9, 
+        cellPadding: 3,
+        valign: 'middle'
+    },
+    headStyles: { 
+        fillColor: BRAND_COLORS.primary,
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+    },
+    columnStyles: {
+        2: { halign: 'right' },
+        3: { halign: 'right', fontStyle: 'bold' },
+        4: { halign: 'center' }
+    },
+    didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 4) {
+            if (data.cell.text[0] === 'RECOMPRA') {
+                data.cell.styles.textColor = [220, 38, 38]; // Red
+                data.cell.styles.fontStyle = 'bold';
+            } else {
+                data.cell.styles.textColor = BRAND_COLORS.primary;
+            }
+        }
+    }
   });
 
-  const totalWarehouseValue = data.inventory.reduce((acc, item) => acc + (item.currentQuantity * getCostPerGramOrMl(item)), 0);
-  
-  let finalY = (doc as any).lastAutoTable.finalY + 10;
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Valor Total Bodega: ${formatCurrency(totalWarehouseValue)}`, 14, finalY);
-
   addFooter(doc);
-  doc.save(`Inventario_${activeWarehouseName}.pdf`);
+  doc.save(`Inventario_${activeWarehouseName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
 export const generateOrderPDF = (data: AppState) => {

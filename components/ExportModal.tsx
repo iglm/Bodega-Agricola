@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock } from 'lucide-react';
 import { AppState } from '../types';
 import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate, getCoffeeExampleData } from '../services/reportService';
 
@@ -13,9 +13,9 @@ interface ExportModalProps {
   onExportHarvestPDF?: () => void;
   onExportMachineryPDF?: () => void;
   onClose: () => void;
-  activeData?: AppState; // Data for the current farm (for reports)
-  globalState?: AppState; // Full application state (for imports/database ops)
-  onImportSuccess: (newState: AppState) => void;
+  activeData?: AppState; 
+  onShowSupport: () => void;
+  isSupporter?: boolean;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
@@ -28,37 +28,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onExportMachineryPDF,
     onClose,
     activeData,
+    onShowSupport,
+    isSupporter
 }) => {
 
-  const handleGlobalReport = () => {
-      if (activeData) {
-          generateGlobalReport(activeData);
-          onClose();
+  const handleProAction = (action: () => void) => {
+      if (isSupporter) {
+          action();
       } else {
-          alert("Datos no disponibles para reporte unificado.");
+          onShowSupport();
       }
-  };
-
-  const handleDownloadFieldTemplates = () => {
-      if (activeData) {
-          generateFieldTemplates(activeData, false);
-      }
-  };
-
-  const handleDownloadExcelTemplate = () => {
-      if (activeData) {
-        generateExcelImportTemplate(activeData, false);
-      }
-  };
-
-  const handleDownloadExampleExcel = () => {
-      const exampleData = getCoffeeExampleData();
-      generateExcelImportTemplate(exampleData, true);
-  };
-
-  const handleDownloadExamplePDF = () => {
-      const exampleData = getCoffeeExampleData();
-      generateFieldTemplates(exampleData, true);
   };
 
   return (
@@ -67,10 +46,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         
         {/* Header */}
         <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 p-6 relative flex-shrink-0">
-          <button 
-            onClick={onClose} 
-            className="absolute top-4 right-4 text-emerald-200/70 hover:text-white transition-colors"
-          >
+          <button onClick={onClose} className="absolute top-4 right-4 text-emerald-200/70 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
           
@@ -79,112 +55,100 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <Download className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Centro de Gestión</h3>
-              <p className="text-emerald-100/80 text-xs mt-0.5">
-                  Exportando datos de: <strong>{activeData?.warehouses.find(w => w.id === activeData.activeWarehouseId)?.name || 'Finca Actual'}</strong>
-              </p>
+              <h3 className="text-xl font-bold text-white">Centro de Reportes</h3>
+              <p className="text-emerald-100/80 text-xs mt-0.5">Gestión Documental de Finca</p>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar bg-slate-900/30">
             
-            {/* SECTION: FIELD WORK (OFFLINE) */}
-            <div className="space-y-3 bg-amber-900/20 p-4 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-900/10">
-                <h4 className="text-sm font-bold text-amber-500 uppercase flex items-center gap-2 border-b border-amber-500/20 pb-2 mb-2">
-                    <Clipboard className="w-4 h-4" /> Plantillas de Campo
+            {/* SECTION: FREE TOOLS */}
+            <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <FileText className="w-3 h-3" /> Reportes Básicos (Gratis)
                 </h4>
-                <p className="text-[10px] text-slate-300 mb-2 leading-tight">
-                    Descargue formatos pre-llenados con sus lotes y trabajadores para imprimir y llevar registro manual en zonas sin señal.
-                </p>
                 <div className="grid grid-cols-2 gap-3">
-                    <button 
-                        onClick={handleDownloadFieldTemplates}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-amber-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-amber-900/40 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileText className="w-4 h-4 text-amber-500" />
-                        </div>
-                        <span className="text-slate-300 font-bold text-[10px] text-center group-hover:text-white">Imprimir Planillas PDF</span>
+                    <button onClick={onExportPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors group">
+                        <FileText className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold text-white">Stock Bodega</span>
                     </button>
-
-                    <button 
-                        onClick={handleDownloadExcelTemplate}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-emerald-500/50 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <span className="text-slate-300 font-bold text-[10px] text-center group-hover:text-white">Bajar Formato Excel</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* SECTION: EXAMPLES (NEW) */}
-            <div className="space-y-3 bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                <h4 className="text-sm font-bold text-blue-400 uppercase flex items-center gap-2 mb-2">
-                    <GraduationCap className="w-4 h-4" /> Ejemplos de Llenado
-                </h4>
-                <p className="text-[10px] text-slate-300 mb-2 leading-tight">
-                    ¿No sabe cómo empezar? Descargue estos archivos con datos ficticios de una finca cafetera para entender cómo estructurar su información.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                    <button 
-                        onClick={handleDownloadExamplePDF}
-                        className="flex items-center justify-center gap-2 p-2 bg-slate-900/50 border border-slate-700 hover:border-blue-500 rounded-lg text-xs font-bold text-slate-300 transition-colors"
-                    >
-                        <FileText className="w-3 h-3 text-blue-400" /> PDF Ejemplo
-                    </button>
-                    <button 
-                        onClick={handleDownloadExampleExcel}
-                        className="flex items-center justify-center gap-2 p-2 bg-slate-900/50 border border-slate-700 hover:border-green-500 rounded-lg text-xs font-bold text-slate-300 transition-colors"
-                    >
-                        <FileSpreadsheet className="w-3 h-3 text-green-500" /> Excel Ejemplo
-                    </button>
-                </div>
-            </div>
-
-            {/* SECTION: EXPORTS */}
-            <div className="space-y-3 pt-2">
-                <h4 className="text-xs font-bold text-slate-400 uppercase border-b border-slate-700 pb-1">Exportar Reportes Oficiales</h4>
-                
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={onExportPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <FileText className="w-5 h-5 text-emerald-400" />
-                        <span className="text-[10px] font-bold text-white">Inventario PDF</span>
-                    </button>
-                    
-                    <button onClick={onExportExcel} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                        <span className="text-[10px] font-bold text-white">Todo a Excel</span>
-                    </button>
-
-                    <button onClick={onGenerateOrder} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <ShoppingCart className="w-5 h-5 text-red-400" />
+                    <button onClick={onGenerateOrder} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors group">
+                        <ShoppingCart className="w-5 h-5 text-red-400 group-hover:scale-110 transition-transform" />
                         <span className="text-[10px] font-bold text-white">Pedido Sugerido</span>
                     </button>
+                </div>
+            </div>
 
-                    <button onClick={handleGlobalReport} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <PieChart className="w-5 h-5 text-purple-400" />
-                        <span className="text-[10px] font-bold text-white">Informe Gerencial</span>
+            {/* SECTION: PRO TOOLS */}
+            <div className="space-y-3 bg-emerald-900/10 p-4 rounded-2xl border border-emerald-500/20 relative">
+                {!isSupporter && (
+                    <div className="absolute -top-2 -right-2">
+                         <div className="bg-amber-500 text-amber-950 p-1 rounded-full shadow-lg border-2 border-slate-900 animate-bounce">
+                             <Crown className="w-4 h-4" />
+                         </div>
+                    </div>
+                )}
+                
+                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                    <Crown className="w-3 h-3" /> Reportes Gerenciales (Pro)
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => handleProAction(onExportExcel)} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden group">
+                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
+                        <FileSpreadsheet className={`w-5 h-5 ${isSupporter ? 'text-emerald-400' : 'text-slate-500'}`} />
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Exportar Excel</span>
+                    </button>
+                    
+                    <button onClick={() => handleProAction(() => generateGlobalReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
+                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
+                        <PieChart className={`w-5 h-5 ${isSupporter ? 'text-purple-400' : 'text-slate-500'}`} />
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Informe Global</span>
                     </button>
 
-                    <button onClick={onExportLaborPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <Pickaxe className="w-5 h-5 text-amber-400" />
-                        <span className="text-[10px] font-bold text-white">Jornales PDF</span>
+                    <button onClick={() => handleProAction(onExportLaborPDF!)} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
+                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
+                        <Pickaxe className={`w-5 h-5 ${isSupporter ? 'text-amber-400' : 'text-slate-500'}`} />
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Nómina PDF</span>
                     </button>
 
-                    <button onClick={onExportHarvestPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <Sprout className="w-5 h-5 text-yellow-400" />
-                        <span className="text-[10px] font-bold text-white">Cosechas PDF</span>
-                    </button>
-
-                    <button onClick={onExportMachineryPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors">
-                        <Tractor className="w-5 h-5 text-orange-400" />
-                        <span className="text-[10px] font-bold text-white">Maquinaria PDF</span>
+                    <button onClick={() => handleProAction(onExportHarvestPDF!)} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
+                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
+                        <Sprout className={`w-5 h-5 ${isSupporter ? 'text-yellow-400' : 'text-slate-500'}`} />
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Cosechas PDF</span>
                     </button>
                 </div>
+
+                {!isSupporter && (
+                    <button 
+                        onClick={onShowSupport}
+                        className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase py-2 rounded-lg transition-all"
+                    >
+                        Desbloquear Funciones Pro
+                    </button>
+                )}
+            </div>
+
+            {/* SECTION: FIELD TEMPLATES */}
+            <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Clipboard className="w-3 h-3" /> Auxiliares de Campo
+                </h4>
+                <button 
+                    onClick={() => handleProAction(() => generateFieldTemplates(activeData!, false))}
+                    className="w-full p-4 bg-slate-800 rounded-xl border border-slate-700 flex items-center gap-4 group"
+                >
+                    <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20 transition-colors">
+                        <FileText className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <div className="text-left">
+                        <p className="text-xs font-bold text-white">Imprimir Planillas Físicas</p>
+                        <p className="text-[9px] text-slate-500">Para llevar registro a mano en el lote.</p>
+                    </div>
+                    {!isSupporter && <Lock className="ml-auto w-4 h-4 text-slate-600" />}
+                </button>
             </div>
 
         </div>

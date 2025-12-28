@@ -2,6 +2,11 @@
 import { InventoryItem, Movement, Unit, AppState, Warehouse, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog } from '../types';
 
 const STORAGE_KEY = 'agrobodega_pro_data_v1';
+const DEBOUNCE_TIME = 500; // ms
+
+// Temporizador interno para el debouncing
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let lastPendingData: AppState | null = null;
 
 // Base conversion factors (to grams or milliliters)
 const CONVERSION_RATES: Record<Unit, number> = {
@@ -63,6 +68,66 @@ export const calculateWeightedAverageCost = (
   return (currentTotalValue + incomingTotalValue) / nextTotalQty;
 };
 
+/**
+ * Procesa un movimiento y devuelve el inventario actualizado y el costo calculado del movimiento.
+ */
+export const processInventoryMovement = (
+  inventory: InventoryItem[],
+  movData: Omit<Movement, 'id' | 'date' | 'warehouseId'>,
+  newUnitPrice?: number,
+  newExpirationDate?: string
+): { updatedInventory: InventoryItem[], movementCost: number } => {
+  const baseQuantity = convertToBase(movData.quantity, movData.unit);
+  let movementCost = 0;
+
+  const updatedInventory = inventory.map(item => {
+    if (item.id === movData.itemId) {
+      let nextQty = item.currentQuantity;
+      let nextAvgCost = item.averageCost;
+      let nextLastPrice = item.lastPurchasePrice;
+      let nextLastUnit = item.lastPurchaseUnit;
+      let nextExpDate = item.expirationDate;
+
+      if (movData.type === 'IN') {
+        if (newUnitPrice !== undefined) {
+          nextAvgCost = calculateWeightedAverageCost(
+            item.currentQuantity,
+            item.averageCost,
+            movData.quantity,
+            movData.unit,
+            newUnitPrice
+          );
+          nextLastPrice = newUnitPrice;
+          nextLastUnit = movData.unit;
+          const baseInPurchaseUnit = convertToBase(1, movData.unit);
+          movementCost = baseQuantity * (newUnitPrice / baseInPurchaseUnit);
+          if (newExpirationDate) nextExpDate = newExpirationDate;
+        } else {
+          movementCost = baseQuantity * item.averageCost;
+        }
+        nextQty += baseQuantity;
+      } else {
+        movementCost = baseQuantity * item.averageCost;
+        nextQty -= baseQuantity;
+      }
+
+      if (nextQty < 0.0001) nextQty = 0;
+
+      return {
+        ...item,
+        currentQuantity: nextQty,
+        averageCost: nextAvgCost,
+        lastPurchasePrice: nextLastPrice,
+        lastPurchaseUnit: nextLastUnit,
+        expirationDate: nextExpDate
+      };
+    }
+    return item;
+  });
+
+  return { updatedInventory, movementCost };
+};
+
 export const getCostPerGramOrMl = (item: InventoryItem): number => {
   if (item.averageCost && item.averageCost > 0) {
     return item.averageCost;
@@ -71,7 +136,37 @@ export const getCostPerGramOrMl = (item: InventoryItem): number => {
   return item.lastPurchasePrice / basePurchase;
 };
 
-// Removed processExcelImport as requested.
+/**
+ * Persiste los datos de forma inmediata.
+ * Útil para cierres de app o procesos críticos.
+ */
+export const saveDataNow = (data: AppState) => {
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+    }
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        lastPendingData = null;
+    } catch (e) {
+        console.error("Error crítico guardando en localStorage", e);
+    }
+};
+
+/**
+ * Guarda datos con debouncing para evitar sobrecarga del hilo principal y del disco.
+ */
+export const saveData = (data: AppState) => {
+  lastPendingData = data;
+  
+  if (saveTimeout) {
+      clearTimeout(saveTimeout);
+  }
+
+  saveTimeout = setTimeout(() => {
+    saveDataNow(data);
+  }, DEBOUNCE_TIME);
+};
 
 export const loadData = (): AppState => {
   try {
@@ -97,17 +192,15 @@ export const loadData = (): AppState => {
       }
 
       // 2. Initialize Arrays
-      if (!migrated.suppliers) migrated.suppliers = [];
-      if (!migrated.costCenters) migrated.costCenters = [];
-      if (!migrated.personnel) migrated.personnel = [];
-      if (!migrated.activities) migrated.activities = [];
-      if (!migrated.laborLogs) migrated.laborLogs = [];
-      if (!migrated.harvests) migrated.harvests = [];
-      if (!migrated.agenda) migrated.agenda = [];
-      if (!migrated.machines) migrated.machines = [];
-      if (!migrated.maintenanceLogs) migrated.maintenanceLogs = [];
-      if (!migrated.rainLogs) migrated.rainLogs = [];
-      if (!migrated.financeLogs) migrated.financeLogs = [];
+      const arraysToFix = [
+          'suppliers', 'costCenters', 'personnel', 'activities', 
+          'laborLogs', 'harvests', 'agenda', 'machines', 
+          'maintenanceLogs', 'rainLogs', 'financeLogs', 'inventory', 'movements'
+      ];
+      
+      arraysToFix.forEach(key => {
+          if (!migrated[key]) migrated[key] = [];
+      });
 
       // 3. MULTI-FARM MIGRATION: Assign warehouseId to orphaned records
       const assignFarm = (item: any) => {
@@ -115,19 +208,9 @@ export const loadData = (): AppState => {
           return item;
       };
 
-      migrated.inventory = (migrated.inventory || []).map(assignFarm);
-      migrated.movements = (migrated.movements || []).map(assignFarm);
-      migrated.suppliers = migrated.suppliers.map(assignFarm);
-      migrated.costCenters = migrated.costCenters.map(assignFarm);
-      migrated.personnel = migrated.personnel.map(assignFarm);
-      migrated.activities = migrated.activities.map(assignFarm);
-      migrated.laborLogs = migrated.laborLogs.map(assignFarm);
-      migrated.harvests = migrated.harvests.map(assignFarm);
-      migrated.agenda = migrated.agenda.map(assignFarm);
-      migrated.machines = migrated.machines.map(assignFarm);
-      migrated.maintenanceLogs = migrated.maintenanceLogs.map(assignFarm);
-      migrated.rainLogs = migrated.rainLogs.map(assignFarm);
-      migrated.financeLogs = migrated.financeLogs.map(assignFarm);
+      arraysToFix.forEach(key => {
+          migrated[key] = migrated[key].map(assignFarm);
+      });
 
       // 4. Default Activities (if empty)
       if (migrated.activities.length === 0) {
@@ -143,9 +226,10 @@ export const loadData = (): AppState => {
       return migrated;
     }
   } catch (e) {
-    console.error("Error loading data", e);
+    console.error("Error loading data from storage. Possible corruption.", e);
   }
 
+  // Fallback to initial state
   const initId = crypto.randomUUID();
   return { 
     warehouses: [{ id: initId, name: 'Finca Principal', created: new Date().toISOString() }],
@@ -169,14 +253,6 @@ export const loadData = (): AppState => {
     rainLogs: [],
     financeLogs: []
   };
-};
-
-export const saveData = (data: AppState) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error("Error saving data", e);
-  }
 };
 
 export const formatCurrency = (val: number) => {

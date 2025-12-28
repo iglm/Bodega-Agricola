@@ -419,8 +419,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             </span>
                                         )}
                                         {c.area && c.area > 0 && (
-                                            <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                            <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded border border-blue-500/30 font-bold">
                                                 {c.area} Ha
+                                            </span>
+                                        )}
+                                        {c.budget && c.budget > 0 && (
+                                            <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold">
+                                                Ppto: {formatCurrency(c.budget)}
                                             </span>
                                         )}
                                     </div>

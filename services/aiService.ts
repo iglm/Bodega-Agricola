@@ -1,61 +1,78 @@
 
-import { GoogleGenAI, SchemaType } from "@google/genai";
-import { AppState, InventoryItem, CostCenter, Personnel, Activity } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
+import { AppState } from '../types';
 
 // Initialize Gemini
-// NOTE: In a real production app, calls should go through a backend proxy to hide the API KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// --- IDEA B: ANALYST ---
-
+/**
+ * ANALYST ENGINE
+ * Uses Gemini to provide financial and agronomic insights based on farm data.
+ */
 export const getFarmAnalysis = async (data: AppState, query: string) => {
   try {
-    // 1. Prepare Context (Summarize data to save tokens)
-    const inventorySummary = data.inventory.map(i => `${i.name}: ${i.currentQuantity} ${i.baseUnit} ($${i.averageCost}/u)`).join(', ');
-    const activeLotes = data.costCenters.map(c => `${c.name} (${c.cropType || 'Var'})`).join(', ');
+    const inventorySummary = data.inventory.map(i => `${i.name}: ${i.currentQuantity} ${i.baseUnit}`).join(', ');
+    const activeLotes = data.costCenters.map(c => `${c.name} (${c.cropType || 'Var'}, ${c.area || 0}Ha, ${c.stage})`).join(', ');
     
-    // Financial Snapshot (Last 30 days roughly)
     const totalLabor = data.laborLogs.reduce((acc, l) => acc + l.value, 0);
     const totalHarvest = data.harvests.reduce((acc, h) => acc + h.totalValue, 0);
     const totalInputs = data.movements.filter(m => m.type === 'OUT').reduce((acc, m) => acc + m.calculatedCost, 0);
+    const totalAdmin = data.financeLogs.filter(f => f.type === 'EXPENSE').reduce((acc, f) => acc + f.amount, 0);
+
+    const systemInstruction = `Eres el Consultor Senior de AgroSuite 360. 
+      Analiza los datos financieros y agronómicos proporcionados para dar respuestas estratégicas. 
+      REGLAS:
+      1. Sé profesional, directo y técnico.
+      2. Usa Markdown (negritas para cifras importantes).
+      3. Si detectas pérdidas (gastos > ingresos), sugiere reducir costos operativos o mejorar la eficiencia de recolección.
+      4. No menciones que eres una IA. Eres el Ingeniero Agrónomo virtual.`;
 
     const prompt = `
-      Actúa como un Ingeniero Agrónomo experto y Analista Financiero para la finca "AgroSuite".
+      DATOS ACTUALES DE LA FINCA:
+      - Lotes: ${activeLotes}
+      - Inventario en Bodega: ${inventorySummary}
+      - Costos de Mano de Obra: $${totalLabor}
+      - Costos de Insumos Aplicados: $${totalInputs}
+      - Gastos Administrativos: $${totalAdmin}
+      - Ventas Totales: $${totalHarvest}
       
-      CONTEXTO DE DATOS:
-      - Lotes Activos: ${activeLotes}
-      - Inventario Resumido: ${inventorySummary}
-      - Gasto Mano de Obra Histórico: $${totalLabor}
-      - Gasto Insumos Histórico: $${totalInputs}
-      - Ventas Cosecha Histórico: $${totalHarvest}
-      
-      PREGUNTA DEL USUARIO: "${query}"
-      
-      INSTRUCCIONES:
-      - Responde de forma concisa, usando negritas para datos clave.
-      - Si detectas pérdidas (Gastos > Ventas), da un consejo agronómico práctico.
-      - No inventes datos que no estén en el contexto.
-      - Usa formato Markdown.
+      PREGUNTA DEL PRODUCTOR: "${query}"
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      }
     });
 
-    return response.text;
+    return response.text || "Lo siento, no pude procesar el análisis. Intenta reformular la pregunta.";
   } catch (error) {
     console.error("AI Analysis Error:", error);
-    return "Lo siento, no pude conectar con el servicio de inteligencia agronómica. Verifica tu conexión.";
+    return "Error de comunicación con el consultor. Verifica tu conexión a internet.";
   }
 };
 
-// --- IDEA C: NATURAL LANGUAGE COMMANDS ---
-
+/**
+ * COMMAND PARSER ENGINE
+ * Specialized in extracting entities from natural language to automate farm records.
+ */
 export interface ParsedCommand {
   action: 'ADD_LABOR' | 'ADD_MOVEMENT_IN' | 'ADD_MOVEMENT_OUT' | 'ADD_HARVEST' | 'UNKNOWN';
-  data: any;
-  confidence: string; // Explanatory text
+  data: {
+    personName?: string;
+    activityName?: string;
+    lotName?: string;
+    itemName?: string;
+    quantity?: number;
+    value?: number;
+    unit?: string;
+    cropName?: string;
+    dateOffset?: number; // 0 for today, -1 for yesterday
+  };
+  confidence: string;
 }
 
 export const parseFarmCommand = async (
@@ -63,55 +80,79 @@ export const parseFarmCommand = async (
   catalogs: { items: string[], people: string[], lotes: string[], activities: string[] }
 ): Promise<ParsedCommand> => {
   try {
-    const prompt = `
-      Eres un asistente administrativo agrícola. Tu trabajo es interpretar comandos de voz/texto y convertirlos en JSON estructurado.
+    const systemInstruction = `Eres un asistente administrativo agrícola experto en extracción de entidades.
+      Tu tarea es convertir frases de campo en registros estructurados JSON.
       
-      CATÁLOGOS DISPONIBLES (Úsalos para "fuzzy matching"):
-      - Items/Insumos: ${catalogs.items.join(', ')}
-      - Personas: ${catalogs.people.join(', ')}
+      ACCIONES DISPONIBLES:
+      - ADD_LABOR: Para jornales o trabajos realizados.
+      - ADD_MOVEMENT_IN: Para compras de insumos.
+      - ADD_MOVEMENT_OUT: Para aplicaciones de insumos en lotes o máquinas.
+      - ADD_HARVEST: Para ventas o recolección de cosecha.
+      
+      REGLAS DE EMPAREJAMIENTO:
+      - Compara los nombres dichos por el usuario con los CATÁLOGOS proporcionados.
+      - Si el usuario dice "ayer", pon dateOffset: -1.
+      - Normaliza cantidades a números puros.`;
+
+    const prompt = `
+      TEXTO DEL USUARIO: "${text}"
+      
+      CATÁLOGOS EXISTENTES:
+      - Insumos: ${catalogs.items.join(', ')}
+      - Personal: ${catalogs.people.join(', ')}
       - Lotes: ${catalogs.lotes.join(', ')}
       - Labores: ${catalogs.activities.join(', ')}
-
-      COMANDO: "${text}"
-
-      REGLAS:
-      1. Identifica la intención: 
-         - Gasto/Uso de insumo -> ADD_MOVEMENT_OUT
-         - Compra de insumo -> ADD_MOVEMENT_IN
-         - Jornal/Trabajo -> ADD_LABOR
-         - Venta/Cosecha -> ADD_HARVEST
-      2. Extrae cantidades y nombres. Trata de coincidir con los catálogos. Si no coincide exacto, usa el más parecido.
-      3. Devuelve SOLO JSON válido.
-
-      SCHEMA ESPERADO:
-      {
-        "action": "ADD_LABOR" | "ADD_MOVEMENT_OUT" | "...",
-        "data": { ...campos específicos ... },
-        "confidence": "Texto explicando qué entendiste"
-      }
-      
-      Ejemplo Labor:
-      Comando: "Ayer Juan Pérez hizo plateo en el lote 1 y le pagué 50 mil"
-      JSON: { "action": "ADD_LABOR", "data": { "personName": "Juan Pérez", "activityName": "Plateo", "lotName": "Lote 1", "value": 50000 }, "confidence": "Registrando jornal de Juan..." }
-      
-      Ejemplo Salida:
-      Comando: "Saqué dos bultos de urea para el lote nuevo"
-      JSON: { "action": "ADD_MOVEMENT_OUT", "data": { "itemName": "Urea", "quantity": 2, "lotName": "Lote Nuevo" }, "confidence": "Registrando salida de 2 Urea..." }
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        responseMimeType: "application/json"
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            action: {
+              type: Type.STRING,
+              description: 'Acción principal detectada',
+            },
+            data: {
+              type: Type.OBJECT,
+              properties: {
+                personName: { type: Type.STRING, description: 'Nombre del trabajador' },
+                activityName: { type: Type.STRING, description: 'Tipo de labor' },
+                lotName: { type: Type.STRING, description: 'Lote o destino' },
+                itemName: { type: Type.STRING, description: 'Producto químico o insumo' },
+                quantity: { type: Type.NUMBER, description: 'Cantidad numérica' },
+                value: { type: Type.NUMBER, description: 'Valor monetario o precio' },
+                unit: { type: Type.STRING, description: 'Unidad (Kg, L, Bultos, etc)' },
+                cropName: { type: Type.STRING, description: 'Producto cosechado' },
+                dateOffset: { type: Type.INTEGER, description: 'Diferencia de días (0=hoy, -1=ayer)' }
+              },
+              required: [] // Allow optionality in data
+            },
+            confidence: {
+              type: Type.STRING,
+              description: 'Resumen humano de lo entendido (ej: "Registrando 2 bultos de Urea en Lote 1")'
+            }
+          },
+          required: ['action', 'data', 'confidence']
+        }
       }
     });
 
-    const result = JSON.parse(response.text || '{}');
-    return result as ParsedCommand;
+    const textOutput = response.text;
+    if (!textOutput) throw new Error("Sin respuesta de la IA");
+    
+    return JSON.parse(textOutput) as ParsedCommand;
 
   } catch (error) {
     console.error("AI Command Parsing Error:", error);
-    return { action: 'UNKNOWN', data: {}, confidence: "Error procesando el comando." };
+    return { 
+      action: 'UNKNOWN', 
+      data: {}, 
+      confidence: "No logré interpretar el comando. Por favor, intenta ser más específico." 
+    };
   }
 };

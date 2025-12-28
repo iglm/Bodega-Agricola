@@ -11,7 +11,7 @@ interface MovementModalProps {
   suppliers: Supplier[];
   costCenters: CostCenter[];
   personnel?: Personnel[];
-  machines?: Machine[]; // New prop
+  machines?: Machine[]; 
   movements?: Movement[];
   onSave: (movement: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newUnitPrice?: number, newExpirationDate?: string) => void;
   onCancel: () => void;
@@ -41,19 +41,18 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingImg, setIsProcessingImg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalContainerRef = useRef<HTMLDivElement>(null);
 
   const [error, setError] = useState<string | null>(null);
+  const [isShaking, setIsShaking] = useState(false);
   
-  // Admin fields
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
 
-  // Destination Logic (New Switch)
   const [destinationType, setDestinationType] = useState<'lote' | 'machine'>('lote');
   const [selectedCostCenterId, setSelectedCostCenterId] = useState('');
   const [selectedMachineId, setSelectedMachineId] = useState('');
 
-  // Calculator State
   const [showCalculator, setShowCalculator] = useState(false);
   const [calcDose, setCalcDose] = useState('');
   const [calcAmount, setCalcAmount] = useState('');
@@ -64,7 +63,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const baseType = getBaseUnitType(item.lastPurchaseUnit);
   const MAX_NOTES_LENGTH = 200;
   
-  const EPSILON = 0.0001; // Slightly more precise epsilon
+  const EPSILON = 0.0001; 
 
   const compatibleUnits = Object.values(Unit).filter(u => {
      const t = getBaseUnitType(u);
@@ -74,7 +73,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
      return false;
   });
 
-  // Budget Logic (Only applies if destination is LOTE)
   const budgetInfo = useMemo(() => {
     if (!isOut || destinationType !== 'lote' || !selectedCostCenterId) return null;
     const center = costCenters.find(c => c.id === selectedCostCenterId);
@@ -96,8 +94,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     };
   }, [isOut, destinationType, selectedCostCenterId, movements, costCenters, previewCost]);
 
-
-  // Initialize
   useEffect(() => {
     if (!isOut && unit === item.lastPurchaseUnit) {
       setManualUnitPrice(item.lastPurchasePrice.toString());
@@ -111,16 +107,13 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     }
   }, [unit, isOut, item]);
 
-  // Real-time validation & Cost Calculation
   useEffect(() => {
     const qtyNum = parseFloat(quantity);
     setError(null);
     
     if (!isNaN(qtyNum) && qtyNum > 0) {
       if (isOut) {
-        // STOCK VALIDATION
         const requestedBaseAmount = convertToBase(qtyNum, unit);
-        // Use epsilon to allow floating point equality
         if (requestedBaseAmount > (item.currentQuantity + EPSILON)) {
             const availableReadable = formatBaseQuantity(item.currentQuantity, item.baseUnit);
             setError(`Stock insuficiente. Máximo disponible: ${availableReadable}`);
@@ -165,27 +158,47 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const handleSetMax = () => {
       const conversionFactor = convertToBase(1, unit);
       const maxAmountInSelectedUnit = item.currentQuantity / conversionFactor;
-      // Round to 4 decimal places to avoid float issues but keep precision
       const roundedMax = Math.floor(maxAmountInSelectedUnit * 10000) / 10000;
       setQuantity(roundedMax.toString());
   };
 
+  const triggerShake = () => {
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 400);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const qtyNum = parseFloat(quantity);
-    if (isNaN(qtyNum) || qtyNum <= 0) return;
+    setError(null);
     
-    // Strict Backend-like validation
+    const qtyNum = parseFloat(quantity);
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+        setError("Por favor ingrese una cantidad válida mayor a cero.");
+        triggerShake();
+        return;
+    }
+    
+    // ROBUST STOCK VALIDATION
     if (isOut) {
         const requestedBaseAmount = convertToBase(qtyNum, unit);
-        if (requestedBaseAmount > (item.currentQuantity + EPSILON)) {
-            // Re-trigger error if bypass attempt
-            setError("Stock insuficiente.");
+        const availableBase = item.currentQuantity;
+        
+        if (requestedBaseAmount > (availableBase + EPSILON)) {
+            const conversionFactor = convertToBase(1, unit);
+            const availableInUserUnit = availableBase / conversionFactor;
+            const diff = qtyNum - availableInUserUnit;
+            
+            const msg = `Stock insuficiente. Intenta retirar ${qtyNum} ${unit}, pero solo hay ${availableInUserUnit.toFixed(2)} ${unit} disponibles. (Faltan ${diff.toFixed(2)} ${unit})`;
+            setError(msg);
+            triggerShake();
             return;
         }
     }
     
-    if (error) return;
+    if (error) {
+        triggerShake();
+        return;
+    }
 
     const supplierName = suppliers.find(s => s.id === selectedSupplierId)?.name;
     const costCenterName = costCenters.find(c => c.id === selectedCostCenterId)?.name;
@@ -228,7 +241,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-slide-up transition-colors duration-300 max-h-[95vh] overflow-y-auto custom-scrollbar relative">
+      <div 
+        ref={modalContainerRef}
+        className={`bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-slide-up transition-all duration-300 max-h-[95vh] overflow-y-auto custom-scrollbar relative ${isShaking ? 'animate-shake border-red-500' : ''}`}
+      >
         <div className={`p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center ${isOut ? 'bg-red-50 dark:bg-red-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'} sticky top-0 z-10`}>
           <div className="flex items-center gap-2">
             {isOut ? <TrendingDown className="text-red-500" /> : <TrendingUp className="text-emerald-500" />}
@@ -240,7 +256,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Visual Confirmation */}
           <div className="bg-slate-100 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-3">
              {item.image ? (
                 <img src={item.image} alt="Product" className="w-12 h-12 rounded-lg object-cover border border-slate-300 dark:border-slate-600" />
@@ -260,7 +275,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
              </div>
           </div>
 
-          {/* CALCULATOR TOOL (Only Output) */}
           {isOut && (
              <div className="flex justify-end">
                 <button 
@@ -274,7 +288,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
              </div>
           )}
 
-          {/* CALCULATOR PANEL */}
           {showCalculator && (
              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800 animate-fade-in space-y-3">
                  <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">Calculadora de Campo</h4>
@@ -353,11 +366,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             </div>
           </div>
 
-          {/* New Price Input - Only for Entries */}
           {!isOut && (
             <div className="animate-fade-in space-y-3">
-               
-               {/* EXPIRATION DATE */}
                <div>
                   <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
                       <Calendar className="w-3 h-3" /> Nueva Fecha Vencimiento
@@ -400,7 +410,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                    </div>
                </div>
                
-               {/* INVOICE PHOTO UPLOAD (NEW) */}
                <div>
                  <label className="block text-xs font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
                      <Camera className="w-3 h-3" /> Foto Factura / Recibo
@@ -443,7 +452,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                  </div>
                </div>
 
-               {/* Supplier Selection */}
                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
                  <label className="block text-xs font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
                     <Users className="w-3 h-3" /> Seleccionar Proveedor
@@ -470,11 +478,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             </div>
           )}
 
-          {/* Cost Center / Machine / Personnel Selection - Only for Out */}
           {isOut && (
               <div className="space-y-4">
-                 
-                 {/* Output Code */}
                  <div>
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
                         <Tag className="w-3 h-3" />
@@ -489,7 +494,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     />
                  </div>
 
-                 {/* Personnel Selection */}
                  <div>
                      <label className="block text-xs font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
                         <UserCheck className="w-3 h-3" /> Responsable (Opcional)
@@ -507,7 +511,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                      {personnel.length === 0 && <p className="text-[10px] text-slate-400 mt-1">Puede crear responsables en Maestros.</p>}
                  </div>
 
-                 {/* DESTINATION TOGGLE (LOTE vs MACHINE) */}
                  <div>
                     <label className="block text-xs font-bold text-purple-500 uppercase mb-2 flex items-center gap-1">
                         <MapPin className="w-3 h-3" /> Destino (Opcional)
@@ -523,14 +526,13 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                         </button>
                         <button 
                             type="button"
-                            onClick={() => { setDestinationType('machine'); setSelectedCostCenterId(''); }}
+                            onClick={() => { setDestinationType('machine'); setSelectedMachineId(''); }}
                             className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${destinationType === 'machine' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-white shadow-sm' : 'text-slate-500'}`}
                         >
                             <Tractor className="w-3 h-3" /> Maquinaria
                         </button>
                     </div>
 
-                    {/* SELECTOR FOR LOTE */}
                     {destinationType === 'lote' && (
                         <>
                             {costCenters.length === 0 ? (
@@ -553,7 +555,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                                 </select>
                             )}
 
-                            {/* BUDGET WARNING VISUALIZATION (ONLY FOR LOTE) */}
                             {budgetInfo && (
                                 <div className={`mt-3 p-3 rounded-lg border ${budgetInfo.isOver ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700'}`}>
                                     <div className="flex justify-between items-center text-xs mb-1">
@@ -578,7 +579,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                         </>
                     )}
 
-                    {/* SELECTOR FOR MACHINE */}
                     {destinationType === 'machine' && (
                         <>
                              {machines.length === 0 ? (
@@ -614,16 +614,15 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               </div>
           )}
 
-          {/* Notes Input */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                 <FileText className="w-3 h-3" />
                 Notas / Detalles
               </label>
-              <span className={`text-[10px] font-mono ${
-                notes.length >= MAX_NOTES_LENGTH ? 'text-red-400 font-bold' : 
-                notes.length >= MAX_NOTES_LENGTH * 0.9 ? 'text-yellow-500' : 'text-slate-400'
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors ${
+                notes.length >= MAX_NOTES_LENGTH ? 'bg-red-500 text-white font-bold' : 
+                notes.length >= MAX_NOTES_LENGTH * 0.9 ? 'bg-yellow-500 text-slate-900 font-bold' : 'text-slate-400 bg-slate-100 dark:bg-slate-900'
               }`}>
                 {notes.length}/{MAX_NOTES_LENGTH}
               </span>
@@ -632,15 +631,21 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               maxLength={MAX_NOTES_LENGTH}
-              className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-3 text-slate-800 dark:text-white outline-none focus:border-blue-500 text-sm resize-none transition-colors ${
-                notes.length >= MAX_NOTES_LENGTH ? 'border-red-500/50 focus:border-red-500' : 'border-slate-300 dark:border-slate-700'
+              className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-3 text-slate-800 dark:text-white outline-none focus:border-blue-500 text-sm resize-none transition-all ${
+                notes.length >= MAX_NOTES_LENGTH ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_8px_rgba(239,68,68,0.2)]' : 
+                notes.length >= MAX_NOTES_LENGTH * 0.9 ? 'border-yellow-500' : 'border-slate-300 dark:border-slate-700'
               }`}
               placeholder={isOut ? "Ej: Aplicación semanal..." : "Ej: Comentario adicional..."}
               rows={2}
             />
+            {notes.length >= MAX_NOTES_LENGTH && (
+              <p className="text-[10px] text-red-500 mt-1 font-bold animate-pulse flex items-center gap-1">
+                <AlertTriangle className="w-2.5 h-2.5" />
+                Límite de caracteres alcanzado. El texto será truncado.
+              </p>
+            )}
           </div>
 
-          {/* Error Message */}
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-500/50 p-3 rounded-lg flex items-center gap-2 text-red-600 dark:text-red-300 text-xs animate-pulse">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -648,7 +653,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             </div>
           )}
 
-          {/* Smart Math Display */}
           <div className="bg-slate-100 dark:bg-slate-900/50 rounded-xl p-4 border border-dashed border-slate-300 dark:border-slate-600 transition-colors">
             <div className="flex justify-between items-center text-sm mb-2">
               <span className="text-slate-500 dark:text-slate-400">
@@ -671,10 +675,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
           <button 
             type="submit"
-            disabled={!!error || !quantity || (!isOut && !manualUnitPrice)}
+            disabled={!quantity || (!isOut && !manualUnitPrice)}
             className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-colors ${
               isOut ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'
-            } ${!!error || !quantity ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${(!quantity || (!isOut && !manualUnitPrice)) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isOut ? 'Confirmar Salida' : 'Confirmar Entrada'}
           </button>

@@ -1,163 +1,166 @@
 
-/**
- * AgroSuite 360 - Página de Aterrizaje y EULA
- * Copyright (c) 2025 Lucas Mateo Tabares Franco.
- * 
- * Contiene los términos legales obligatorios para el uso del software.
- */
 import React, { useState } from 'react';
-import { ShieldCheck, User, CheckCircle, Lock, Mail, Sprout, Scale, FileText, AlertTriangle, BookOpen, Gavel, Server, Globe } from 'lucide-react';
+import { ShieldCheck, User, Lock, Server, Globe, Scale, AlertTriangle, LogIn, Sparkles, ExternalLink, ShieldAlert, X, FileText } from 'lucide-react';
+import { User as UserType } from '../types';
 
 interface LandingProps {
-  onEnter: () => void;
+  onEnter: (user: UserType) => void;
   onShowManual: () => void;
 }
 
 export const Landing: React.FC<LandingProps> = ({ onEnter }) => {
   const [accepted, setAccepted] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
+  const handleGoogleLogin = () => {
+    if (!accepted) return;
+    setIsLoggingIn(true);
+    
+    setTimeout(() => {
+      const mockUser: UserType = {
+        id: 'google_123',
+        name: 'Productor AgroSuite',
+        email: 'usuario@gmail.com',
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroSuite'
+      };
+      onEnter(mockUser);
+    }, 1500);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] overflow-y-auto">
-      <div className="max-w-5xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col md:flex-row md:overflow-hidden md:max-h-[90vh] h-auto my-auto transition-all duration-300">
+      <div className="max-w-5xl w-full bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-700 flex flex-col md:flex-row md:overflow-hidden md:max-h-[90vh] h-auto my-auto transition-all duration-300">
         
-        {/* Left Panel: Brand & Developer Identity */}
-        <div className="md:w-2/5 bg-gradient-to-br from-emerald-900 to-slate-900 p-8 flex flex-col justify-between relative overflow-hidden shrink-0">
-            {/* Background Accents */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_50%_120%,rgba(16,185,129,0.4),transparent)]"></div>
+        {/* Panel Izquierdo */}
+        <div className="md:w-2/5 bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 p-8 flex flex-col justify-between relative overflow-hidden shrink-0 border-r border-slate-800">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_50%_120%,rgba(99,102,241,0.4),transparent)]"></div>
             
             <div className="relative z-10">
-                <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/50 mb-6">
+                <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-6">
                     <Globe className="w-12 h-12 text-white" />
                 </div>
-                <h1 className="text-4xl font-black text-white tracking-tight mb-2">AgroSuite <span className="text-emerald-400">360</span></h1>
-                <p className="text-emerald-200/80 font-medium text-sm mb-6">Plataforma de Gerencia Agrícola Total</p>
+                <h1 className="text-4xl font-black text-white tracking-tight mb-2">AgroSuite <span className="text-indigo-400">360</span></h1>
+                <p className="text-indigo-200/80 font-medium text-sm mb-6 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" /> Inteligencia Agrícola Certificada
+                </p>
                 
-                <div className="space-y-4 hidden md:block">
-                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
-                        <div className="p-2 bg-blue-500/20 rounded-lg">
-                            <Server className="w-5 h-5 text-blue-400" />
-                        </div>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
+                        <div className="p-2 bg-blue-500/20 rounded-xl"><Server className="w-5 h-5 text-blue-400" /></div>
                         <div>
-                            <p className="text-white font-bold text-xs">Offline-First Technology</p>
-                            <p className="text-slate-400 text-[10px]">Sus datos nunca salen de su dispositivo.</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
-                        <div className="p-2 bg-purple-500/20 rounded-lg">
-                            <Lock className="w-5 h-5 text-purple-400" />
-                        </div>
-                        <div>
-                            <p className="text-white font-bold text-xs">Encriptación Local</p>
-                            <p className="text-slate-400 text-[10px]">Seguridad de nivel bancario local.</p>
+                            <p className="text-white font-bold text-xs">Offline-First</p>
+                            <p className="text-slate-400 text-[10px]">Tus datos financieros son privados y locales.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="relative z-10 mt-8 pt-8 border-t border-white/10">
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-3">Desarrollado por</p>
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-emerald-500 flex items-center justify-center shrink-0">
-                        <User className="w-6 h-6 text-emerald-400" />
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-3 font-black">Desarrollador Oficial</p>
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-indigo-500 flex items-center justify-center">
+                        <User className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <div>
-                        <h3 className="text-white font-bold text-sm">Lucas Mateo Tabares Franco</h3>
-                        <div className="flex flex-col gap-0.5 mt-1">
-                            <span className="text-[10px] text-emerald-300 bg-emerald-900/30 px-2 py-0.5 rounded w-fit border border-emerald-500/30">Ingeniero Agrónomo</span>
-                            <span className="text-[10px] text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded w-fit border border-blue-500/30">Desarrollador Full Stack</span>
-                        </div>
-                    </div>
+                    <span className="text-white font-bold text-xs">Lucas Mateo Tabares Franco</span>
                 </div>
             </div>
         </div>
 
-        {/* Right Panel: Legal Contract */}
+        {/* Panel Derecho */}
         <div className="md:w-3/5 bg-slate-50 dark:bg-slate-950 flex flex-col h-full">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <Scale className="w-5 h-5 text-slate-500" />
-                    Marco Legal y Términos de Uso
+                    <Scale className="w-5 h-5 text-indigo-500" />
+                    Licencia y Privacidad
                 </h2>
-                <p className="text-xs text-slate-500 mt-1">Última actualización: 2025</p>
+                <button 
+                  onClick={() => setShowPrivacy(true)}
+                  className="text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase flex items-center gap-1 hover:underline"
+                >
+                  <ShieldCheck className="w-3 h-3" /> Ver Políticas
+                </button>
             </div>
 
-            <div className="flex-1 p-6 text-xs text-justify leading-relaxed text-slate-600 dark:text-slate-400 font-serif space-y-4 md:overflow-y-auto custom-scrollbar bg-white dark:bg-slate-950 select-none min-h-[200px]">
-                <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg mb-4">
-                    <p className="font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" /> AVISO IMPORTANTE DE RESPONSABILIDAD
-                    </p>
-                    <p className="mt-1 text-slate-700 dark:text-slate-300">
-                        Este software es una herramienta de asistencia técnica y contable. El usuario asume total responsabilidad por la interpretación de los datos agronómicos y financieros. El desarrollador no se hace responsable por pérdidas de cosecha derivadas de decisiones basadas en esta herramienta.
-                    </p>
-                </div>
-
-                <h3 className="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1">1. PROPIEDAD INTELECTUAL Y DERECHOS DE AUTOR</h3>
-                <p>
-                    De conformidad con la <strong>Ley 23 de 1982</strong> y la Decisión 351 del Acuerdo de Cartagena, este software, incluyendo su código fuente, algoritmos, base de datos y diseño de interfaz, es propiedad intelectual exclusiva de <strong>LUCAS MATEO TABARES FRANCO</strong>.
-                </p>
-                <p>
-                    <strong>Queda estrictamente prohibida:</strong> La reproducción, copia, distribución, ingeniería inversa, descompilación o modificación no autorizada de este software. La violación de estos términos constituye un delito bajo la <strong>Ley 1273 de 2009 (Delitos Informáticos)</strong>, acarreando sanciones penales y civiles.
-                </p>
-
-                <h3 className="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1 mt-4">2. POLÍTICA DE PRIVACIDAD Y HABEAS DATA</h3>
-                <p>
-                    En cumplimiento de la <strong>Ley Estatutaria 1581 de 2012</strong> y el Decreto 1377 de 2013, se informa que esta aplicación opera bajo una arquitectura de "Almacenamiento Local" (Local Storage).
-                </p>
-                <ul className="list-disc pl-4 space-y-1">
-                    <li><strong>Soberanía de Datos:</strong> El desarrollador NO tiene acceso, no recolecta, ni transmite sus datos financieros o de inventario a servidores externos.</li>
-                    <li><strong>Responsabilidad del Usuario:</strong> Es responsabilidad exclusiva del usuario realizar copias de seguridad (Backups) utilizando la función de exportación de la aplicación. La pérdida del dispositivo o el borrado de datos del navegador es irreversible sin un backup manual.</li>
-                </ul>
-
-                <h3 className="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1 mt-4">3. LICENCIA DE USO</h3>
-                <p>
-                    Se otorga una licencia personal, intransferible, no exclusiva y revocable para el uso de AgroSuite 360 con fines de gestión agropecuaria. El uso indebido para fines ilícitos resultará en la terminación inmediata de esta licencia.
-                </p>
-
-                <div className="pt-4 mt-6 border-t border-slate-200 dark:border-slate-800 text-center italic text-slate-400">
-                    <p>"La tecnología al servicio del campo colombiano"</p>
-                    <p className="font-bold mt-1">Ing. Lucas Mateo Tabares Franco - Colombia</p>
-                </div>
-            </div>
-
-            <div className="p-6 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0 sticky bottom-0 z-20">
-                <label className="flex items-start gap-3 cursor-pointer group mb-4 select-none bg-slate-200 dark:bg-slate-800/50 p-4 rounded-xl border border-transparent hover:border-slate-400 transition-all shadow-sm">
-                    <div className="relative flex items-center pt-0.5">
-                        <input 
-                            type="checkbox" 
-                            className="peer h-6 w-6 cursor-pointer appearance-none rounded border-2 border-slate-400 bg-white dark:bg-slate-800 checked:bg-emerald-500 checked:border-emerald-500 transition-all"
-                            checked={accepted}
-                            onChange={(e) => setAccepted(e.target.checked)}
-                        />
-                        <CheckCircle className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+            <div className="flex-1 p-6 text-xs text-justify leading-relaxed text-slate-600 dark:text-slate-400 font-sans space-y-4 md:overflow-y-auto bg-white dark:bg-slate-950 select-none">
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-2xl mb-4 flex gap-3">
+                    <ShieldAlert className="w-6 h-6 text-indigo-600 shrink-0" />
+                    <div>
+                        <p className="font-bold text-indigo-700 dark:text-indigo-400 uppercase text-[10px]">Protección de Datos</p>
+                        <p className="mt-1 text-slate-700 dark:text-slate-300">
+                            AgroSuite 360 no recolecta ni vende tus datos financieros a terceros. Toda la información se almacena de forma cifrada en tu dispositivo.
+                        </p>
                     </div>
-                    <span className="text-xs text-slate-600 dark:text-slate-300 font-bold">
-                        He leído y acepto los Términos Legales, Política de Privacidad y Derechos de Autor.
+                </div>
+
+                <h3 className="font-bold text-slate-900 dark:text-white uppercase text-[10px]">1. Suscripciones</h3>
+                <p>El Plan Pro es una suscripción mensual recurrente. El pago se cargará a tu cuenta de Google Play. Puedes cancelar en cualquier momento desde la configuración de tu cuenta de Google.</p>
+
+                <h3 className="font-bold text-slate-900 dark:text-white uppercase text-[10px]">2. Responsabilidad de Backup</h3>
+                <p>Al ser una base de datos local, la aplicación ofrece herramientas de exportación. El usuario es responsable de realizar copias de seguridad periódicas.</p>
+            </div>
+
+            <div className="p-6 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
+                <label className="flex items-start gap-3 cursor-pointer mb-6 select-none">
+                    <input 
+                        type="checkbox" 
+                        className="mt-1 h-5 w-5 rounded border-2 border-slate-400 bg-white dark:bg-slate-800 checked:bg-indigo-500 transition-all cursor-pointer"
+                        checked={accepted}
+                        onChange={(e) => setAccepted(e.target.checked)}
+                    />
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                        He leído y acepto la <button onClick={() => setShowPrivacy(true)} className="text-indigo-600 font-bold hover:underline">Política de Privacidad</button> y los términos de suscripción mensual de AgroSuite 360.
                     </span>
                 </label>
 
                 <button 
-                    onClick={onEnter}
-                    disabled={!accepted}
-                    className={`w-full py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
-                        accepted 
-                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-900/20 hover:scale-[1.02] active:scale-95' 
-                        : 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-600 cursor-not-allowed'
+                    onClick={handleGoogleLogin}
+                    disabled={!accepted || isLoggingIn}
+                    className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl ${
+                        accepted && !isLoggingIn
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-900/20 active:scale-95' 
+                        : 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'
                     }`}
                 >
-                    {accepted ? (
-                        <>
-                            <Gavel className="w-5 h-5" /> INGRESAR A AGROSUITE
-                        </>
+                    {isLoggingIn ? (
+                        <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                         <>
-                            <Lock className="w-4 h-4" /> DEBE ACEPTAR LOS TÉRMINOS
+                            <LogIn className="w-5 h-5" />
+                            INGRESAR CON GOOGLE PLAY
                         </>
                     )}
                 </button>
             </div>
         </div>
-
       </div>
+
+      {/* Modal de Políticas para cumplimiento Google */}
+      {showPrivacy && (
+          <div className="fixed inset-0 z-[110] bg-slate-950/90 flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl h-[80vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+                  <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-indigo-400" />
+                        <h4 className="text-white font-bold">Documentación Legal</h4>
+                      </div>
+                      <button onClick={() => setShowPrivacy(false)} className="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full"><X className="w-5 h-5" /></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-8 text-sm text-slate-300 space-y-6 text-justify custom-scrollbar">
+                      <h5 className="text-indigo-400 font-bold uppercase text-xs">Política de Privacidad</h5>
+                      <p>AgroSuite 360 ("nosotros") respeta su privacidad. Nuestra aplicación funciona principalmente de forma local (Offline-First). No recopilamos datos financieros, inventarios o nóminas en servidores externos.</p>
+                      <p><strong>Recopilación de Datos:</strong> Solo procesamos datos a través de la API de Google Gemini cuando el usuario utiliza activamente el Asistente de IA. Estos datos son efímeros y se rigen por las políticas de privacidad de Google Cloud.</p>
+                      <h5 className="text-indigo-400 font-bold uppercase text-xs">Eliminación de Datos</h5>
+                      <p>De acuerdo con las regulaciones internacionales de protección de datos (GDPR/CPRA) y las políticas de Google Play, el usuario tiene derecho a eliminar su cuenta y todos los datos asociados desde el menú de Configuración > Datos en cualquier momento.</p>
+                      <h5 className="text-indigo-400 font-bold uppercase text-xs">Condiciones de Suscripción</h5>
+                      <p>Las suscripciones se gestionan íntegramente a través de Google Play Billing. Al suscribirse, usted autoriza a Google a realizar cargos mensuales a su método de pago registrado hasta que cancele la suscripción.</p>
+                  </div>
+                  <div className="p-6 bg-slate-950 border-t border-slate-800 text-center">
+                      <p className="text-[10px] text-slate-500 font-mono">AgroSuite 360 - Registro de Autor 2025. Todos los derechos reservados.</p>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
