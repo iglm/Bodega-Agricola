@@ -20,13 +20,14 @@ export enum Unit {
 
 export interface Warehouse {
   id: string;
-  name: string;
+  name: string; // Now represents "Finca" or "Sede"
   description?: string;
   created: string;
 }
 
 export interface Supplier {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   name: string;
   phone?: string;
   email?: string;
@@ -35,12 +36,14 @@ export interface Supplier {
 
 export interface Personnel {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   name: string;
   role?: string; 
 }
 
 export interface CostCenter {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   name: string;
   description?: string;
   budget?: number;
@@ -49,12 +52,14 @@ export interface CostCenter {
 
 export interface Activity {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   name: string;
   description?: string;
 }
 
 export interface LaborLog {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   date: string;
   personnelId: string;
   personnelName: string;
@@ -119,6 +124,7 @@ export interface Movement {
 // 1. Production / Harvest
 export interface HarvestLog {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   date: string;
   costCenterId: string; // Lote
   costCenterName: string;
@@ -132,6 +138,7 @@ export interface HarvestLog {
 // 2. Agenda / Planning
 export interface AgendaEvent {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   date: string;
   title: string;
   description?: string;
@@ -142,6 +149,7 @@ export interface AgendaEvent {
 // 3. Machinery & Maintenance
 export interface Machine {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   name: string; // "Tractor John Deere"
   brand?: string;
   purchaseDate?: string;
@@ -149,6 +157,7 @@ export interface Machine {
 
 export interface MaintenanceLog {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   machineId: string;
   date: string;
   type: 'Preventivo' | 'Correctivo' | 'Combustible';
@@ -160,14 +169,16 @@ export interface MaintenanceLog {
 // 4. Rain / Pluviometry
 export interface RainLog {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   date: string;
   millimeters: number;
   notes?: string;
 }
 
-// 5. General Finances (NEW - The Missing Link for "Gerencia Total")
+// 5. General Finances
 export interface FinanceLog {
   id: string;
+  warehouseId?: string; // Linked to specific Farm
   date: string;
   type: 'INCOME' | 'EXPENSE';
   category: 'Servicios' | 'Impuestos' | 'Bancario' | 'Transporte' | 'Administracion' | 'Otros' | 'Prestamo' | 'Capital';
@@ -193,5 +204,5 @@ export interface AppState {
   machines: Machine[];
   maintenanceLogs: MaintenanceLog[];
   rainLogs: RainLog[];
-  financeLogs: FinanceLog[]; // Added for Admin/Overhead
+  financeLogs: FinanceLog[]; 
 }

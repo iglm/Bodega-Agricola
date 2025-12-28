@@ -76,68 +76,71 @@ export const loadData = (): AppState => {
     const rawData = localStorage.getItem(STORAGE_KEY);
     if (rawData) {
       const parsed = JSON.parse(rawData);
-      
       let migrated = { ...parsed };
 
-      // 1. Multi-tenant structure migration
-      if (!migrated.warehouses) {
-        const defaultId = crypto.randomUUID();
+      // 1. Initialize Warehouses if missing (Migration V1)
+      let defaultId = '';
+      if (!migrated.warehouses || migrated.warehouses.length === 0) {
+        defaultId = crypto.randomUUID();
         const defaultWarehouse: Warehouse = {
           id: defaultId,
-          name: 'Bodega Principal',
-          description: 'Bodega por defecto migrada',
+          name: 'Finca Principal',
+          description: 'Sede migrada por defecto',
           created: new Date().toISOString()
         };
         migrated.warehouses = [defaultWarehouse];
         migrated.activeWarehouseId = defaultId;
-        migrated.inventory = (migrated.inventory || []).map((i: any) => ({ ...i, warehouseId: defaultId }));
-        migrated.movements = (migrated.movements || []).map((m: any) => ({ ...m, warehouseId: defaultId }));
+      } else {
+        defaultId = migrated.activeWarehouseId || migrated.warehouses[0].id;
       }
 
-      // 2. Admin Features Migration
+      // 2. Initialize Arrays
       if (!migrated.suppliers) migrated.suppliers = [];
       if (!migrated.costCenters) migrated.costCenters = [];
       if (!migrated.personnel) migrated.personnel = [];
-
-      // 3. Labor Module Migration
-      if (!migrated.activities) {
-          migrated.activities = [
-            { id: crypto.randomUUID(), name: 'Guadaña / Plateo' },
-            { id: crypto.randomUUID(), name: 'Fumigación' },
-            { id: crypto.randomUUID(), name: 'Fertilización' },
-            { id: crypto.randomUUID(), name: 'Cosecha' },
-            { id: crypto.randomUUID(), name: 'Poda' },
-          ];
-      }
-      if (!migrated.laborLogs) {
-          migrated.laborLogs = [];
-      } else {
-          // PAYROLL MIGRATION: Ensure existing logs have 'paid' status (default to false if missing)
-          migrated.laborLogs = migrated.laborLogs.map((l: any) => ({
-              ...l,
-              paid: l.paid !== undefined ? l.paid : false
-          }));
-      }
-
-      // 4. Average Cost Migration
-      migrated.inventory = migrated.inventory.map((item: any) => {
-        if (item.averageCost === undefined) {
-           const basePurchase = convertToBase(1, item.lastPurchaseUnit);
-           const initialAvg = item.lastPurchasePrice / basePurchase;
-           return { ...item, averageCost: initialAvg };
-        }
-        return item;
-      });
-      
-      if (migrated.adminPin === undefined) migrated.adminPin = undefined; 
-
-      // 5. NEW MODULES MIGRATION
+      if (!migrated.activities) migrated.activities = [];
+      if (!migrated.laborLogs) migrated.laborLogs = [];
       if (!migrated.harvests) migrated.harvests = [];
       if (!migrated.agenda) migrated.agenda = [];
       if (!migrated.machines) migrated.machines = [];
       if (!migrated.maintenanceLogs) migrated.maintenanceLogs = [];
       if (!migrated.rainLogs) migrated.rainLogs = [];
-      if (!migrated.financeLogs) migrated.financeLogs = []; // Finance Migration
+      if (!migrated.financeLogs) migrated.financeLogs = [];
+
+      // 3. MULTI-FARM MIGRATION: Assign warehouseId to orphaned records
+      // This ensures data created before the update gets assigned to the current active farm.
+      
+      const assignFarm = (item: any) => {
+          if (!item.warehouseId) item.warehouseId = defaultId;
+          return item;
+      };
+
+      migrated.inventory = (migrated.inventory || []).map(assignFarm);
+      migrated.movements = (migrated.movements || []).map(assignFarm);
+      migrated.suppliers = migrated.suppliers.map(assignFarm);
+      migrated.costCenters = migrated.costCenters.map(assignFarm);
+      migrated.personnel = migrated.personnel.map(assignFarm);
+      migrated.activities = migrated.activities.map(assignFarm);
+      migrated.laborLogs = migrated.laborLogs.map(assignFarm);
+      migrated.harvests = migrated.harvests.map(assignFarm);
+      migrated.agenda = migrated.agenda.map(assignFarm);
+      migrated.machines = migrated.machines.map(assignFarm);
+      migrated.maintenanceLogs = migrated.maintenanceLogs.map(assignFarm);
+      migrated.rainLogs = migrated.rainLogs.map(assignFarm);
+      migrated.financeLogs = migrated.financeLogs.map(assignFarm);
+
+      // 4. Default Activities (if empty)
+      if (migrated.activities.length === 0) {
+          migrated.activities = [
+            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Guadaña / Plateo' },
+            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Fumigación' },
+            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Fertilización' },
+            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Cosecha' },
+            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Poda' },
+          ];
+      }
+
+      if (migrated.adminPin === undefined) migrated.adminPin = undefined; 
 
       return migrated;
     }
@@ -147,7 +150,7 @@ export const loadData = (): AppState => {
 
   const initId = crypto.randomUUID();
   return { 
-    warehouses: [{ id: initId, name: 'Bodega Principal', created: new Date().toISOString() }],
+    warehouses: [{ id: initId, name: 'Finca Principal', created: new Date().toISOString() }],
     activeWarehouseId: initId,
     inventory: [], 
     movements: [],
@@ -155,10 +158,10 @@ export const loadData = (): AppState => {
     costCenters: [],
     personnel: [],
     activities: [
-        { id: crypto.randomUUID(), name: 'Guadaña / Plateo' },
-        { id: crypto.randomUUID(), name: 'Fumigación' },
-        { id: crypto.randomUUID(), name: 'Fertilización' },
-        { id: crypto.randomUUID(), name: 'Cosecha' }
+        { id: crypto.randomUUID(), warehouseId: initId, name: 'Guadaña / Plateo' },
+        { id: crypto.randomUUID(), warehouseId: initId, name: 'Fumigación' },
+        { id: crypto.randomUUID(), warehouseId: initId, name: 'Fertilización' },
+        { id: crypto.randomUUID(), warehouseId: initId, name: 'Cosecha' }
     ],
     laborLogs: [],
     harvests: [],

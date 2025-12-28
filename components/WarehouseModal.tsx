@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Warehouse } from '../types';
-import { X, Warehouse as WarehouseIcon, Plus, Check, Trash2, Home, Lock } from 'lucide-react';
+import { X, Warehouse as WarehouseIcon, Plus, Check, Trash2, Home, Lock, Map } from 'lucide-react';
 
 interface WarehouseModalProps {
   warehouses: Warehouse[];
@@ -9,7 +10,7 @@ interface WarehouseModalProps {
   onCreate: (name: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
-  isAdmin?: boolean; // New prop
+  isAdmin?: boolean; 
 }
 
 export const WarehouseModal: React.FC<WarehouseModalProps> = ({ 
@@ -19,7 +20,7 @@ export const WarehouseModal: React.FC<WarehouseModalProps> = ({
   onCreate, 
   onDelete,
   onClose,
-  isAdmin = false // Default to safe
+  isAdmin = false 
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -36,10 +37,10 @@ export const WarehouseModal: React.FC<WarehouseModalProps> = ({
   const handleDeleteClick = (e: React.MouseEvent, w: Warehouse) => {
     e.stopPropagation();
     if (warehouses.length <= 1) {
-      alert("No puedes eliminar la única bodega activa.");
+      alert("No puedes eliminar la única sede activa.");
       return;
     }
-    if (confirm(`¿Está seguro de eliminar "${w.name}"? Se perderá todo el inventario asociado.`)) {
+    if (confirm(`¿Está seguro de eliminar "${w.name}"? Se perderán todos los datos (Inventario, Nómina, Finanzas) asociados a esta finca.`)) {
       onDelete(w.id);
     }
   };
@@ -52,11 +53,11 @@ export const WarehouseModal: React.FC<WarehouseModalProps> = ({
         <div className="bg-slate-900 p-4 border-b border-slate-700 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-900/30 p-2 rounded-lg border border-indigo-500/30">
-              <WarehouseIcon className="w-5 h-5 text-indigo-400" />
+              <Map className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
-              <h3 className="text-white font-bold text-lg leading-none">Mis Bodegas</h3>
-              <p className="text-xs text-slate-400 mt-1">Gestión de ubicaciones</p>
+              <h3 className="text-white font-bold text-lg leading-none">Mis Fincas / Sedes</h3>
+              <p className="text-xs text-slate-400 mt-1">Gestión Multi-Finca</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
@@ -99,7 +100,7 @@ export const WarehouseModal: React.FC<WarehouseModalProps> = ({
                     <button 
                       onClick={(e) => handleDeleteClick(e, w)}
                       className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all"
-                      title="Eliminar Bodega"
+                      title="Eliminar Sede"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -117,13 +118,13 @@ export const WarehouseModal: React.FC<WarehouseModalProps> = ({
           {isAdmin ? (
               isCreating ? (
                 <form onSubmit={handleCreate} className="bg-slate-900 p-3 rounded-xl border border-slate-700 animate-fade-in">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nombre Nueva Bodega</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nombre Nueva Finca</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      placeholder="Ej: Finca La Palma"
+                      placeholder="Ej: Hacienda El Recreo"
                       className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none"
                       autoFocus
                     />
@@ -148,13 +149,13 @@ export const WarehouseModal: React.FC<WarehouseModalProps> = ({
                   className="w-full py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Crear Nueva Bodega
+                  Crear Nueva Sede / Finca
                 </button>
               )
           ) : (
              <div className="text-center p-2 text-xs text-slate-500 bg-slate-900/50 rounded-lg border border-slate-700/50">
                 <Lock className="w-3 h-3 inline-block mr-1" />
-                Gestión de bodegas bloqueada
+                Gestión de sedes bloqueada (Requiere Admin)
              </div>
           )}
 

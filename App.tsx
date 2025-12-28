@@ -19,7 +19,7 @@ import { LaborView } from './components/LaborView';
 import { LaborForm } from './components/LaborForm'; 
 import { HarvestView } from './components/HarvestView'; 
 import { ManagementView } from './components/ManagementView'; 
-import { FinanceView } from './components/FinanceView'; // New
+import { FinanceView } from './components/FinanceView'; 
 import { PayrollModal } from './components/PayrollModal';
 
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog, FinanceLog } from './types';
@@ -29,8 +29,6 @@ import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as Wareh
 
 function App() {
   const [view, setView] = useState<'landing' | 'app'>('landing');
-  
-  // NAVIGATION: 'inventory' | 'labor' | 'harvest' | 'management' | 'stats' | 'finance'
   const [currentTab, setCurrentTab] = useState<string>('inventory');
   
   const [data, setData] = useState<AppState>({ 
@@ -51,11 +49,9 @@ function App() {
     financeLogs: [] 
   });
 
-  // Admin Security State
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Theme Management
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') || 'dark';
@@ -105,7 +101,6 @@ function App() {
     }
   }, []);
 
-  // OPTIMIZATION: Debounced Save
   useEffect(() => {
     if (view === 'app') {
       setIsSaving(true);
@@ -120,32 +115,40 @@ function App() {
     }
   }, [data, view]);
 
-  const activeInventory = useMemo(() => {
-    return data.inventory.filter(i => i.warehouseId === data.activeWarehouseId);
-  }, [data.inventory, data.activeWarehouseId]);
+  // --- MULTI-FARM DATA ISOLATION ---
+  // We filter EVERYTHING by the activeWarehouseId (Farm ID)
+  const activeId = data.activeWarehouseId;
 
-  const activeMovements = useMemo(() => {
-    return data.movements.filter(m => m.warehouseId === data.activeWarehouseId);
-  }, [data.movements, data.activeWarehouseId]);
+  const activeInventory = useMemo(() => data.inventory.filter(i => i.warehouseId === activeId), [data.inventory, activeId]);
+  const activeMovements = useMemo(() => data.movements.filter(m => m.warehouseId === activeId), [data.movements, activeId]);
+  const activeSuppliers = useMemo(() => data.suppliers.filter(s => s.warehouseId === activeId), [data.suppliers, activeId]);
+  const activeCostCenters = useMemo(() => data.costCenters.filter(c => c.warehouseId === activeId), [data.costCenters, activeId]);
+  const activePersonnel = useMemo(() => data.personnel.filter(p => p.warehouseId === activeId), [data.personnel, activeId]);
+  const activeActivities = useMemo(() => data.activities.filter(a => a.warehouseId === activeId), [data.activities, activeId]);
+  const activeLaborLogs = useMemo(() => data.laborLogs.filter(l => l.warehouseId === activeId), [data.laborLogs, activeId]);
+  const activeHarvests = useMemo(() => data.harvests.filter(h => h.warehouseId === activeId), [data.harvests, activeId]);
+  const activeAgenda = useMemo(() => data.agenda.filter(a => a.warehouseId === activeId), [data.agenda, activeId]);
+  const activeMachines = useMemo(() => data.machines.filter(m => m.warehouseId === activeId), [data.machines, activeId]);
+  const activeMaintenance = useMemo(() => data.maintenanceLogs.filter(m => m.warehouseId === activeId), [data.maintenanceLogs, activeId]);
+  const activeRainLogs = useMemo(() => data.rainLogs.filter(r => r.warehouseId === activeId), [data.rainLogs, activeId]);
+  const activeFinanceLogs = useMemo(() => data.financeLogs.filter(f => f.warehouseId === activeId), [data.financeLogs, activeId]);
 
   const currentWarehouse = useMemo(() => {
     return data.warehouses.find(w => w.id === data.activeWarehouseId);
   }, [data.warehouses, data.activeWarehouseId]);
 
-  // -- HANDLERS FOR NEW MODULES --
+  // -- HANDLERS (Injecting activeId) --
 
-  // Harvest
   const handleAddHarvest = (h: Omit<HarvestLog, 'id'>) => {
-      const newH: HarvestLog = { ...h, id: crypto.randomUUID() };
+      const newH: HarvestLog = { ...h, id: crypto.randomUUID(), warehouseId: activeId };
       setData(prev => ({ ...prev, harvests: [...prev.harvests, newH] }));
   };
   const handleDeleteHarvest = (id: string) => {
       setData(prev => ({ ...prev, harvests: prev.harvests.filter(h => h.id !== id) }));
   };
 
-  // Agenda
   const handleAddAgenda = (ev: Omit<AgendaEvent, 'id'>) => {
-      setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...ev, id: crypto.randomUUID() }] }));
+      setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...ev, id: crypto.randomUUID(), warehouseId: activeId }] }));
   };
   const handleToggleAgenda = (id: string) => {
       setData(prev => ({
@@ -157,35 +160,30 @@ function App() {
       setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }));
   };
 
-  // Machinery
   const handleAddMachine = (m: Omit<Machine, 'id'>) => {
-      setData(prev => ({ ...prev, machines: [...prev.machines, { ...m, id: crypto.randomUUID() }] }));
+      setData(prev => ({ ...prev, machines: [...prev.machines, { ...m, id: crypto.randomUUID(), warehouseId: activeId }] }));
   };
   const handleDeleteMachine = (id: string) => {
       setData(prev => ({ ...prev, machines: prev.machines.filter(m => m.id !== id) }));
   };
   const handleAddMaintenance = (l: Omit<MaintenanceLog, 'id'>) => {
-      setData(prev => ({ ...prev, maintenanceLogs: [...prev.maintenanceLogs, { ...l, id: crypto.randomUUID() }] }));
+      setData(prev => ({ ...prev, maintenanceLogs: [...prev.maintenanceLogs, { ...l, id: crypto.randomUUID(), warehouseId: activeId }] }));
   };
 
-  // Rain
   const handleAddRain = (r: Omit<RainLog, 'id'>) => {
-      setData(prev => ({ ...prev, rainLogs: [...prev.rainLogs, { ...r, id: crypto.randomUUID() }] }));
+      setData(prev => ({ ...prev, rainLogs: [...prev.rainLogs, { ...r, id: crypto.randomUUID(), warehouseId: activeId }] }));
   };
   const handleDeleteRain = (id: string) => {
       setData(prev => ({ ...prev, rainLogs: prev.rainLogs.filter(r => r.id !== id) }));
   };
 
-  // Finance (NEW)
   const handleAddTransaction = (t: Omit<FinanceLog, 'id'>) => {
-      setData(prev => ({ ...prev, financeLogs: [...(prev.financeLogs || []), { ...t, id: crypto.randomUUID() }] }));
+      setData(prev => ({ ...prev, financeLogs: [...(prev.financeLogs || []), { ...t, id: crypto.randomUUID(), warehouseId: activeId }] }));
   };
   const handleDeleteTransaction = (id: string) => {
       setData(prev => ({ ...prev, financeLogs: (prev.financeLogs || []).filter(f => f.id !== id) }));
   };
 
-
-  // -- STANDARD HANDLERS --
   const handlePinSuccess = (pin: string) => {
     if (!data.adminPin) {
       setData(prev => ({ ...prev, adminPin: pin }));
@@ -202,6 +200,7 @@ function App() {
     else setShowSecurityModal(true);
   };
 
+  // MULTI-FARM Management
   const handleCreateWarehouse = (name: string) => {
     const newId = crypto.randomUUID();
     const newWarehouse: Warehouse = { id: newId, name, created: new Date().toISOString() };
@@ -218,32 +217,31 @@ function App() {
   };
 
   const handleAddSupplier = (name: string, phone: string, email: string, address: string) => {
-     setData(prev => ({ ...prev, suppliers: [...prev.suppliers, { id: crypto.randomUUID(), name, phone, email, address }] }));
+     setData(prev => ({ ...prev, suppliers: [...prev.suppliers, { id: crypto.randomUUID(), warehouseId: activeId, name, phone, email, address }] }));
   };
   const handleDeleteSupplier = (id: string) => setData(prev => ({ ...prev, suppliers: prev.suppliers.filter(s => s.id !== id) }));
   
   const handleAddCostCenter = (name: string, budget: number, area?: number) => {
-     setData(prev => ({ ...prev, costCenters: [...prev.costCenters, { id: crypto.randomUUID(), name, budget, area }] }));
+     setData(prev => ({ ...prev, costCenters: [...prev.costCenters, { id: crypto.randomUUID(), warehouseId: activeId, name, budget, area }] }));
   };
   const handleDeleteCostCenter = (id: string) => setData(prev => ({ ...prev, costCenters: prev.costCenters.filter(c => c.id !== id) }));
 
   const handleAddPersonnel = (name: string, role: string) => {
-      setData(prev => ({ ...prev, personnel: [...prev.personnel, { id: crypto.randomUUID(), name, role }] }));
+      setData(prev => ({ ...prev, personnel: [...prev.personnel, { id: crypto.randomUUID(), warehouseId: activeId, name, role }] }));
   };
   const handleDeletePersonnel = (id: string) => setData(prev => ({ ...prev, personnel: prev.personnel.filter(p => p.id !== id) }));
 
   const handleAddActivity = (name: string) => {
-      setData(prev => ({ ...prev, activities: [...(prev.activities || []), { id: crypto.randomUUID(), name }] }));
+      setData(prev => ({ ...prev, activities: [...(prev.activities || []), { id: crypto.randomUUID(), warehouseId: activeId, name }] }));
   };
   const handleDeleteActivity = (id: string) => setData(prev => ({ ...prev, activities: (prev.activities || []).filter(a => a.id !== id) }));
 
   const handleAddLaborLog = (logData: Omit<LaborLog, 'id'>) => {
-      setData(prev => ({ ...prev, laborLogs: [...(prev.laborLogs || []), { ...logData, id: crypto.randomUUID(), paid: false }] }));
+      setData(prev => ({ ...prev, laborLogs: [...(prev.laborLogs || []), { ...logData, id: crypto.randomUUID(), warehouseId: activeId, paid: false }] }));
       setShowLaborForm(false);
   };
   const handleDeleteLaborLog = (id: string) => setData(prev => ({ ...prev, laborLogs: (prev.laborLogs || []).filter(l => l.id !== id) }));
 
-  // NEW: Mark logs as paid
   const handleMarkAsPaid = (logIds: string[]) => {
       setData(prev => ({
           ...prev,
@@ -255,19 +253,16 @@ function App() {
     let safeData = { ...newData };
     if (!safeData.warehouses || safeData.warehouses.length === 0) {
         const id = crypto.randomUUID();
-        safeData.warehouses = [{ id, name: 'Bodega Restaurada', created: new Date().toISOString() }];
+        safeData.warehouses = [{ id, name: 'Finca Principal', created: new Date().toISOString() }];
         safeData.activeWarehouseId = id;
     }
     const activeExists = safeData.warehouses.find(w => w.id === safeData.activeWarehouseId);
     if (!activeExists) safeData.activeWarehouseId = safeData.warehouses[0].id;
 
+    // Ensure migration checks on restore
     if (!safeData.activities) safeData.activities = [];
     if (!safeData.laborLogs) safeData.laborLogs = [];
     if (!safeData.harvests) safeData.harvests = [];
-    if (!safeData.agenda) safeData.agenda = [];
-    if (!safeData.machines) safeData.machines = [];
-    if (!safeData.maintenanceLogs) safeData.maintenanceLogs = [];
-    if (!safeData.rainLogs) safeData.rainLogs = [];
     if (!safeData.financeLogs) safeData.financeLogs = [];
     
     saveData(safeData);
@@ -275,7 +270,6 @@ function App() {
     if (!safeData.adminPin) setIsAdminUnlocked(true); else setIsAdminUnlocked(false);
   };
 
-  // UPDATED: Now accepts initialMovementDetails
   const handleAddItem = (
       newItem: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
       initialQty: number,
@@ -290,7 +284,7 @@ function App() {
     const item: InventoryItem = {
       ...newItem,
       id: itemId,
-      warehouseId: data.activeWarehouseId,
+      warehouseId: activeId,
       currentQuantity: initialStockBase,
       baseUnit,
       averageCost: initialAvgCost
@@ -299,15 +293,14 @@ function App() {
     let newMovements = [...data.movements];
     if (initialQty > 0) {
       const cost = calculateCost(initialQty, newItem.lastPurchaseUnit, newItem.lastPurchasePrice, newItem.lastPurchaseUnit);
-      
       const supplierName = initialMovementDetails?.supplierId 
-        ? data.suppliers.find(s => s.id === initialMovementDetails.supplierId)?.name 
+        ? activeSuppliers.find(s => s.id === initialMovementDetails.supplierId)?.name 
         : undefined;
 
       newMovements = [{
         id: crypto.randomUUID(),
         itemId: item.id,
-        warehouseId: data.activeWarehouseId,
+        warehouseId: activeId,
         itemName: item.name,
         type: 'IN',
         quantity: initialQty,
@@ -315,7 +308,6 @@ function App() {
         calculatedCost: cost,
         date: new Date().toISOString(),
         notes: 'Inventario Inicial',
-        // Inject new details
         supplierId: initialMovementDetails?.supplierId,
         supplierName: supplierName,
         invoiceNumber: initialMovementDetails?.invoiceNumber,
@@ -381,20 +373,20 @@ function App() {
     const newMovement: Movement = {
       ...movData,
       id: crypto.randomUUID(),
-      warehouseId: data.activeWarehouseId, 
+      warehouseId: activeId, 
       date: new Date().toISOString(),
       calculatedCost: calculatedMovementCost
     };
 
     let updatedMaintenanceLogs = data.maintenanceLogs;
 
-    // INTEGRATION: If movement is OUT and has machineId, create a MaintenanceLog
     if (movData.type === 'OUT' && movData.machineId) {
         const newMaintLog: MaintenanceLog = {
             id: crypto.randomUUID(),
+            warehouseId: activeId,
             machineId: movData.machineId,
             date: new Date().toISOString(),
-            type: 'Correctivo', // Defaulting to 'Correctivo' for spare parts/replacements
+            type: 'Correctivo', 
             cost: calculatedMovementCost,
             description: `Repuesto Inventario: ${movData.itemName} (${movData.quantity} ${movData.unit})`
         };
@@ -420,7 +412,17 @@ function App() {
     handleAddMovement({ itemId: item.id, itemName: item.name, type, quantity: diffInPurchaseUnits, unit: item.lastPurchaseUnit, calculatedCost: 0, notes }, type === 'IN' ? costPerPurchaseUnit : undefined);
   };
 
-  const getExportData = (): AppState => ({ ...data, inventory: activeInventory, movements: activeMovements });
+  // Export Data should only include current farm
+  const getExportData = (): AppState => ({ 
+      ...data, 
+      inventory: activeInventory, 
+      movements: activeMovements,
+      laborLogs: activeLaborLogs,
+      harvests: activeHarvests,
+      maintenanceLogs: activeMaintenance,
+      rainLogs: activeRainLogs,
+      financeLogs: activeFinanceLogs
+  });
 
   if (view === 'landing') {
     return <Landing onEnter={() => setView('app')} onShowManual={() => setShowManual(true)} />;
@@ -443,7 +445,7 @@ function App() {
                   </h1>
                   <span className="text-[9px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-yellow-500' : 'bg-emerald-500'} animate-pulse`}></div>
-                      {currentWarehouse?.name || 'Bodega'}
+                      {currentWarehouse?.name || 'Sede Principal'}
                   </span>
                 </div>
             </div>
@@ -464,7 +466,6 @@ function App() {
             </div>
           </div>
 
-          {/* MAIN NAV TABS - EXPANDED */}
           <div className="flex bg-slate-200 dark:bg-slate-900/50 p-1 rounded-xl gap-1 overflow-x-auto">
              <button onClick={() => setCurrentTab('inventory')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'inventory' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
                 <Package className="w-4 h-4" /> <span className="hidden sm:inline">Inventario</span>
@@ -478,11 +479,9 @@ function App() {
              <button onClick={() => setCurrentTab('management')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'management' ? 'bg-white dark:bg-slate-700 text-indigo-500 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}>
                 <Tractor className="w-4 h-4" /> <span className="hidden sm:inline">Gestión</span>
              </button>
-             {/* FINANCE TAB */}
              <button onClick={() => setCurrentTab('finance')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'finance' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500'}`}>
                 <Landmark className="w-4 h-4" /> <span className="hidden sm:inline">Finanzas</span>
              </button>
-             {/* PROTECTED STATS TAB */}
              <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setCurrentTab('stats'); }} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'stats' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
                 {isAdminUnlocked ? <BarChart3 className="w-4 h-4" /> : <Lock className="w-4 h-4" />} 
                 <span className="hidden sm:inline">Reportes</span>
@@ -497,7 +496,6 @@ function App() {
             <button onClick={() => setShowAuditModal(true)} className="col-span-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-indigo-100 transition-colors">
               <ClipboardCheck className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Auditoría</span>
             </button>
-            {/* PROTECTED EXPORT BUTTON */}
             <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowExport(true); }} className={`col-span-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-emerald-100 transition-colors ${!isAdminUnlocked ? 'opacity-50' : ''}`}>
               {isAdminUnlocked ? <Download className="w-4 h-4" /> : <Lock className="w-4 h-4" />} 
               <span className="text-[9px] font-bold hidden sm:inline">Reportes</span>
@@ -513,14 +511,12 @@ function App() {
         {currentTab === 'inventory' && (
              <Dashboard 
                 inventory={activeInventory} 
-                agenda={data.agenda || []}
-                // --- FINANCIAL DATA FOR COMMAND CENTER ---
-                harvests={data.harvests || []}
-                laborLogs={data.laborLogs || []}
+                agenda={activeAgenda}
+                harvests={activeHarvests}
+                laborLogs={activeLaborLogs}
                 movements={activeMovements}
-                maintenanceLogs={data.maintenanceLogs || []}
-                financeLogs={data.financeLogs || []}
-                // ----------------------------------------
+                maintenanceLogs={activeMaintenance}
+                financeLogs={activeFinanceLogs}
                 onAddMovement={(item, type) => setMovementModal({ item, type })} 
                 onDelete={handleRequestDelete} 
                 onViewHistory={(item) => setHistoryModalItem(item)} 
@@ -530,10 +526,10 @@ function App() {
         
         {currentTab === 'labor' && (
              <LaborView 
-                laborLogs={data.laborLogs || []} 
-                personnel={data.personnel} 
-                costCenters={data.costCenters} 
-                activities={data.activities || []} 
+                laborLogs={activeLaborLogs} 
+                personnel={activePersonnel} 
+                costCenters={activeCostCenters} 
+                activities={activeActivities} 
                 onAddLabor={() => { if (!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowLaborForm(true); }} 
                 onDeleteLabor={handleDeleteLaborLog} 
                 isAdmin={isAdminUnlocked}
@@ -543,24 +539,23 @@ function App() {
 
         {currentTab === 'harvest' && (
              <HarvestView 
-                harvests={data.harvests || []} 
-                costCenters={data.costCenters} 
+                harvests={activeHarvests} 
+                costCenters={activeCostCenters} 
                 onAddHarvest={handleAddHarvest} 
                 onDeleteHarvest={handleDeleteHarvest} 
                 isAdmin={isAdminUnlocked}
-                // DATA LINKING: Passing movements and labor logs to calculate real-time investment
                 allMovements={activeMovements}
-                allLaborLogs={data.laborLogs || []}
+                allLaborLogs={activeLaborLogs}
              />
         )}
 
         {currentTab === 'management' && (
             <ManagementView 
-                agenda={data.agenda || []}
-                machines={data.machines || []}
-                maintenanceLogs={data.maintenanceLogs || []}
-                rainLogs={data.rainLogs || []}
-                costCenters={data.costCenters}
+                agenda={activeAgenda}
+                machines={activeMachines}
+                maintenanceLogs={activeMaintenance}
+                rainLogs={activeRainLogs}
+                costCenters={activeCostCenters}
                 onAddEvent={handleAddAgenda}
                 onToggleEvent={handleToggleAgenda}
                 onDeleteEvent={handleDeleteAgenda}
@@ -575,7 +570,7 @@ function App() {
 
         {currentTab === 'finance' && (
             <FinanceView 
-                financeLogs={data.financeLogs || []}
+                financeLogs={activeFinanceLogs}
                 onAddTransaction={handleAddTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
             />
@@ -584,13 +579,13 @@ function App() {
         {currentTab === 'stats' && (
              <StatsView 
                 movements={activeMovements} 
-                suppliers={data.suppliers} 
-                costCenters={data.costCenters} 
-                laborLogs={data.laborLogs} 
-                harvests={data.harvests} 
-                maintenanceLogs={data.maintenanceLogs}
-                financeLogs={data.financeLogs}
-                rainLogs={data.rainLogs}
+                suppliers={activeSuppliers} 
+                costCenters={activeCostCenters} 
+                laborLogs={activeLaborLogs} 
+                harvests={activeHarvests} 
+                maintenanceLogs={activeMaintenance}
+                financeLogs={activeFinanceLogs}
+                rainLogs={activeRainLogs}
              />
         )}
       </main>
@@ -601,14 +596,14 @@ function App() {
         </button>
       )}
 
-      {showAddForm && <InventoryForm suppliers={data.suppliers} onSave={handleAddItem} onCancel={() => setShowAddForm(false)} />}
-      {showLaborForm && <LaborForm personnel={data.personnel} costCenters={data.costCenters} activities={data.activities || []} onSave={handleAddLaborLog} onCancel={() => setShowLaborForm(false)} onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} />}
-      {movementModal && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} machines={data.machines} movements={activeMovements} onSave={handleAddMovement} onCancel={() => setMovementModal(null)} />}
-      {showSettings && <SettingsModal suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} activities={data.activities} onAddSupplier={handleAddSupplier} onDeleteSupplier={handleDeleteSupplier} onAddCostCenter={handleAddCostCenter} onDeleteCostCenter={handleDeleteCostCenter} onAddPersonnel={handleAddPersonnel} onDeletePersonnel={handleDeletePersonnel} onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onClose={() => setShowSettings(false)} />}
+      {showAddForm && <InventoryForm suppliers={activeSuppliers} onSave={handleAddItem} onCancel={() => setShowAddForm(false)} />}
+      {showLaborForm && <LaborForm personnel={activePersonnel} costCenters={activeCostCenters} activities={activeActivities} onSave={handleAddLaborLog} onCancel={() => setShowLaborForm(false)} onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} />}
+      {movementModal && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={activeSuppliers} costCenters={activeCostCenters} personnel={activePersonnel} machines={activeMachines} movements={activeMovements} onSave={handleAddMovement} onCancel={() => setMovementModal(null)} />}
+      {showSettings && <SettingsModal suppliers={activeSuppliers} costCenters={activeCostCenters} personnel={activePersonnel} activities={activeActivities} onAddSupplier={handleAddSupplier} onDeleteSupplier={handleDeleteSupplier} onAddCostCenter={handleAddCostCenter} onDeleteCostCenter={handleDeleteCostCenter} onAddPersonnel={handleAddPersonnel} onDeletePersonnel={handleDeletePersonnel} onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onClose={() => setShowSettings(false)} />}
       {showDataModal && <DataModal fullState={data} onRestoreData={handleRestoreData} onClose={() => setShowDataModal(false)} />}
       {showAuditModal && <AuditModal inventory={activeInventory} onAdjust={handleAuditAdjustment} onClose={() => setShowAuditModal(false)} />}
       {showSecurityModal && <SecurityModal existingPin={data.adminPin} onSuccess={handlePinSuccess} onClose={() => setShowSecurityModal(false)} />}
-      {showPayrollModal && <PayrollModal logs={data.laborLogs || []} personnel={data.personnel} onMarkAsPaid={handleMarkAsPaid} onClose={() => setShowPayrollModal(false)} warehouseName={currentWarehouse?.name || 'AgroBodega'} />}
+      {showPayrollModal && <PayrollModal logs={activeLaborLogs} personnel={activePersonnel} onMarkAsPaid={handleMarkAsPaid} onClose={() => setShowPayrollModal(false)} warehouseName={currentWarehouse?.name || 'AgroBodega'} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
       {showExport && (
           <ExportModal 
