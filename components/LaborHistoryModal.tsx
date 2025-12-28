@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { LaborLog, Personnel, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { X, Search, User, MapPin, Pickaxe, Calendar, Trash2, Filter, DollarSign } from 'lucide-react';
+import { X, Search, User, MapPin, Pickaxe, Calendar, Filter, Trash2, DollarSign } from 'lucide-react';
 
 interface LaborHistoryModalProps {
   logs: LaborLog[];
@@ -174,18 +173,25 @@ export const LaborHistoryModal: React.FC<LaborHistoryModalProps> = ({
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                     {filteredLogs.map(log => (
-                        <div key={log.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col relative group">
+                        <div key={log.id} className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex flex-col relative group ${log.paid ? 'border-emerald-200 dark:border-emerald-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
                             
                             <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center gap-2">
                                     <div className="bg-amber-100 dark:bg-amber-900/30 p-1.5 rounded text-amber-600 dark:text-amber-500">
                                         <Calendar className="w-4 h-4" />
                                     </div>
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                        {new Date(log.date).toLocaleDateString()}
-                                    </span>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                            {new Date(log.date).toLocaleDateString()}
+                                        </span>
+                                        {log.paid ? (
+                                             <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1 rounded inline-block w-fit">PAGADO</span>
+                                        ) : (
+                                             <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1 rounded inline-block w-fit">PENDIENTE</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <span className="font-mono font-bold text-slate-800 dark:text-white text-sm">
+                                <span className="font-mono font-bold text-slate-800 dark:text-white text-sm bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-lg">
                                     {formatCurrency(log.value)}
                                 </span>
                             </div>
@@ -200,15 +206,15 @@ export const LaborHistoryModal: React.FC<LaborHistoryModalProps> = ({
                                     <span>{log.activityName}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                                    <MapPin className="w-3 h-3 text-purple-500" />
+                                    <MapPin className="w-3 h-3 text-purple-400" />
                                     <span>{log.costCenterName}</span>
                                 </div>
                             </div>
 
                             {log.notes && (
-                                <div className="mt-auto pt-2 border-t border-slate-100 dark:border-slate-700">
-                                    <p className="text-[10px] text-slate-400 italic">"{log.notes}"</p>
-                                </div>
+                                <p className="text-[10px] text-slate-400 italic mt-1 border-t border-slate-100 dark:border-slate-700/50 pt-1">
+                                    "{log.notes}"
+                                </p>
                             )}
 
                             {isAdmin && (
@@ -216,8 +222,7 @@ export const LaborHistoryModal: React.FC<LaborHistoryModalProps> = ({
                                     onClick={() => {
                                         if(confirm('¿Eliminar este registro permanentemente?')) onDelete(log.id);
                                     }}
-                                    className="absolute top-2 right-2 p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                                    title="Eliminar Registro"
+                                    className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>

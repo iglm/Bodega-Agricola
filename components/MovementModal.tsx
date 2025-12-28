@@ -166,9 +166,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     if (isOut) {
         const requestedBaseAmount = convertToBase(qtyNum, unit);
         if (requestedBaseAmount > item.currentQuantity + EPSILON) return;
-        // Destination Validation
-        if (destinationType === 'lote' && !selectedCostCenterId) return;
-        if (destinationType === 'machine' && !selectedMachineId) return;
+        // Destination Validation REMOVED - Made Optional
     }
     if (error) return;
 
@@ -465,14 +463,14 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                  {/* Personnel Selection */}
                  <div>
                      <label className="block text-xs font-bold text-blue-500 uppercase mb-1 flex items-center gap-1">
-                        <UserCheck className="w-3 h-3" /> ¿Quién Retira? (Responsable)
+                        <UserCheck className="w-3 h-3" /> Responsable (Opcional)
                      </label>
                      <select
                             value={selectedPersonnelId}
                             onChange={e => setSelectedPersonnelId(e.target.value)}
                             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none text-sm transition-colors"
                      >
-                            <option value="">-- Seleccionar Responsable --</option>
+                            <option value="">-- Sin Responsable --</option>
                             {personnel.map(p => (
                                 <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
@@ -483,7 +481,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                  {/* DESTINATION TOGGLE (LOTE vs MACHINE) */}
                  <div>
                     <label className="block text-xs font-bold text-purple-500 uppercase mb-2 flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> ¿Para dónde va el insumo?
+                        <MapPin className="w-3 h-3" /> Destino (Opcional)
                     </label>
                     
                     <div className="flex p-1 bg-slate-200 dark:bg-slate-900 rounded-lg mb-3">
@@ -519,7 +517,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                                     onChange={e => setSelectedCostCenterId(e.target.value)}
                                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none text-sm transition-colors"
                                 >
-                                    <option value="">-- Seleccionar Lote --</option>
+                                    <option value="">-- Ninguno / General --</option>
                                     {costCenters.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
@@ -569,7 +567,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                                         onChange={e => setSelectedMachineId(e.target.value)}
                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none text-sm transition-colors"
                                     >
-                                        <option value="">-- Seleccionar Máquina --</option>
+                                        <option value="">-- Ninguna / General --</option>
                                         {machines.map(m => (
                                             <option key={m.id} value={m.id}>{m.name}</option>
                                         ))}

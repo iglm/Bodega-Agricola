@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, BookOpen, Calculator, Settings, TrendingUp, Calendar, Zap, Sprout, Tractor, Lock } from 'lucide-react';
+import { X, BookOpen, Calculator, Settings, TrendingUp, Calendar, Zap, Sprout, Tractor, Lock, Wallet, MousePointerClick, Coffee, Activity } from 'lucide-react';
 
 interface ManualModalProps {
   onClose: () => void;
@@ -18,8 +18,8 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
               <BookOpen className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-white font-bold text-lg leading-none">Manual de Usuario V4.0</h3>
-              <p className="text-xs text-slate-400 mt-1">Suite de Gerencia Agrícola</p>
+              <h3 className="text-white font-bold text-lg leading-none">Guía de Gestión Cafetera</h3>
+              <p className="text-xs text-slate-400 mt-1">Manual Técnico y Análisis Empresarial</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
@@ -30,109 +30,131 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8 text-slate-300">
           
-          <div className="bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
-             <h4 className="text-blue-400 font-bold mb-1">Novedades Versión Gerencial</h4>
-             <ul className="list-disc list-inside text-sm text-slate-300">
-                <li><strong>Módulo de Cosechas:</strong> Registro de producción e ingresos.</li>
-                <li><strong>Gestión de Maquinaria:</strong> Hoja de vida y costos de mantenimiento.</li>
-                <li><strong>Integración Total:</strong> Ahora puede enviar insumos desde la bodega directamente a una Máquina.</li>
-             </ul>
+          <div className="bg-gradient-to-r from-emerald-900/40 to-slate-900 p-4 rounded-xl border-l-4 border-emerald-500">
+             <h4 className="text-emerald-400 font-bold mb-2 flex items-center gap-2">
+                 <Coffee className="w-4 h-4" /> Caso de Estudio: Finca "La Esperanza"
+             </h4>
+             <p className="text-sm text-slate-300">
+                 Este manual utiliza ejemplos reales basados en una finca cafetera colombiana para explicar cómo ingresar datos y, lo más importante, <strong>cómo analizarlos para ganar más dinero.</strong>
+             </p>
           </div>
 
-          {/* Section 1: Security */}
+          {/* Module 1: Insumos */}
           <section>
             <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Lock className="w-5 h-5 text-red-400" />
-              1. Seguridad y Roles
+              <Calculator className="w-5 h-5 text-blue-400" />
+              1. Control de Costos (Inventario)
             </h4>
-            <div className="text-sm bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-              <p className="mb-2">El sistema cuenta con un <strong>PIN DE SEGURIDAD</strong>. Este debe ser configurado por el dueño o administrador.</p>
-              <ul className="space-y-2 mt-2">
-                  <li className="flex gap-2">
-                      <span className="text-red-400 font-bold">Bloqueado (Sin PIN):</span>
-                      <span>Operario solo puede ver inventario, registrar lluvias y ver tareas. No ve precios totales ni ganancias.</span>
-                  </li>
-                  <li className="flex gap-2">
-                      <span className="text-emerald-400 font-bold">Desbloqueado (Con PIN):</span>
-                      <span>Acceso a Configuración, Maestros, Eliminar registros, Ver utilidades financieras y Exportar datos.</span>
-                  </li>
-              </ul>
+            <div className="text-sm space-y-3">
+                <p>El error #1 es no saber cuánto vale aplicar una bomba de fumigación. El sistema usa <strong>Promedio Ponderado</strong> para solucionar esto.</p>
+                
+                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                    <strong className="text-blue-300 block mb-1">Ejemplo Real:</strong>
+                    <ul className="list-disc list-inside text-slate-400 space-y-1">
+                        <li>Compra 10 litros de Fertilizante Foliar a $40.000 c/u.</li>
+                        <li>A la semana, el precio sube y compra 5 litros a $50.000.</li>
+                        <li>El sistema recalcula automáticamente: Su costo promedio ya no es $40.000, ahora es <strong>$43.333 por litro</strong>.</li>
+                    </ul>
+                    <p className="mt-2 text-xs text-slate-500 italic">
+                        Al sacar el producto para el "Lote El Guamo", el sistema descontará el valor exacto ($43.333), permitiéndole saber el costo real de la fertilización.
+                    </p>
+                </div>
             </div>
           </section>
 
-          {/* Section 2: Production */}
+          {/* Module 2: Labores */}
           <section>
             <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-yellow-500" />
-              2. Producción y Cosechas
+              <Wallet className="w-5 h-5 text-amber-400" />
+              2. Mano de Obra y Nómina
             </h4>
-            <div className="text-sm">
-                <p>
-                    Fundamental para calcular la rentabilidad. Cada vez que recolecte o venda producto:
-                </p>
-                <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-400">
-                    <li>Vaya a la pestaña <strong>Producción</strong>.</li>
-                    <li>Seleccione el Lote de origen (Ej: Lote Café Norte).</li>
-                    <li>Ingrese la cantidad (Kg, Arrobas) y el <strong>Valor Total de Venta</strong>.</li>
-                </ol>
-                <p className="mt-2 text-emerald-400 text-xs italic">
-                    El sistema cruzará automáticamente estos ingresos contra los gastos de insumos y mano de obra para decirle si el lote dio ganancia o pérdida.
-                </p>
-            </div>
-          </section>
-
-          {/* Section 3: Machinery */}
-          <section>
-            <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Tractor className="w-5 h-5 text-orange-500" />
-              3. Gestión de Maquinaria
-            </h4>
-            <div className="text-sm space-y-2">
-                <p>Ahora puede llevar la hoja de vida de sus equipos (Tractores, Guadañas, Bombas).</p>
+            <div className="text-sm space-y-3">
+                <p>Registre cada jornal diariamente, aunque pague quincenalmente. Esto evita "fugas" de dinero y olvidos.</p>
                 <div className="grid md:grid-cols-2 gap-3">
                     <div className="bg-slate-700/30 p-3 rounded-lg border border-slate-600">
-                        <strong className="text-orange-300 block mb-1">Mantenimientos Directos</strong>
-                        <p className="text-xs">En la pestaña <strong>Gestión {'>'} Maquinaria</strong>, registre cambios de aceite, reparaciones mecánicas o combustible comprado en bomba.</p>
+                        <strong className="text-amber-300 block mb-1">Ejemplo: Plateo</strong>
+                        <p className="text-xs">
+                            Don Pedro envía a "Juan" a platear el "Lote 1". Registra el jornal en la app ($60.000). El sistema carga ese costo al Lote 1 automáticamente.
+                        </p>
                     </div>
                     <div className="bg-slate-700/30 p-3 rounded-lg border border-slate-600">
-                        <strong className="text-purple-300 block mb-1">Repuestos de Bodega</strong>
-                        <p className="text-xs">Al hacer una <strong>Salida de Inventario</strong>, cambie el interruptor de "¿Para dónde va?" a <strong>Maquinaria</strong>. El sistema descontará el repuesto de bodega y cargará el costo a la máquina seleccionada.</p>
+                        <strong className="text-amber-300 block mb-1">Ejemplo: Recolección</strong>
+                        <p className="text-xs">
+                            Si paga por kilos, registre en "Valor Jornal" el total del día (Ej: 100kg a $800 = $80.000). En notas escriba "100kg recolección".
+                        </p>
                     </div>
                 </div>
             </div>
           </section>
 
-          {/* Section 4: Inventory & Costs */}
+          {/* Module 3: Production */}
           <section>
             <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-emerald-400" />
-              4. Inventario y Costos (CPP)
+              <Sprout className="w-5 h-5 text-yellow-500" />
+              3. Producción (Ingresos)
             </h4>
-            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 text-sm">
-               <p className="mb-2">El sistema usa el método contable de <strong>Promedio Ponderado</strong>:</p>
-               <div className="bg-black/30 p-3 rounded font-mono text-xs text-emerald-200/80 mb-2">
-                  Ejemplo:<br/>
-                  Tiene 10 kg a $10.000<br/>
-                  Compra 10 kg nuevos a $12.000<br/>
-                  ------------------------------------<br/>
-                  Nuevo Costo Promedio = $11.000 / kg
-               </div>
+            <div className="text-sm bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+               <p className="mb-2">Para saber si una finca es negocio, hay que registrar cada venta.</p>
+               <ol className="list-decimal list-inside space-y-2 text-slate-400">
+                   <li>Vende 2 cargas de café pergamino seco.</li>
+                   <li>Va a la pestaña <strong>Producción</strong>.</li>
+                   <li>Selecciona el lote de origen (Ej: Lote La Cañada).</li>
+                   <li>Ingresa el valor total de la venta (Ej: $3.800.000).</li>
+               </ol>
+               <p className="mt-2 text-emerald-400 text-xs font-bold">
+                   ¡Importante! Sin este paso, el sistema le dirá que está perdiendo dinero, porque solo vería gastos.
+               </p>
             </div>
           </section>
 
-           {/* Section 5: Reports */}
+           {/* Module 4: KPIs (New Analysis) */}
            <section>
             <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-blue-400" />
-              5. Reportes Gerenciales
+              <Activity className="w-5 h-5 text-purple-400" />
+              4. Análisis Empresarial (KPIs)
             </h4>
-            <div className="text-sm">
-                <p>En el botón <strong>Exportar (Descarga)</strong> encontrará los nuevos reportes:</p>
-                <ul className="list-disc list-inside mt-2 text-slate-400 text-xs space-y-1">
-                    <li><strong>Reporte de Cosechas:</strong> Resumen de ingresos por cultivo y fecha.</li>
-                    <li><strong>Reporte de Maquinaria:</strong> Detalle de gastos por máquina (Repuestos + Mantenimientos).</li>
-                    <li><strong>Estado de Resultados:</strong> (En pantalla Estadísticas) Vea la utilidad neta real del negocio.</li>
-                </ul>
+            <div className="text-sm space-y-4">
+                <p>En la pestaña <strong>Reportes</strong>, encontrará dos nuevos indicadores vitales para la toma de decisiones:</p>
+                
+                {/* ROI Explanation */}
+                <div className="flex gap-3">
+                    <div className="bg-purple-500/20 p-2 h-fit rounded-lg">
+                        <TrendingUp className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                        <h5 className="font-bold text-white">ROI (Retorno de Inversión)</h5>
+                        <p className="text-slate-400 text-xs mt-1">
+                            Responde a: <em>"¿Por cada $1.000 pesos que metí a la finca, cuántos recuperé?"</em>
+                        </p>
+                        <ul className="text-xs text-slate-500 list-disc list-inside mt-1 bg-black/20 p-2 rounded">
+                            <li><strong>ROI Positivo (Ej: 20%):</strong> El negocio es sano. Ganó 20 centavos por cada peso invertido.</li>
+                            <li><strong>ROI Negativo (Ej: -10%):</strong> Cuidado. Está gastando más de lo que produce. Revise costos de fertilización o mano de obra.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Margin Explanation */}
+                <div className="flex gap-3">
+                    <div className="bg-blue-500/20 p-2 h-fit rounded-lg">
+                        <Wallet className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                        <h5 className="font-bold text-white">Margen Neto</h5>
+                        <p className="text-slate-400 text-xs mt-1">
+                            Responde a: <em>"De la plata que recibí por el café, ¿cuánto es realmente ganancia libre?"</em>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Si vende $1.000.000 y su margen es 30%, significa que $700.000 se fueron en gastos y le quedaron $300.000 libres.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-2 bg-slate-700/30 p-2 rounded border border-slate-600">
+                    <p className="text-xs text-slate-300">
+                        <MousePointerClick className="w-3 h-3 inline mr-1" />
+                        <strong>Consejo de Experto:</strong> Use el filtro de fechas para comparar su ROI en época de cosecha (debe ser alto) vs. época de sostenimiento (será negativo, y es normal). Lo importante es que el <strong>Anual</strong> sea positivo.
+                    </p>
+                </div>
             </div>
           </section>
 
@@ -145,7 +167,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                 onClick={onClose}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors"
             >
-                Entendido
+                Entendido, ir a la App
             </button>
         </div>
 

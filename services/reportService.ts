@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx';
@@ -332,42 +333,65 @@ export const generateLaborExcel = (data: AppState) => {
 
 // --- PAYMENT SLIP GENERATOR ---
 export const generatePaymentReceipt = (workerName: string, logs: LaborLog[], warehouseName: string) => {
+    // Robust checks to prevent crashes
+    if (!logs || logs.length === 0) return;
+    const name = workerName || 'Trabajador';
+
     const doc = new jsPDF({
         unit: 'mm',
         format: [80, 200] // Thermal receipt format approximation
     });
 
-    const total = logs.reduce((acc, l) => acc + l.value, 0);
+    const total = logs.reduce((acc, l) => acc + (l.value || 0), 0);
     const date = new Date().toLocaleDateString();
+
+    // Helper to safely add text
+    const safeText = (text: string, x: number, y: number, options?: any) => {
+        try {
+            doc.text(String(text), x, y, options);
+        } catch (e) {
+            console.warn("Text rendering error", e);
+        }
+    };
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("AgroBodega Pro", 40, 5, { align: 'center' });
+    safeText("AgroBodega Pro", 40, 5, { align: 'center' });
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("Comprobante de Pago", 40, 10, { align: 'center' });
+    safeText("Comprobante de Pago", 40, 10, { align: 'center' });
     
-    doc.text("--------------------------------", 40, 13, { align: 'center' });
+    safeText("--------------------------------", 40, 13, { align: 'center' });
     
     doc.setFontSize(7);
-    doc.text(`Fecha: ${date}`, 5, 18);
-    doc.text(`Trabajador:`, 5, 22);
+    safeText(`Fecha: ${date}`, 5, 18);
+    safeText(`Trabajador:`, 5, 22);
     doc.setFont("helvetica", "bold");
-    doc.text(workerName, 5, 26);
+    safeText(name, 5, 26);
     
     let y = 32;
     doc.setFont("helvetica", "bold");
-    doc.text("Concepto", 5, y);
-    doc.text("Valor", 75, y, { align: 'right' });
+    safeText("Concepto", 5, y);
+    safeText("Valor", 75, y, { align: 'right' });
     y += 2;
     doc.line(5, y, 75, y);
     y += 3;
 
     doc.setFont("helvetica", "normal");
     logs.forEach(log => {
-        doc.text(`${new Date(log.date).toLocaleDateString().slice(0,5)} - ${log.activityName.slice(0, 12)}`, 5, y);
-        doc.text(formatCurrency(log.value), 75, y, { align: 'right' });
+        // Truncate long strings to prevent layout break
+        const laborName = (log.activityName || 'Labor').slice(0, 15);
+        const dateStr = log.date ? new Date(log.date).toLocaleDateString().slice(0,5) : '--/--';
+        
+        safeText(`${dateStr} - ${laborName}`, 5, y);
+        safeText(formatCurrency(log.value || 0), 75, y, { align: 'right' });
         y += 4;
+        
+        // Prevent writing off page
+        if (y > 190) {
+            doc.addPage();
+            y = 10;
+        }
     });
 
     y += 2;
@@ -376,19 +400,20 @@ export const generatePaymentReceipt = (workerName: string, logs: LaborLog[], war
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("TOTAL PAGADO", 5, y);
-    doc.text(formatCurrency(total), 75, y, { align: 'right' });
+    safeText("TOTAL PAGADO", 5, y);
+    safeText(formatCurrency(total), 75, y, { align: 'right' });
     
     y += 10;
     doc.setFontSize(6);
-    doc.text("Firma Recibido:", 5, y);
+    safeText("Firma Recibido:", 5, y);
     doc.line(25, y, 75, y);
 
     y += 10;
-    doc.text("Desarrollado por:", 40, y, { align: 'center' });
-    doc.text("Lucas Mateo Tabares Franco", 40, y + 3, { align: 'center' });
+    safeText("Desarrollado por:", 40, y, { align: 'center' });
+    safeText("Lucas Mateo Tabares Franco", 40, y + 3, { align: 'center' });
 
-    doc.save(`Pago_${workerName.replace(/\s+/g, '_')}_${date}.pdf`);
+    const safeFilename = name.replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Pago_${safeFilename}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 // --- NEW HARVEST REPORT ---
@@ -491,4 +516,125 @@ export const generateMachineryPDF = (data: AppState) => {
 
     addFooter(doc);
     doc.save(`Reporte_Maquinaria_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// --- NEW UNIFIED REPORT (GLOBAL) ---
+export const generateGlobalReport = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
+    
+    let yPos = addHeader(doc, "Informe Gerencial Unificado", "Estado Global de la Finca", activeWarehouseName, [59, 130, 246]); // Blue header
+
+    // Calculate Global Financials
+    const totalHarvest = (data.harvests || []).reduce((acc, h) => acc + h.totalValue, 0);
+    const totalLabor = (data.laborLogs || []).reduce((acc, l) => acc + l.value, 0);
+    const totalInputs = data.movements.filter(m => m.type === 'OUT').reduce((acc, m) => acc + m.calculatedCost, 0);
+    const totalMaint = (data.maintenanceLogs || []).reduce((acc, m) => acc + m.cost, 0);
+    const totalExpenses = totalLabor + totalInputs + totalMaint;
+    const netProfit = totalHarvest - totalExpenses;
+
+    // --- SECTION 1: EXECUTIVE SUMMARY ---
+    doc.setFontSize(14);
+    doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. Resumen Ejecutivo (Balance Total)", 14, yPos);
+    doc.line(14, yPos + 2, 105, yPos + 2);
+
+    const summaryData = [
+        ['Ingresos Totales (Cosechas)', formatCurrency(totalHarvest)],
+        ['(-) Gastos Mano de Obra', formatCurrency(totalLabor)],
+        ['(-) Gastos Insumos', formatCurrency(totalInputs)],
+        ['(-) Gastos Maquinaria', formatCurrency(totalMaint)],
+        ['UTILIDAD NETA', formatCurrency(netProfit)]
+    ];
+
+    autoTable(doc, {
+        startY: yPos + 8,
+        head: [['Concepto', 'Valor']],
+        body: summaryData,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 58, 138] }, // Dark Blue
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+        didParseCell: function(data) {
+            if (data.row.index === 4 && data.column.index === 1) {
+                if (netProfit >= 0) data.cell.styles.textColor = [22, 163, 74];
+                else data.cell.styles.textColor = [220, 38, 38];
+            }
+        }
+    });
+
+    // --- SECTION 2: HARVESTS ---
+    let nextY = (doc as any).lastAutoTable.finalY + 15;
+    if (nextY > 260) { doc.addPage(); nextY = 20; }
+    
+    doc.setFontSize(14);
+    doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
+    doc.text("2. Resumen de Producción", 14, nextY);
+    doc.line(14, nextY + 2, 80, nextY + 2);
+
+    const harvestRows = (data.harvests || []).slice(0, 15).map(h => [ // Limit to last 15 to save space in summary
+        new Date(h.date).toLocaleDateString(),
+        h.cropName,
+        h.costCenterName,
+        formatCurrency(h.totalValue)
+    ]);
+
+    autoTable(doc, {
+        startY: nextY + 8,
+        head: [['Fecha', 'Cultivo', 'Lote', 'Valor']],
+        body: harvestRows,
+        theme: 'striped',
+        headStyles: { fillColor: [202, 138, 4] },
+        columnStyles: { 3: { halign: 'right' } }
+    });
+
+    if ((data.harvests || []).length > 15) {
+        doc.setFontSize(8);
+        doc.text("... (Se muestran las últimas 15 cosechas, exporte el reporte individual para ver todo)", 14, (doc as any).lastAutoTable.finalY + 5);
+    }
+
+    // --- SECTION 3: EXPENSES BY LOT (Consolidated) ---
+    nextY = (doc as any).lastAutoTable.finalY + 15;
+    if (nextY > 260) { doc.addPage(); nextY = 20; }
+
+    doc.setFontSize(14);
+    doc.text("3. Rentabilidad por Lote (Aproximada)", 14, nextY);
+    doc.line(14, nextY + 2, 80, nextY + 2);
+
+    // Helper logic similar to StatsView
+    const expensesByCenter: Record<string, number> = {};
+    const incomeByCenter: Record<string, number> = {};
+
+    data.movements.filter(m => m.type === 'OUT').forEach(m => {
+        const key = m.costCenterName || 'Sin Lote';
+        expensesByCenter[key] = (expensesByCenter[key] || 0) + m.calculatedCost;
+    });
+    (data.laborLogs || []).forEach(l => {
+        const key = l.costCenterName || 'Sin Lote';
+        expensesByCenter[key] = (expensesByCenter[key] || 0) + l.value;
+    });
+    (data.harvests || []).forEach(h => {
+        const key = h.costCenterName || 'Sin Lote';
+        incomeByCenter[key] = (incomeByCenter[key] || 0) + h.totalValue;
+    });
+
+    // Merge keys
+    const allKeys = Array.from(new Set([...Object.keys(expensesByCenter), ...Object.keys(incomeByCenter)]));
+    const lotRows = allKeys.map(k => {
+        const inc = incomeByCenter[k] || 0;
+        const exp = expensesByCenter[k] || 0;
+        return [k, formatCurrency(inc), formatCurrency(exp), formatCurrency(inc - exp)];
+    });
+
+    autoTable(doc, {
+        startY: nextY + 8,
+        head: [['Lote / Centro', 'Ingresos', 'Gastos (Insum+MO)', 'Utilidad']],
+        body: lotRows,
+        theme: 'grid',
+        headStyles: { fillColor: [6, 78, 59] },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } }
+    });
+
+    addFooter(doc);
+    doc.save(`Informe_Gerencial_Unificado_${new Date().toISOString().split('T')[0]}.pdf`);
 };

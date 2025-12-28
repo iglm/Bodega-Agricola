@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LaborLog, Personnel, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';

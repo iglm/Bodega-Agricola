@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { LaborLog, Personnel } from '../types';
 import { formatCurrency } from '../services/inventoryService';
 import { generatePaymentReceipt } from '../services/reportService';
-import { X, CheckCircle, AlertTriangle, Printer, Wallet, UserCheck } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, Printer, Wallet, UserCheck, Loader2 } from 'lucide-react';
 
 interface PayrollModalProps {
   logs: LaborLog[];
@@ -14,6 +15,7 @@ interface PayrollModalProps {
 
 export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onMarkAsPaid, onClose, warehouseName }) => {
   const [selectedPersonId, setSelectedPersonId] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Get only unpaid logs
   const unpaidLogs = useMemo(() => logs.filter(l => !l.paid), [logs]);
@@ -27,7 +29,7 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
     return debt;
   }, [unpaidLogs]);
 
-  const totalGlobalDebt = Object.values(debtByPerson).reduce((a: number, b: number) => a + b, 0);
+  const totalGlobalDebt = (Object.values(debtByPerson) as number[]).reduce((a, b) => a + b, 0);
 
   // Get logs for the selected person
   const selectedLogs = useMemo(() => {
@@ -37,19 +39,33 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
   const totalSelectedDebt = selectedLogs.reduce((acc, l) => acc + l.value, 0);
   const selectedPersonName = personnel.find(p => p.id === selectedPersonId)?.name || 'Desconocido';
 
-  const handlePay = () => {
+  const handlePay = async () => {
     if (!selectedPersonId || selectedLogs.length === 0) return;
     
-    if (confirm(`¿Confirmar pago de ${formatCurrency(totalSelectedDebt)} a ${selectedPersonName}? \n\nEsta acción marcará los registros como pagados y generará el comprobante.`)) {
-        // 1. Generate PDF
-        generatePaymentReceipt(selectedPersonName, selectedLogs, warehouseName);
-        
-        // 2. Mark in DB
-        const ids = selectedLogs.map(l => l.id);
-        onMarkAsPaid(ids);
-        
-        // 3. Reset
-        setSelectedPersonId('');
+    if (confirm(`¿Confirmar pago de ${formatCurrency(totalSelectedDebt)} a ${selectedPersonName}?`)) {
+        setIsProcessing(true);
+        try {
+            // 1. Generate PDF (Wrapped in try catch)
+            generatePaymentReceipt(selectedPersonName, selectedLogs, warehouseName);
+            
+            // Artificial delay to ensure browser handles the download stream before React re-renders/unmounts
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            // 2. Mark in DB
+            const ids = selectedLogs.map(l => l.id);
+            onMarkAsPaid(ids);
+            
+            // 3. Reset
+            setSelectedPersonId('');
+        } catch (error) {
+            console.error("Error generating receipt", error);
+            alert("Hubo un error generando el recibo PDF, pero el pago se registrará en el sistema.");
+            // Still mark as paid if PDF fails, to avoid data inconsistency
+            const ids = selectedLogs.map(l => l.id);
+            onMarkAsPaid(ids);
+        } finally {
+            setIsProcessing(false);
+        }
     }
   };
 
@@ -92,7 +108,7 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                 ) : (
                     <div className="space-y-2">
                         {personnel
-                            .filter(p => (debtByPerson[p.id] || 0) > 0)
+                            .filter(p => ((debtByPerson[p.id] as number) || 0) > 0)
                             .map(p => (
                                 <button
                                     key={p.id}
@@ -108,7 +124,7 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                                             {p.name}
                                         </span>
                                         <span className={`font-mono text-xs ${selectedPersonId === p.id ? 'text-emerald-100' : 'text-emerald-500'}`}>
-                                            {formatCurrency(debtByPerson[p.id] || 0)}
+                                            {formatCurrency((debtByPerson[p.id] as number) || 0)}
                                         </span>
                                     </div>
                                     <p className={`text-[10px] mt-1 ${selectedPersonId === p.id ? 'text-emerald-200' : 'text-slate-500'}`}>
@@ -164,16 +180,26 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                         <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-700/30 mb-4 flex gap-3 items-center">
                             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                             <p className="text-xs text-amber-200">
-                                Al confirmar, se generará un PDF (recibo) y estos registros desaparecerán de la lista de pendientes.
+                                Al confirmar, se descargará un PDF (recibo) y los registros desaparecerán de esta lista.
                             </p>
                         </div>
 
                         <button 
                             onClick={handlePay}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98]"
+                            disabled={isProcessing}
+                            className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all ${isProcessing ? 'bg-slate-700 text-slate-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.98]'}`}
                         >
-                            <Printer className="w-5 h-5" />
-                            Generar Recibo y Marcar Pagado
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    Procesando Pago...
+                                </>
+                            ) : (
+                                <>
+                                    <Printer className="w-5 h-5" />
+                                    Generar Recibo y Marcar Pagado
+                                </>
+                            )}
                         </button>
                     </>
                 ) : (

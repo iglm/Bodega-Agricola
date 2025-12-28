@@ -1,6 +1,8 @@
 
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart } from 'lucide-react';
+import { AppState } from '../types';
+import { generateGlobalReport } from '../services/reportService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -8,9 +10,10 @@ interface ExportModalProps {
   onGenerateOrder: () => void;
   onExportLaborPDF: () => void;
   onExportLaborExcel: () => void;
-  onExportHarvestPDF?: () => void; // New
-  onExportMachineryPDF?: () => void; // New
+  onExportHarvestPDF?: () => void;
+  onExportMachineryPDF?: () => void;
   onClose: () => void;
+  fullData?: AppState; // Optional prop to access full state for global report
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
@@ -21,8 +24,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onExportLaborExcel,
     onExportHarvestPDF,
     onExportMachineryPDF,
-    onClose 
+    onClose,
+    fullData
 }) => {
+  
+  const handleGlobalReport = () => {
+      if (fullData) {
+          generateGlobalReport(fullData);
+          onClose();
+      } else {
+          alert("Datos no disponibles para reporte unificado.");
+      }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh]">
@@ -48,6 +62,27 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
             
+            {/* NEW: UNIFIED REPORT BUTTON */}
+            {fullData && (
+                <div className="mb-4">
+                    <button 
+                        onClick={handleGlobalReport}
+                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-900/40 hover:scale-[1.02] transition-transform group"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white/20 p-2 rounded-lg">
+                                <PieChart className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="text-left">
+                                <h4 className="text-white font-bold text-sm uppercase">Informe Gerencial Unificado</h4>
+                                <p className="text-blue-100 text-[10px]">Todo en uno (Finanzas, Lotes, Cosechas)</p>
+                            </div>
+                        </div>
+                        <FileText className="w-5 h-5 text-blue-200" />
+                    </button>
+                </div>
+            )}
+
             {/* SECTION 1: INVENTORY */}
             <div className="space-y-3">
                 <h4 className="text-xs font-bold text-emerald-400 uppercase flex items-center gap-2">

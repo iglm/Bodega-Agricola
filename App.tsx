@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -553,6 +554,7 @@ function App() {
             onExportLaborExcel={() => { generateLaborExcel(getExportData()); setShowExport(false); }}
             onExportHarvestPDF={() => { generateHarvestPDF(getExportData()); setShowExport(false); }}
             onExportMachineryPDF={() => { generateMachineryPDF(getExportData()); setShowExport(false); }}
+            fullData={getExportData()}
         />
       )}
       {historyModalItem && <HistoryModal item={historyModalItem} movements={activeMovements.filter(m => m.itemId === historyModalItem.id)} onClose={() => setHistoryModalItem(null)} />}
