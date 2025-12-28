@@ -18,6 +18,7 @@ import { LaborView } from './components/LaborView';
 import { LaborForm } from './components/LaborForm'; 
 import { HarvestView } from './components/HarvestView'; 
 import { ManagementView } from './components/ManagementView'; 
+import { PayrollModal } from './components/PayrollModal'; // New
 
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
@@ -85,6 +86,7 @@ function App() {
   const [showDataModal, setShowDataModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [showPayrollModal, setShowPayrollModal] = useState(false); // New
   const [historyModalItem, setHistoryModalItem] = useState<InventoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
 
@@ -225,10 +227,18 @@ function App() {
   const handleDeleteActivity = (id: string) => setData(prev => ({ ...prev, activities: (prev.activities || []).filter(a => a.id !== id) }));
 
   const handleAddLaborLog = (logData: Omit<LaborLog, 'id'>) => {
-      setData(prev => ({ ...prev, laborLogs: [...(prev.laborLogs || []), { ...logData, id: crypto.randomUUID() }] }));
+      setData(prev => ({ ...prev, laborLogs: [...(prev.laborLogs || []), { ...logData, id: crypto.randomUUID(), paid: false }] }));
       setShowLaborForm(false);
   };
   const handleDeleteLaborLog = (id: string) => setData(prev => ({ ...prev, laborLogs: (prev.laborLogs || []).filter(l => l.id !== id) }));
+
+  // NEW: Mark logs as paid
+  const handleMarkAsPaid = (logIds: string[]) => {
+      setData(prev => ({
+          ...prev,
+          laborLogs: prev.laborLogs.map(l => logIds.includes(l.id) ? { ...l, paid: true, paymentDate: new Date().toISOString() } : l)
+      }));
+  };
 
   const handleRestoreData = (newData: AppState) => {
     let safeData = { ...newData };
@@ -465,13 +475,29 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4">
+      <main className="max-w-4xl mx-auto p-4 pb-32">
         {currentTab === 'inventory' && (
-             <Dashboard inventory={activeInventory} onAddMovement={(item, type) => setMovementModal({ item, type })} onDelete={handleRequestDelete} onViewHistory={(item) => setHistoryModalItem(item)} isAdmin={isAdminUnlocked} />
+             <Dashboard 
+                inventory={activeInventory} 
+                agenda={data.agenda || []}
+                onAddMovement={(item, type) => setMovementModal({ item, type })} 
+                onDelete={handleRequestDelete} 
+                onViewHistory={(item) => setHistoryModalItem(item)} 
+                isAdmin={isAdminUnlocked} 
+             />
         )}
         
         {currentTab === 'labor' && (
-             <LaborView laborLogs={data.laborLogs || []} personnel={data.personnel} costCenters={data.costCenters} activities={data.activities || []} onAddLabor={() => { if (!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowLaborForm(true); }} onDeleteLabor={handleDeleteLaborLog} isAdmin={isAdminUnlocked} />
+             <LaborView 
+                laborLogs={data.laborLogs || []} 
+                personnel={data.personnel} 
+                costCenters={data.costCenters} 
+                activities={data.activities || []} 
+                onAddLabor={() => { if (!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowLaborForm(true); }} 
+                onDeleteLabor={handleDeleteLaborLog} 
+                isAdmin={isAdminUnlocked}
+                onOpenPayroll={() => setShowPayrollModal(true)}
+             />
         )}
 
         {currentTab === 'harvest' && (
@@ -503,7 +529,7 @@ function App() {
       </main>
 
       {currentTab === 'inventory' && (
-        <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-full shadow-lg shadow-emerald-600/30 transition-transform hover:scale-105 active:scale-95 z-30 flex items-center justify-center">
+        <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-full shadow-lg shadow-emerald-600/30 transition-transform hover:scale-105 active:scale-95 z-30 flex items-center justify-center mb-[env(safe-area-inset-bottom)]">
             <Plus className="w-8 h-8" />
         </button>
       )}
@@ -515,6 +541,7 @@ function App() {
       {showDataModal && <DataModal fullState={data} onRestoreData={handleRestoreData} onClose={() => setShowDataModal(false)} />}
       {showAuditModal && <AuditModal inventory={activeInventory} onAdjust={handleAuditAdjustment} onClose={() => setShowAuditModal(false)} />}
       {showSecurityModal && <SecurityModal existingPin={data.adminPin} onSuccess={handlePinSuccess} onClose={() => setShowSecurityModal(false)} />}
+      {showPayrollModal && <PayrollModal logs={data.laborLogs || []} personnel={data.personnel} onMarkAsPaid={handleMarkAsPaid} onClose={() => setShowPayrollModal(false)} warehouseName={currentWarehouse?.name || 'AgroBodega'} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
       {showExport && (
           <ExportModal 

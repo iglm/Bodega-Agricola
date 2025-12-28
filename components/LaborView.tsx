@@ -1,7 +1,9 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { LaborLog, Personnel, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { Plus, Users, MapPin, Calendar, Pickaxe, TrendingUp, Search, Lock } from 'lucide-react';
+import { Plus, Users, MapPin, Calendar, Pickaxe, TrendingUp, Search, Lock, List, Wallet } from 'lucide-react';
+import { LaborHistoryModal } from './LaborHistoryModal';
 
 interface LaborViewProps {
   laborLogs: LaborLog[];
@@ -11,18 +13,24 @@ interface LaborViewProps {
   onAddLabor: () => void;
   onDeleteLabor: (id: string) => void;
   isAdmin: boolean;
+  onOpenPayroll?: () => void; // New
 }
 
 export const LaborView: React.FC<LaborViewProps> = ({ 
   laborLogs, 
+  personnel,
+  costCenters,
+  activities,
   onAddLabor, 
   onDeleteLabor,
-  isAdmin 
+  isAdmin,
+  onOpenPayroll
 }) => {
+  const [showHistory, setShowHistory] = useState(false);
   
   // Quick Stats
   const totalCost = laborLogs.reduce((acc, log) => acc + log.value, 0);
-  const totalLogs = laborLogs.length;
+  const pendingCost = laborLogs.filter(l => !l.paid).reduce((acc, log) => acc + log.value, 0);
 
   return (
     <div className="space-y-6 pb-20">
@@ -38,9 +46,9 @@ export const LaborView: React.FC<LaborViewProps> = ({
                 <p className="text-orange-100 text-sm mt-1">Control de Jornales y Tareas</p>
              </div>
              <div className="text-right">
-                <p className="text-orange-200 text-xs font-bold uppercase">Gasto Total Acumulado</p>
+                <p className="text-orange-200 text-xs font-bold uppercase">Deuda Pendiente</p>
                 {isAdmin ? (
-                   <p className="text-3xl font-bold font-mono mt-1">{formatCurrency(totalCost)}</p>
+                   <p className="text-3xl font-bold font-mono mt-1">{formatCurrency(pendingCost)}</p>
                 ) : (
                    <div className="flex items-center justify-end gap-1 mt-1">
                       <Lock className="w-4 h-4 text-orange-200" />
@@ -50,13 +58,24 @@ export const LaborView: React.FC<LaborViewProps> = ({
              </div>
           </div>
           
-          <button 
-            onClick={onAddLabor}
-            className="w-full bg-white text-orange-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors shadow-lg"
-          >
-             <Plus className="w-5 h-5" />
-             Registrar Nuevo Jornal
-          </button>
+          <div className="flex gap-2">
+            <button 
+                onClick={onAddLabor}
+                className="flex-1 bg-white text-orange-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors shadow-lg"
+            >
+                <Plus className="w-5 h-5" />
+                Registrar Jornal
+            </button>
+            {isAdmin && onOpenPayroll && (
+                <button 
+                    onClick={onOpenPayroll}
+                    className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors shadow-lg"
+                >
+                    <Wallet className="w-5 h-5" />
+                    Liquidar Nómina
+                </button>
+            )}
+          </div>
        </div>
 
        {/* List of Logs */}
@@ -66,7 +85,12 @@ export const LaborView: React.FC<LaborViewProps> = ({
                 <Pickaxe className="w-5 h-5 text-amber-500" />
                 Registros Recientes
              </h3>
-             <span className="text-xs text-slate-500 bg-slate-200 dark:bg-slate-800 px-2 py-1 rounded-full">{totalLogs} Registros</span>
+             <button 
+                onClick={() => setShowHistory(true)}
+                className="text-xs bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+             >
+                <List className="w-3 h-3" /> Ver Todo / Filtrar
+             </button>
           </div>
 
           {laborLogs.length === 0 ? (
@@ -77,17 +101,20 @@ export const LaborView: React.FC<LaborViewProps> = ({
              </div>
           ) : (
              <div className="space-y-3">
-                {laborLogs.slice().reverse().map(log => (
-                   <div key={log.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-2">
+                {laborLogs.slice().reverse().slice(0, 5).map(log => (
+                   <div key={log.id} className={`p-4 rounded-xl border shadow-sm flex flex-col gap-2 ${log.paid ? 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-75' : 'bg-white dark:bg-slate-800 border-amber-200 dark:border-amber-900/50'}`}>
                       {/* Top Row: Date & Cost */}
                       <div className="flex justify-between items-start">
                          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
                             <Calendar className="w-3 h-3" />
                             {new Date(log.date).toLocaleDateString()}
                          </div>
-                         <span className="font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-sm">
-                             {formatCurrency(log.value)}
-                         </span>
+                         <div className="flex items-center gap-2">
+                            {log.paid && <span className="text-[9px] font-bold bg-emerald-100 text-emerald-600 px-1.5 rounded">PAGADO</span>}
+                            <span className="font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-sm">
+                                {formatCurrency(log.value)}
+                            </span>
+                         </div>
                       </div>
                       
                       {/* Middle: Person & Activity */}
@@ -123,6 +150,18 @@ export const LaborView: React.FC<LaborViewProps> = ({
              </div>
           )}
        </div>
+
+       {showHistory && (
+           <LaborHistoryModal 
+              logs={laborLogs}
+              personnel={personnel}
+              costCenters={costCenters}
+              activities={activities}
+              onClose={() => setShowHistory(false)}
+              onDelete={onDeleteLabor}
+              isAdmin={isAdmin}
+           />
+       )}
     </div>
   );
 };

@@ -2,7 +2,7 @@
 <html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>AgroBodega Pro - Lucas Mateo Tabares Franco</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -21,6 +21,9 @@
                 900: '#064e3b',
                 dark: '#022c22',
               }
+            },
+            screens: {
+              'standalone': { 'raw': '(display-mode: standalone)' },
             }
           }
         }
@@ -49,6 +52,29 @@
       .dark ::-webkit-scrollbar-thumb {
         background: #334155;
       }
+
+      /* Mobile App Behavior Optimization */
+      html {
+        -webkit-tap-highlight-color: transparent; /* Remove blue highlight on tap */
+        touch-action: manipulation; /* Improve touch response */
+      }
+      
+      body {
+        /* Prevent text selection to feel like an app */
+        -webkit-user-select: none;
+        user-select: none;
+        /* Handle Safe Areas for iPhone X+ and Android Edge-to-Edge */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+
+      /* Allow text selection only on inputs and textareas */
+      input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
+      }
     </style>
   <script type="importmap">
 {
@@ -64,7 +90,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300">
+  <body class="bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen overflow-x-hidden">
     <div id="root"></div>
   </body>
 </html>

@@ -108,7 +108,15 @@ export const loadData = (): AppState => {
             { id: crypto.randomUUID(), name: 'Poda' },
           ];
       }
-      if (!migrated.laborLogs) migrated.laborLogs = [];
+      if (!migrated.laborLogs) {
+          migrated.laborLogs = [];
+      } else {
+          // PAYROLL MIGRATION: Ensure existing logs have 'paid' status (default to false if missing)
+          migrated.laborLogs = migrated.laborLogs.map((l: any) => ({
+              ...l,
+              paid: l.paid !== undefined ? l.paid : false
+          }));
+      }
 
       // 4. Average Cost Migration
       migrated.inventory = migrated.inventory.map((item: any) => {

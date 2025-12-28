@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx';
-import { AppState } from '../types';
+import { AppState, LaborLog } from '../types';
 import { convertToBase, formatCurrency, formatBaseQuantity, getCostPerGramOrMl } from './inventoryService';
 
 // --- SHARED CONFIG ---
@@ -59,7 +59,7 @@ const addFooter = (doc: jsPDF) => {
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.setFont("helvetica", "normal");
-        doc.text('Generado por AgroBodega Pro', 14, pageHeight - 10);
+        doc.text('Generado por AgroBodega Pro - Ing. Lucas Mateo Tabares Franco', 14, pageHeight - 10);
         doc.text(`Página ${i} de ${pageCount}`, 196, pageHeight - 10, { align: 'right' });
     }
 };
@@ -280,14 +280,14 @@ export const generateLaborPDF = (data: AppState) => {
         log.activityName,
         log.costCenterName,
         formatCurrency(log.value),
-        log.notes || '-'
+        log.paid ? 'PAGADO' : 'PENDIENTE'
     ]);
 
     const totalCost = (data.laborLogs || []).reduce((acc, log) => acc + log.value, 0);
 
     autoTable(doc, {
         startY: yPos + 8,
-        head: [['Fecha', 'Trabajador', 'Labor', 'Lote / Destino', 'Valor', 'Notas']],
+        head: [['Fecha', 'Trabajador', 'Labor', 'Lote / Destino', 'Valor', 'Estado']],
         body: laborRows,
         theme: 'striped',
         headStyles: { fillColor: [217, 119, 6] }, // Amber 600
@@ -312,7 +312,7 @@ export const generateLaborExcel = (data: AppState) => {
         { v: "Labor / Actividad", s: { font: { bold: true } } },
         { v: "Lote / Destino", s: { font: { bold: true } } },
         { v: "Valor Jornal", s: { font: { bold: true } } },
-        { v: "Notas", s: { font: { bold: true } } }
+        { v: "Estado", s: { font: { bold: true } } }
     ];
 
     const body = (data.laborLogs || []).map(log => [
@@ -321,7 +321,7 @@ export const generateLaborExcel = (data: AppState) => {
         log.activityName,
         log.costCenterName,
         log.value,
-        log.notes || ''
+        log.paid ? 'Pagado' : 'Pendiente'
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
@@ -329,6 +329,67 @@ export const generateLaborExcel = (data: AppState) => {
 
     XLSX.writeFile(wb, `AgroBodega_ManoObra_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
+
+// --- PAYMENT SLIP GENERATOR ---
+export const generatePaymentReceipt = (workerName: string, logs: LaborLog[], warehouseName: string) => {
+    const doc = new jsPDF({
+        unit: 'mm',
+        format: [80, 200] // Thermal receipt format approximation
+    });
+
+    const total = logs.reduce((acc, l) => acc + l.value, 0);
+    const date = new Date().toLocaleDateString();
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("AgroBodega Pro", 40, 5, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Comprobante de Pago", 40, 10, { align: 'center' });
+    
+    doc.text("--------------------------------", 40, 13, { align: 'center' });
+    
+    doc.setFontSize(7);
+    doc.text(`Fecha: ${date}`, 5, 18);
+    doc.text(`Trabajador:`, 5, 22);
+    doc.setFont("helvetica", "bold");
+    doc.text(workerName, 5, 26);
+    
+    let y = 32;
+    doc.setFont("helvetica", "bold");
+    doc.text("Concepto", 5, y);
+    doc.text("Valor", 75, y, { align: 'right' });
+    y += 2;
+    doc.line(5, y, 75, y);
+    y += 3;
+
+    doc.setFont("helvetica", "normal");
+    logs.forEach(log => {
+        doc.text(`${new Date(log.date).toLocaleDateString().slice(0,5)} - ${log.activityName.slice(0, 12)}`, 5, y);
+        doc.text(formatCurrency(log.value), 75, y, { align: 'right' });
+        y += 4;
+    });
+
+    y += 2;
+    doc.line(5, y, 75, y);
+    y += 5;
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL PAGADO", 5, y);
+    doc.text(formatCurrency(total), 75, y, { align: 'right' });
+    
+    y += 10;
+    doc.setFontSize(6);
+    doc.text("Firma Recibido:", 5, y);
+    doc.line(25, y, 75, y);
+
+    y += 10;
+    doc.text("Desarrollado por:", 40, y, { align: 'center' });
+    doc.text("Lucas Mateo Tabares Franco", 40, y + 3, { align: 'center' });
+
+    doc.save(`Pago_${workerName.replace(/\s+/g, '_')}_${date}.pdf`);
+}
 
 // --- NEW HARVEST REPORT ---
 export const generateHarvestPDF = (data: AppState) => {

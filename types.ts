@@ -64,6 +64,9 @@ export interface LaborLog {
   activityName: string;
   value: number;
   notes?: string;
+  // New Payment Fields
+  paid?: boolean;
+  paymentDate?: string;
 }
 
 export interface InventoryItem {

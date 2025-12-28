@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Supplier, CostCenter, Personnel, AppState, Activity } from '../types';
-import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe } from 'lucide-react';
+import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive } from 'lucide-react';
 import { formatCurrency } from '../services/inventoryService';
 
 interface SettingsModalProps {
@@ -42,6 +42,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose
 }) => {
   const [activeTab, setActiveTab] = useState<'lotes' | 'proveedores' | 'personal' | 'labores'>('proveedores');
+  const [storageUsage, setStorageUsage] = useState<number>(0); // MB
+  const [storagePercent, setStoragePercent] = useState<number>(0);
   
   // Lotes State
   const [loteName, setLoteName] = useState('');
@@ -60,6 +62,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Activity State
   const [actName, setActName] = useState('');
+
+  // Calculate Storage Usage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        let total = 0;
+        for (let x in localStorage) {
+            if (Object.prototype.hasOwnProperty.call(localStorage, x)) {
+                total += (localStorage[x].length * 2);
+            }
+        }
+        const usedMB = total / 1024 / 1024;
+        setStorageUsage(usedMB);
+        // Estimate 5MB limit for typical mobile browser localstorage
+        setStoragePercent(Math.min((usedMB / 5) * 100, 100));
+    }
+  }, []);
 
   const handleAddLote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +129,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div>
               <h3 className="text-white font-bold text-lg leading-none">Administración de Maestros</h3>
-              <p className="text-xs text-slate-400 mt-1">Configure datos base para el sistema</p>
+              <div className="flex items-center gap-2 mt-1">
+                  <HardDrive className="w-3 h-3 text-slate-500" />
+                  <div className="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${storagePercent > 80 ? 'bg-red-500' : 'bg-emerald-500'}`} 
+                        style={{ width: `${storagePercent}%` }}
+                      ></div>
+                  </div>
+                  <span className="text-[9px] text-slate-400">{storageUsage.toFixed(2)} MB usados</span>
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
