@@ -196,7 +196,8 @@ export interface AppState {
   personnel: Personnel[]; 
   activities: Activity[]; 
   laborLogs: LaborLog[]; 
-  adminPin?: string;
+  
+  // Removed adminPin
 
   // New State Arrays
   harvests: HarvestLog[];

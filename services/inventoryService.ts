@@ -244,8 +244,6 @@ export const loadData = (): AppState => {
           ];
       }
 
-      if (migrated.adminPin === undefined) migrated.adminPin = undefined; 
-
       return migrated;
     }
   } catch (e) {

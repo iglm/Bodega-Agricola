@@ -14,7 +14,6 @@ import { WarehouseModal } from './components/WarehouseModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuditModal } from './components/AuditModal';
 import { DataModal } from './components/DataModal';
-import { SecurityModal } from './components/SecurityModal';
 import { LaborView } from './components/LaborView'; 
 import { LaborForm } from './components/LaborForm'; 
 import { HarvestView } from './components/HarvestView'; 
@@ -25,7 +24,7 @@ import { PayrollModal } from './components/PayrollModal';
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog, FinanceLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
 import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
-import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Lock, Unlock, Pickaxe, Tractor, HelpCircle, Globe, Landmark } from 'lucide-react';
+import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Pickaxe, Tractor, HelpCircle, Globe, Landmark } from 'lucide-react';
 
 function App() {
   const [view, setView] = useState<'landing' | 'app'>('landing');
@@ -49,7 +48,6 @@ function App() {
     financeLogs: [] 
   });
 
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const [theme, setTheme] = useState(() => {
@@ -84,7 +82,6 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [showPayrollModal, setShowPayrollModal] = useState(false); 
   const [historyModalItem, setHistoryModalItem] = useState<InventoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
@@ -93,11 +90,6 @@ function App() {
     const loaded = loadData();
     if (loaded) {
         setData(loaded);
-        if (!loaded.adminPin) {
-          setIsAdminUnlocked(true);
-        } else {
-          setIsAdminUnlocked(false);
-        }
     }
   }, []);
 
@@ -184,22 +176,6 @@ function App() {
       setData(prev => ({ ...prev, financeLogs: (prev.financeLogs || []).filter(f => f.id !== id) }));
   };
 
-  const handlePinSuccess = (pin: string) => {
-    if (!data.adminPin) {
-      setData(prev => ({ ...prev, adminPin: pin }));
-      setIsAdminUnlocked(true);
-      alert("PIN Creado Exitosamente.");
-    } else {
-      setIsAdminUnlocked(true);
-    }
-    setShowSecurityModal(false);
-  };
-
-  const handleLock = () => {
-    if (data.adminPin) setIsAdminUnlocked(false);
-    else setShowSecurityModal(true);
-  };
-
   // MULTI-FARM Management
   const handleCreateWarehouse = (name: string) => {
     const newId = crypto.randomUUID();
@@ -267,7 +243,6 @@ function App() {
     
     saveData(safeData);
     setData(safeData);
-    if (!safeData.adminPin) setIsAdminUnlocked(true); else setIsAdminUnlocked(false);
   };
 
   const handleAddItem = (
@@ -320,7 +295,6 @@ function App() {
   };
 
   const handleRequestDelete = (id: string) => {
-    if (!isAdminUnlocked) { setShowSecurityModal(true); return; }
     const item = data.inventory.find(i => i.id === id);
     if (item) setItemToDelete({ id: item.id, name: item.name });
   };
@@ -454,10 +428,7 @@ function App() {
                 <button onClick={() => setShowManual(true)} className="p-1.5 rounded-lg transition-colors bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800" title="Manual de Ayuda">
                     <HelpCircle className="w-4 h-4" />
                 </button>
-                <button onClick={handleLock} className={`p-1.5 rounded-lg transition-colors border ${isAdminUnlocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-red-50 dark:bg-red-900/20 text-red-500 border-red-200 dark:border-red-800'}`}>
-                    {isAdminUnlocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                </button>
-                <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowDataModal(true); }} className={`p-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${!isAdminUnlocked ? 'opacity-50 cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-400 border-transparent' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-500 hover:bg-orange-100 border-orange-200 dark:border-orange-800'}`}>
+                <button onClick={() => setShowDataModal(true)} className="p-1.5 rounded-lg border transition-colors flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-500 hover:bg-orange-100 border-orange-200 dark:border-orange-800">
                     <Database className="w-4 h-4" />
                 </button>
                 <button onClick={toggleTheme} className="p-2 text-slate-600 dark:text-slate-300 bg-slate-200/50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-300/50 dark:hover:bg-slate-600/50 transition-colors">
@@ -482,22 +453,22 @@ function App() {
              <button onClick={() => setCurrentTab('finance')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'finance' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500'}`}>
                 <Landmark className="w-4 h-4" /> <span className="hidden sm:inline">Finanzas</span>
              </button>
-             <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setCurrentTab('stats'); }} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'stats' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
-                {isAdminUnlocked ? <BarChart3 className="w-4 h-4" /> : <Lock className="w-4 h-4" />} 
+             <button onClick={() => setCurrentTab('stats')} className={`flex-1 min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${currentTab === 'stats' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-sm' : 'text-slate-500'}`}>
+                <BarChart3 className="w-4 h-4" /> 
                 <span className="hidden sm:inline">Reportes</span>
              </button>
           </div>
 
           <div className="grid grid-cols-5 gap-2 pt-1">
-             <button onClick={() => { if (!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowSettings(true); }} className={`col-span-2 text-white p-2 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 ${isAdminUnlocked ? 'bg-purple-600 hover:bg-purple-700' : 'bg-slate-400 cursor-not-allowed'}`}>
-              {isAdminUnlocked ? <Settings className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+             <button onClick={() => setShowSettings(true)} className="col-span-2 text-white p-2 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 bg-purple-600 hover:bg-purple-700">
+              <Settings className="w-4 h-4" />
               <span className="text-xs font-bold uppercase tracking-wide">Maestros</span>
             </button>
             <button onClick={() => setShowAuditModal(true)} className="col-span-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-indigo-100 transition-colors">
               <ClipboardCheck className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Auditoría</span>
             </button>
-            <button onClick={() => { if(!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowExport(true); }} className={`col-span-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-emerald-100 transition-colors ${!isAdminUnlocked ? 'opacity-50' : ''}`}>
-              {isAdminUnlocked ? <Download className="w-4 h-4" /> : <Lock className="w-4 h-4" />} 
+            <button onClick={() => setShowExport(true)} className="col-span-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-emerald-100 transition-colors">
+              <Download className="w-4 h-4" /> 
               <span className="text-[9px] font-bold hidden sm:inline">Reportes</span>
             </button>
             <button onClick={() => setShowSupport(true)} className="col-span-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-yellow-100 transition-colors">
@@ -520,7 +491,7 @@ function App() {
                 onAddMovement={(item, type) => setMovementModal({ item, type })} 
                 onDelete={handleRequestDelete} 
                 onViewHistory={(item) => setHistoryModalItem(item)} 
-                isAdmin={isAdminUnlocked} 
+                isAdmin={true} 
              />
         )}
         
@@ -530,9 +501,9 @@ function App() {
                 personnel={activePersonnel} 
                 costCenters={activeCostCenters} 
                 activities={activeActivities} 
-                onAddLabor={() => { if (!isAdminUnlocked) { setShowSecurityModal(true); return; } setShowLaborForm(true); }} 
+                onAddLabor={() => setShowLaborForm(true)} 
                 onDeleteLabor={handleDeleteLaborLog} 
-                isAdmin={isAdminUnlocked}
+                isAdmin={true}
                 onOpenPayroll={() => setShowPayrollModal(true)}
              />
         )}
@@ -543,7 +514,7 @@ function App() {
                 costCenters={activeCostCenters} 
                 onAddHarvest={handleAddHarvest} 
                 onDeleteHarvest={handleDeleteHarvest} 
-                isAdmin={isAdminUnlocked}
+                isAdmin={true}
                 allMovements={activeMovements}
                 allLaborLogs={activeLaborLogs}
              />
@@ -564,7 +535,7 @@ function App() {
                 onDeleteMachine={handleDeleteMachine}
                 onAddRain={handleAddRain}
                 onDeleteRain={handleDeleteRain}
-                isAdmin={isAdminUnlocked}
+                isAdmin={true}
             />
         )}
 
@@ -602,7 +573,6 @@ function App() {
       {showSettings && <SettingsModal suppliers={activeSuppliers} costCenters={activeCostCenters} personnel={activePersonnel} activities={activeActivities} onAddSupplier={handleAddSupplier} onDeleteSupplier={handleDeleteSupplier} onAddCostCenter={handleAddCostCenter} onDeleteCostCenter={handleDeleteCostCenter} onAddPersonnel={handleAddPersonnel} onDeletePersonnel={handleDeletePersonnel} onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onClose={() => setShowSettings(false)} />}
       {showDataModal && <DataModal fullState={data} onRestoreData={handleRestoreData} onClose={() => setShowDataModal(false)} />}
       {showAuditModal && <AuditModal inventory={activeInventory} onAdjust={handleAuditAdjustment} onClose={() => setShowAuditModal(false)} />}
-      {showSecurityModal && <SecurityModal existingPin={data.adminPin} onSuccess={handlePinSuccess} onClose={() => setShowSecurityModal(false)} />}
       {showPayrollModal && <PayrollModal logs={activeLaborLogs} personnel={activePersonnel} onMarkAsPaid={handleMarkAsPaid} onClose={() => setShowPayrollModal(false)} warehouseName={currentWarehouse?.name || 'AgroBodega'} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
       {showExport && (
@@ -621,7 +591,7 @@ function App() {
       {historyModalItem && <HistoryModal item={historyModalItem} movements={activeMovements.filter(m => m.itemId === historyModalItem.id)} onClose={() => setHistoryModalItem(null)} />}
       {itemToDelete && <DeleteModal itemName={itemToDelete.name} onConfirm={executeDelete} onCancel={() => setItemToDelete(null)} />}
       {showManual && <ManualModal onClose={() => setShowManual(false)} />}
-      {showWarehouses && <WarehouseModal warehouses={data.warehouses} activeId={data.activeWarehouseId} onCreate={handleCreateWarehouse} onSwitch={handleSwitchWarehouse} onDelete={handleDeleteWarehouse} onClose={() => setShowWarehouses(false)} isAdmin={isAdminUnlocked} />}
+      {showWarehouses && <WarehouseModal warehouses={data.warehouses} activeId={data.activeWarehouseId} onCreate={handleCreateWarehouse} onSwitch={handleSwitchWarehouse} onDelete={handleDeleteWarehouse} onClose={() => setShowWarehouses(false)} isAdmin={true} />}
     </div>
   );
 }
