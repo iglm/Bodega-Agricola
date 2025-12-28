@@ -160,6 +160,50 @@ function App() {
       setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }));
   };
 
+  // --- NEW: Convert Planned Task to Actual Logs (Multi-Creation) ---
+  const handleConvertEvent = (event: AgendaEvent, laborValue: number, machineValue?: number) => {
+      const todayDate = new Date().toISOString().split('T')[0];
+      
+      const updates: Partial<AppState> = {
+          agenda: data.agenda.map(a => a.id === event.id ? { ...a, completed: true } : a)
+      };
+
+      // 1. Create Labor Log
+      if (event.personnelId && event.costCenterId && event.activityId) {
+          const newLaborLog: LaborLog = {
+              id: crypto.randomUUID(),
+              warehouseId: activeId,
+              date: todayDate,
+              personnelId: event.personnelId,
+              personnelName: event.personnelName || 'Desconocido',
+              activityId: event.activityId,
+              activityName: event.activityName || 'Labor',
+              costCenterId: event.costCenterId,
+              costCenterName: event.costCenterName || 'Lote',
+              value: laborValue,
+              notes: `Tarea Programada: ${event.description || ''}`,
+              paid: false
+          };
+          updates.laborLogs = [...data.laborLogs, newLaborLog];
+      }
+
+      // 2. Create Machine Log (Optional)
+      if (event.machineId && machineValue && machineValue > 0) {
+          const newMaintLog: MaintenanceLog = {
+              id: crypto.randomUUID(),
+              warehouseId: activeId,
+              machineId: event.machineId,
+              date: todayDate,
+              type: 'Combustible', // Default assumption for task execution
+              cost: machineValue,
+              description: `Uso en labor: ${event.activityName || 'Trabajo'} en ${event.costCenterName || 'Campo'}`
+          };
+          updates.maintenanceLogs = [...data.maintenanceLogs, newMaintLog];
+      }
+
+      setData(prev => ({ ...prev, ...updates }));
+  };
+
   const handleAddMachine = (m: Omit<Machine, 'id'>) => {
       setData(prev => ({ ...prev, machines: [...prev.machines, { ...m, id: crypto.randomUUID(), warehouseId: activeId }] }));
   };
@@ -543,9 +587,12 @@ function App() {
                 maintenanceLogs={activeMaintenance}
                 rainLogs={activeRainLogs}
                 costCenters={activeCostCenters}
+                personnel={activePersonnel} 
+                activities={activeActivities}
                 onAddEvent={handleAddAgenda}
                 onToggleEvent={handleToggleAgenda}
                 onDeleteEvent={handleDeleteAgenda}
+                onConvertEvent={handleConvertEvent} // New Prop
                 onAddMachine={handleAddMachine}
                 onAddMaintenance={handleAddMaintenance}
                 onDeleteMachine={handleDeleteMachine}

@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { AgendaEvent, Machine, MaintenanceLog, RainLog, CostCenter } from '../types';
+import { AgendaEvent, Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
 import { generateRainExcel, generateRainPDF } from '../services/reportService';
-import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge } from 'lucide-react';
+import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor } from 'lucide-react';
 
 interface ManagementViewProps {
   agenda: AgendaEvent[];
@@ -11,10 +11,13 @@ interface ManagementViewProps {
   maintenanceLogs: MaintenanceLog[];
   rainLogs: RainLog[];
   costCenters: CostCenter[];
+  personnel: Personnel[]; // New
+  activities: Activity[]; // New
   // Actions
   onAddEvent: (e: Omit<AgendaEvent, 'id'>) => void;
   onToggleEvent: (id: string) => void;
   onDeleteEvent: (id: string) => void;
+  onConvertEvent?: (e: AgendaEvent, actualValue: number, machineCost?: number) => void; // Updated signature
   onAddMachine: (m: Omit<Machine, 'id'>) => void;
   onAddMaintenance: (m: Omit<MaintenanceLog, 'id'>) => void;
   onDeleteMachine: (id: string) => void;
@@ -24,16 +27,26 @@ interface ManagementViewProps {
 }
 
 export const ManagementView: React.FC<ManagementViewProps> = ({
-    agenda, machines, maintenanceLogs, rainLogs, costCenters,
-    onAddEvent, onToggleEvent, onDeleteEvent,
+    agenda, machines, maintenanceLogs, rainLogs, costCenters, personnel, activities,
+    onAddEvent, onToggleEvent, onDeleteEvent, onConvertEvent,
     onAddMachine, onAddMaintenance, onDeleteMachine,
     onAddRain, onDeleteRain, isAdmin
 }) => {
   const [subTab, setSubTab] = useState<'agenda' | 'machinery' | 'rain'>('agenda');
 
-  // Forms state
-  const [eventTitle, setEventTitle] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  // Agenda Forms state
+  const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
+  const [eventPersonId, setEventPersonId] = useState('');
+  const [eventActivityId, setEventActivityId] = useState('');
+  const [eventLotId, setEventLotId] = useState('');
+  const [eventMachineId, setEventMachineId] = useState(''); // New Machine Link
+  const [eventCost, setEventCost] = useState('');
+  const [eventDesc, setEventDesc] = useState('');
+
+  // Execution State (Converting Task to Log)
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [actualTaskCost, setActualTaskCost] = useState(''); // Labor Cost
+  const [actualMachineCost, setActualMachineCost] = useState(''); // Machine Cost (Fuel/Usage)
   
   const [rainDate, setRainDate] = useState(new Date().toISOString().split('T')[0]);
   const [rainMm, setRainMm] = useState('');
@@ -48,13 +61,57 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
   // AGENDA HANDLERS
   const handleAddEvent = (e: React.FormEvent) => {
       e.preventDefault();
-      if(!eventTitle) return;
+      
+      const person = personnel.find(p => p.id === eventPersonId);
+      const activity = activities.find(a => a.id === eventActivityId);
+      const lot = costCenters.find(c => c.id === eventLotId);
+      const machine = machines.find(m => m.id === eventMachineId);
+
+      // Basic title construction if no specific description
+      let title = eventDesc;
+      if (!title) {
+          if (activity && lot) title = `${activity.name} en ${lot.name}`;
+          else if (activity) title = activity.name;
+          else title = "Tarea General";
+      }
+
       onAddEvent({
-          date: eventDate || new Date().toISOString().split('T')[0],
-          title: eventTitle,
-          completed: false
+          date: eventDate,
+          title: title,
+          description: eventDesc,
+          completed: false,
+          personnelId: eventPersonId || undefined,
+          personnelName: person?.name,
+          activityId: eventActivityId || undefined,
+          activityName: activity?.name,
+          costCenterId: eventLotId || undefined,
+          costCenterName: lot?.name,
+          machineId: eventMachineId || undefined,
+          machineName: machine?.name,
+          estimatedCost: eventCost ? parseFloat(eventCost) : undefined
       });
-      setEventTitle('');
+
+      // Reset
+      setEventDesc(''); setEventCost('');
+  };
+
+  const handleExecuteTask = (e: AgendaEvent) => {
+      if (completingTaskId === e.id) {
+          // Confirm
+          if (onConvertEvent && actualTaskCost) {
+              const machineCost = actualMachineCost ? parseFloat(actualMachineCost) : 0;
+              onConvertEvent(e, parseFloat(actualTaskCost), machineCost);
+              
+              setCompletingTaskId(null);
+              setActualTaskCost('');
+              setActualMachineCost('');
+          }
+      } else {
+          // Open confirm mode
+          setCompletingTaskId(e.id);
+          setActualTaskCost(e.estimatedCost ? e.estimatedCost.toString() : '');
+          setActualMachineCost('');
+      }
   };
 
   // RAIN HANDLERS
@@ -132,46 +189,195 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
         {/* --- AGENDA VIEW --- */}
         {subTab === 'agenda' && (
             <div className="space-y-4 animate-fade-in">
-                <div className="bg-indigo-900/20 p-4 rounded-xl border border-indigo-500/30">
-                    <h3 className="text-indigo-400 font-bold mb-2 text-sm uppercase">Programar Tarea</h3>
-                    <form onSubmit={handleAddEvent} className="flex gap-2">
-                        <input 
-                            type="date" 
-                            value={eventDate}
-                            onChange={e => setEventDate(e.target.value)}
-                            className="bg-slate-900 border border-slate-600 rounded-lg px-2 py-2 text-white text-xs outline-none w-1/3"
-                        />
-                        <input 
-                            type="text" 
-                            value={eventTitle}
-                            onChange={e => setEventTitle(e.target.value)}
-                            placeholder="Ej: Fertilizar Lote 1"
-                            className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm outline-none"
-                        />
-                        <button type="submit" className="bg-indigo-600 text-white p-2 rounded-lg">
-                            <Plus className="w-5 h-5" />
+                
+                {/* Advanced Task Planner */}
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <h3 className="text-indigo-600 dark:text-indigo-400 font-bold mb-3 text-sm uppercase flex items-center gap-2">
+                        <Plus className="w-4 h-4" /> Programar Labor
+                    </h3>
+                    <form onSubmit={handleAddEvent} className="space-y-3">
+                        <div className="flex gap-3">
+                            <input 
+                                type="date" 
+                                value={eventDate}
+                                onChange={e => setEventDate(e.target.value)}
+                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none w-1/3 font-bold"
+                            />
+                            <select 
+                                value={eventPersonId}
+                                onChange={e => setEventPersonId(e.target.value)}
+                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none flex-1"
+                            >
+                                <option value="">- Quién (Personal) -</option>
+                                {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <select 
+                                value={eventActivityId}
+                                onChange={e => setEventActivityId(e.target.value)}
+                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none flex-1"
+                            >
+                                <option value="">- Qué (Actividad) -</option>
+                                {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                            <select 
+                                value={eventLotId}
+                                onChange={e => setEventLotId(e.target.value)}
+                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none flex-1"
+                            >
+                                <option value="">- Dónde (Lote) -</option>
+                                {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Machine Link */}
+                        <div className="flex gap-3">
+                            <select 
+                                value={eventMachineId}
+                                onChange={e => setEventMachineId(e.target.value)}
+                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none"
+                            >
+                                <option value="">- Maquinaria (Opcional) -</option>
+                                {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="flex gap-3 items-center">
+                            <input 
+                                type="text" 
+                                value={eventDesc}
+                                onChange={e => setEventDesc(e.target.value)}
+                                placeholder="Descripción / Detalles adicionales..."
+                                className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-sm outline-none"
+                            />
+                            <div className="w-24 relative">
+                                <span className="absolute left-2 top-2 text-slate-400 text-xs">$</span>
+                                <input 
+                                    type="number"
+                                    value={eventCost}
+                                    onChange={e => setEventCost(e.target.value)}
+                                    placeholder="Est. Costo"
+                                    className="w-full pl-4 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg py-2 text-slate-800 dark:text-white text-xs outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition-colors shadow-sm">
+                            Agendar Tarea
                         </button>
                     </form>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 pb-10">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase ml-1">Próximas Labores</h4>
                     {agenda.length === 0 ? (
-                        <p className="text-center text-slate-500 py-8">No hay tareas pendientes.</p>
+                        <p className="text-center text-slate-400 py-8 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                            No hay tareas pendientes.
+                        </p>
                     ) : (
-                        agenda.slice().reverse().map(ev => (
-                            <div key={ev.id} className={`flex items-center p-3 rounded-xl border transition-colors ${ev.completed ? 'bg-slate-900/30 border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
-                                <button onClick={() => onToggleEvent(ev.id)} className={`mr-3 p-1 rounded ${ev.completed ? 'bg-emerald-500 text-white' : 'border-2 border-slate-400'}`}>
-                                    {ev.completed && <CheckSquare className="w-4 h-4" />}
-                                </button>
-                                <div className="flex-1">
-                                    <p className={`text-sm font-bold ${ev.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}`}>{ev.title}</p>
-                                    <p className="text-xs text-slate-500">{new Date(ev.date).toLocaleDateString()}</p>
+                        agenda.slice().sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(ev => {
+                            const isExecutionMode = completingTaskId === ev.id;
+                            const isSmartTask = ev.personnelId && ev.activityId && ev.costCenterId; // Can be auto-converted
+
+                            return (
+                                <div key={ev.id} className={`flex flex-col p-3 rounded-xl border transition-all ${ev.completed ? 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
+                                    
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-sm font-bold ${ev.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}`}>
+                                                    {ev.title}
+                                                </span>
+                                                {ev.estimatedCost && !ev.completed && (
+                                                    <span className="text-[10px] bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700">
+                                                        Est: {formatCurrency(ev.estimatedCost)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(ev.date).toLocaleDateString()}</span>
+                                                {ev.personnelName && <span className="flex items-center gap-1"><User className="w-3 h-3 text-blue-400" /> {ev.personnelName}</span>}
+                                                {ev.costCenterName && <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-purple-400" /> {ev.costCenterName}</span>}
+                                                {ev.machineName && <span className="flex items-center gap-1"><Tractor className="w-3 h-3 text-orange-400" /> {ev.machineName}</span>}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            {/* EXECUTE / COMPLETE BUTTON */}
+                                            {!ev.completed && (
+                                                <button 
+                                                    onClick={() => isSmartTask ? handleExecuteTask(ev) : onToggleEvent(ev.id)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        isExecutionMode 
+                                                        ? 'bg-amber-100 text-amber-600' 
+                                                        : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                                                    }`}
+                                                    title={isSmartTask ? "Ejecutar y crear Jornal" : "Marcar como hecha"}
+                                                >
+                                                    {isSmartTask ? <Pickaxe className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+                                                </button>
+                                            )}
+                                            
+                                            {/* DELETE */}
+                                            <button onClick={() => onDeleteEvent(ev.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* CONFIRMATION DRAWER FOR SMART TASKS */}
+                                    {isExecutionMode && (
+                                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 animate-fade-in bg-slate-50 dark:bg-slate-900/30 p-2 rounded-lg">
+                                            <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">Confirmar Ejecución</p>
+                                            
+                                            <div className="flex flex-col gap-2 mb-2">
+                                                <div>
+                                                    <label className="text-[10px] text-slate-400 block">Pago Mano de Obra ($)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={actualTaskCost}
+                                                        onChange={(e) => setActualTaskCost(e.target.value)}
+                                                        className="w-full bg-white dark:bg-slate-900 border border-emerald-500 rounded-lg px-2 py-1.5 text-sm font-bold text-emerald-600 outline-none"
+                                                        autoFocus
+                                                        placeholder="Valor Jornal"
+                                                    />
+                                                </div>
+                                                
+                                                {/* CONDITIONAL MACHINE COST INPUT */}
+                                                {ev.machineId && (
+                                                    <div>
+                                                        <label className="text-[10px] text-slate-400 block">Gasto Maquinaria (Gasolina/Uso) ($)</label>
+                                                        <input 
+                                                            type="number" 
+                                                            value={actualMachineCost}
+                                                            onChange={(e) => setActualMachineCost(e.target.value)}
+                                                            className="w-full bg-white dark:bg-slate-900 border border-orange-500 rounded-lg px-2 py-1.5 text-sm font-bold text-orange-600 outline-none"
+                                                            placeholder="Opcional"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <button 
+                                                onClick={() => handleExecuteTask(ev)}
+                                                disabled={!actualTaskCost}
+                                                className="w-full bg-emerald-600 text-white px-3 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                            >
+                                                Confirmar y Guardar <ArrowRight className="w-3 h-3" />
+                                            </button>
+                                            
+                                            <p className="text-[9px] text-slate-400 mt-2 text-center">
+                                                Se creará: 1 Jornal {ev.machineId ? '+ 1 Registro Mantenimiento' : ''}
+                                            </p>
+                                        </div>
+                                    )}
+
                                 </div>
-                                <button onClick={() => onDeleteEvent(ev.id)} className="text-slate-500 hover:text-red-400">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>

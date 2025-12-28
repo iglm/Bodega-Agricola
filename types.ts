@@ -144,10 +144,20 @@ export interface AgendaEvent {
   id: string;
   warehouseId?: string; // Linked to specific Farm
   date: string;
-  title: string;
+  title: string; // Can be auto-generated from activity
   description?: string;
-  costCenterId?: string;
   completed: boolean;
+  
+  // Linked Data for "Smart Execution"
+  personnelId?: string;
+  personnelName?: string;
+  activityId?: string;
+  activityName?: string;
+  costCenterId?: string;
+  costCenterName?: string;
+  machineId?: string; // NEW: Link to Machine
+  machineName?: string; // NEW
+  estimatedCost?: number;
 }
 
 // 3. Machinery & Maintenance
