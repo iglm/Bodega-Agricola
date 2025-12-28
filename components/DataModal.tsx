@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
+
+import React, { useRef, useState } from 'react';
 import { AppState } from '../types';
-import { X, Database, Download, Upload, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { X, Database, Download, Upload, AlertTriangle, ShieldCheck, Loader2, CheckCircle, FileJson, Info } from 'lucide-react';
 
 interface DataModalProps {
   fullState: AppState;
@@ -10,6 +11,8 @@ interface DataModalProps {
 
 export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   
   const handleDownloadBackup = () => {
     const jsonString = JSON.stringify(fullState, null, 2);
@@ -28,37 +31,55 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!confirm("ADVERTENCIA CRÍTICA: Esta acción BORRARÁ TODOS los datos actuales y los reemplazará con el archivo seleccionado. ¿Está 100% seguro?")) {
-        if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+    setRestoreError(null);
+
+    // Confirmation
+    if (!confirm("⚠️ ADVERTENCIA CRÍTICA ⚠️\n\nEsta acción BORRARÁ TODOS los datos actuales y los reemplazará con el archivo seleccionado.\n\n¿Está 100% seguro de continuar?")) {
+        if (fileInputRef.current) fileInputRef.current.value = ''; 
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        try {
-            const result = event.target?.result as string;
-            const parsed = JSON.parse(result);
-            
-            // Basic structure validation
-            if (parsed && Array.isArray(parsed.warehouses) && Array.isArray(parsed.inventory)) {
-                onRestoreData(parsed as AppState);
+    setIsRestoring(true);
+
+    // Use setTimeout to allow UI to render the loading state before blocking with file reading/parsing
+    setTimeout(() => {
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+            try {
+                const result = event.target?.result as string;
+                const parsed = JSON.parse(result);
                 
-                // Reset input to allow re-importing same file if needed
+                // Enhanced validation
+                const hasWarehouses = parsed && Array.isArray(parsed.warehouses);
+                const hasInventory = parsed && Array.isArray(parsed.inventory);
+                
+                if (hasWarehouses && hasInventory) {
+                    // Success Path
+                    onRestoreData(parsed as AppState);
+                    alert("✅ ¡Base de datos restaurada correctamente!");
+                    onClose();
+                } else {
+                    throw new Error("El archivo no tiene el formato correcto de AgroBodega (Faltan almacenes o inventario).");
+                }
+            } catch (err: any) {
+                console.error(err);
+                setRestoreError(`Error: ${err.message || "Archivo corrupto o inválido"}`);
+                alert(`❌ Error al restaurar: ${err.message || "El archivo no es válido."}`);
+            } finally {
+                setIsRestoring(false);
                 if (fileInputRef.current) fileInputRef.current.value = '';
-                
-                // Requested Success Message
-                alert("Importación completada exitosamente. Sus datos han sido actualizados.");
-                onClose();
-            } else {
-                throw new Error("Estructura de archivo inválida. Faltan almacenes o inventario.");
             }
-        } catch (err) {
-            console.error(err);
-            alert("Error: El archivo seleccionado no es válido o está corrupto.");
-            if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input on error
-        }
-    };
-    reader.readAsText(file);
+        };
+
+        reader.onerror = () => {
+            setRestoreError("Error de lectura del archivo.");
+            setIsRestoring(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        };
+
+        reader.readAsText(file);
+    }, 100);
   };
 
   return (
@@ -68,7 +89,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
         {/* Header */}
         <div className="bg-slate-900 p-6 border-b border-slate-700 flex justify-between items-center">
             <div className="flex items-center gap-3">
-                <div className="bg-orange-500/20 p-2 rounded-lg border border-orange-500/30 animate-pulse">
+                <div className="bg-orange-500/20 p-2 rounded-lg border border-orange-500/30">
                     <Database className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
@@ -93,7 +114,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                     Sus datos viven <strong>exclusivamente en este dispositivo</strong>. 
                     Si pierde el teléfono o borra los datos del navegador, perderá su inventario.
                     <br/><br/>
-                    <span className="text-white font-bold">Recomendación:</span> Descargue una copia cada semana y guárdela en la nube (Google Drive, WhatsApp, Correo).
+                    <span className="text-white font-bold">Recomendación:</span> Descargue una copia cada semana y guárdela en la nube (Drive, WhatsApp, Correo).
                 </p>
             </div>
 
@@ -109,8 +130,16 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                     <div className="bg-white/20 p-1.5 rounded-lg group-hover:scale-110 transition-transform">
                         <ShieldCheck className="w-5 h-5 text-white" />
                     </div>
-                    Descargar Copia de Seguridad
+                    Descargar Copia de Seguridad (.JSON)
                 </button>
+                <div className="flex items-start gap-2 bg-slate-900/50 p-2 rounded-lg border border-slate-700">
+                    <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-slate-400">
+                        <strong>¿Por qué .JSON?</strong> Es el formato nativo de la base de datos. Garantiza que el 100% de la información (imágenes, historiales, configuraciones) se guarde sin errores.
+                        <br/>
+                        <span className="text-emerald-400">Si desea ver los datos en Excel, use la opción "Exportar / Carga" del menú principal.</span>
+                    </p>
+                </div>
             </div>
 
             <div className="border-t border-slate-700/50"></div>
@@ -120,21 +149,38 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                 <h4 className="text-blue-400 text-sm uppercase font-bold flex items-center gap-2">
                     <Upload className="w-4 h-4" /> Importar / Restaurar
                 </h4>
-                <label className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-300 hover:text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 transition-colors cursor-pointer group">
-                    <div className="bg-black/20 p-1.5 rounded-lg group-hover:scale-110 transition-transform">
-                        <Database className="w-5 h-5" />
+                
+                {isRestoring ? (
+                    <div className="w-full bg-slate-700 border border-slate-500 text-slate-300 py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 animate-pulse cursor-wait">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Procesando archivo...
                     </div>
-                    Seleccionar Archivo (.json)
-                    <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        accept=".json"
-                        onChange={handleRestoreFileChange}
-                        className="hidden" 
-                    />
-                </label>
+                ) : (
+                    <label className={`w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-300 hover:text-white py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 transition-colors cursor-pointer group ${restoreError ? 'border-red-500' : ''}`}>
+                        <div className="bg-black/20 p-1.5 rounded-lg group-hover:scale-110 transition-transform">
+                            {restoreError ? <AlertTriangle className="w-5 h-5 text-red-400" /> : <FileJson className="w-5 h-5" />}
+                        </div>
+                        {restoreError ? "Reintentar Importación" : "Seleccionar Archivo JSON"}
+                        <input 
+                            ref={fileInputRef}
+                            type="file" 
+                            accept=".json"
+                            // Reset value on click to ensure onChange fires even if same file is selected
+                            onClick={(e) => { e.currentTarget.value = ''; }}
+                            onChange={handleRestoreFileChange}
+                            className="hidden" 
+                        />
+                    </label>
+                )}
+                
+                {restoreError && (
+                    <p className="text-xs text-red-400 text-center font-bold bg-red-900/20 p-2 rounded">
+                        {restoreError}
+                    </p>
+                )}
+                
                 <p className="text-[10px] text-slate-500 text-center">
-                    Solo use archivos generados previamente por esta aplicación.
+                    Solo use archivos .json generados previamente por esta aplicación.
                 </p>
             </div>
 

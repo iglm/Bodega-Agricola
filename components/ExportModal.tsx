@@ -1,9 +1,8 @@
 
-import React, { useRef, useState } from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard, GraduationCap, Loader2 } from 'lucide-react';
+import React from 'react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap } from 'lucide-react';
 import { AppState } from '../types';
 import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate, getCoffeeExampleData } from '../services/reportService';
-import { processExcelImport } from '../services/inventoryService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -29,11 +28,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onExportMachineryPDF,
     onClose,
     activeData,
-    globalState,
-    onImportSuccess
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isImporting, setIsImporting] = useState(false);
 
   const handleGlobalReport = () => {
       if (activeData) {
@@ -64,35 +59,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleDownloadExamplePDF = () => {
       const exampleData = getCoffeeExampleData();
       generateFieldTemplates(exampleData, true);
-  };
-
-  const handleUploadExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      // Use globalState to ensure we don't overwrite other farms' data during import
-      const targetState = globalState || activeData; 
-      
-      if (!file || !targetState) return;
-
-      if (!confirm("Se procesará el archivo Excel y se agregarán los nuevos registros a su base de datos. ¿Desea continuar?")) {
-          if (fileInputRef.current) fileInputRef.current.value = '';
-          return;
-      }
-
-      setIsImporting(true);
-
-      try {
-        const result = await processExcelImport(file, targetState);
-        alert(result.message);
-        if (result.success && result.newState) {
-            onImportSuccess(result.newState);
-        }
-      } catch (err) {
-        console.error("Upload error:", err);
-        alert("Error inesperado al cargar el archivo. Intente nuevamente.");
-      } finally {
-        setIsImporting(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
   };
 
   return (
@@ -127,10 +93,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             {/* SECTION: FIELD WORK (OFFLINE) */}
             <div className="space-y-3 bg-amber-900/20 p-4 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-900/10">
                 <h4 className="text-sm font-bold text-amber-500 uppercase flex items-center gap-2 border-b border-amber-500/20 pb-2 mb-2">
-                    <Clipboard className="w-4 h-4" /> Plantillas & Carga Masiva
+                    <Clipboard className="w-4 h-4" /> Plantillas de Campo
                 </h4>
                 <p className="text-[10px] text-slate-300 mb-2 leading-tight">
-                    Descargue plantillas inteligentes con sus datos actuales para trabajar offline y subir masivamente.
+                    Descargue formatos pre-llenados con sus lotes y trabajadores para imprimir y llevar registro manual en zonas sin señal.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                     <button 
@@ -150,31 +116,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
                         </div>
-                        <span className="text-slate-300 font-bold text-[10px] text-center group-hover:text-white">Bajar Plantilla Excel</span>
+                        <span className="text-slate-300 font-bold text-[10px] text-center group-hover:text-white">Bajar Formato Excel</span>
                     </button>
                 </div>
-
-                <label className={`w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer group mt-2 shadow-sm hover:shadow-md ${isImporting ? 'opacity-50 cursor-wait' : ''}`}>
-                    {isImporting ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Procesando Archivo...
-                        </>
-                    ) : (
-                        <>
-                            <Upload className="w-4 h-4 group-hover:animate-bounce" />
-                            Subir Excel Diligenciado
-                        </>
-                    )}
-                    <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        accept=".xlsx, .xls"
-                        onChange={handleUploadExcel}
-                        className="hidden" 
-                        disabled={isImporting}
-                    />
-                </label>
             </div>
 
             {/* SECTION: EXAMPLES (NEW) */}
