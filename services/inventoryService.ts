@@ -1,5 +1,6 @@
 
-import { InventoryItem, Movement, Unit, AppState, Warehouse } from '../types';
+import { InventoryItem, Movement, Unit, AppState, Warehouse, LaborLog, HarvestLog } from '../types';
+import * as XLSX from 'xlsx';
 
 const STORAGE_KEY = 'agrobodega_pro_data_v1';
 
@@ -69,6 +70,109 @@ export const getCostPerGramOrMl = (item: InventoryItem): number => {
   }
   const basePurchase = convertToBase(1, item.lastPurchaseUnit);
   return item.lastPurchasePrice / basePurchase;
+};
+
+// --- BULK IMPORT LOGIC ---
+
+export const processExcelImport = async (file: File, currentState: AppState): Promise<{ success: boolean, message: string, newState?: AppState }> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        
+        let newState = { ...currentState };
+        let logsAdded = 0;
+        let errors: string[] = [];
+
+        const activeId = newState.activeWarehouseId;
+
+        // 1. PROCESS LABOR SHEET (Jornales)
+        const laborSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('jornales'));
+        if (laborSheetName) {
+          const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[laborSheetName]);
+          rows.forEach((row, index) => {
+             // Expects: Fecha, Trabajador, Labor, Lote, Valor, Notas
+             if (!row.Fecha || !row.Trabajador || !row.Labor || !row.Lote || !row.Valor) return;
+
+             // Find IDs by Name Matching (Case Insensitive)
+             const person = newState.personnel.find(p => p.name.toLowerCase() === row.Trabajador.toString().toLowerCase() && p.warehouseId === activeId);
+             const activity = newState.activities.find(a => a.name.toLowerCase() === row.Labor.toString().toLowerCase() && a.warehouseId === activeId);
+             const lot = newState.costCenters.find(c => c.name.toLowerCase() === row.Lote.toString().toLowerCase() && c.warehouseId === activeId);
+
+             if (person && activity && lot) {
+               const newLog: LaborLog = {
+                 id: crypto.randomUUID(),
+                 warehouseId: activeId,
+                 date: new Date(row.Fecha).toISOString().split('T')[0], // Assuming Excel format is standard or simple date string
+                 personnelId: person.id,
+                 personnelName: person.name,
+                 activityId: activity.id,
+                 activityName: activity.name,
+                 costCenterId: lot.id,
+                 costCenterName: lot.name,
+                 value: Number(row.Valor),
+                 notes: row.Notas || 'Importado desde Excel',
+                 paid: false
+               };
+               newState.laborLogs = [...newState.laborLogs, newLog];
+               logsAdded++;
+             } else {
+               errors.push(`Fila ${index + 2} (Jornales): No se encontró coincidencia para Trabajador, Labor o Lote.`);
+             }
+          });
+        }
+
+        // 2. PROCESS HARVEST SHEET (Cosechas)
+        const harvestSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('cosechas'));
+        if (harvestSheetName) {
+           const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[harvestSheetName]);
+           rows.forEach((row, index) => {
+              // Expects: Fecha, Lote, Cultivo, Cantidad, Unidad, ValorTotal
+              if (!row.Fecha || !row.Lote || !row.Cultivo || !row.Cantidad || !row.ValorTotal) return;
+
+              const lot = newState.costCenters.find(c => c.name.toLowerCase() === row.Lote.toString().toLowerCase() && c.warehouseId === activeId);
+              
+              if (lot) {
+                const newHarvest: HarvestLog = {
+                  id: crypto.randomUUID(),
+                  warehouseId: activeId,
+                  date: new Date(row.Fecha).toISOString().split('T')[0],
+                  costCenterId: lot.id,
+                  costCenterName: lot.name,
+                  cropName: row.Cultivo,
+                  quantity: Number(row.Cantidad),
+                  unit: row.Unidad || 'Kg',
+                  totalValue: Number(row.ValorTotal),
+                  notes: row.Notas || 'Importado desde Excel'
+                };
+                newState.harvests = [...newState.harvests, newHarvest];
+                logsAdded++;
+              } else {
+                errors.push(`Fila ${index + 2} (Cosechas): Lote "${row.Lote}" no encontrado.`);
+              }
+           });
+        }
+
+        if (logsAdded > 0) {
+          resolve({ 
+            success: true, 
+            message: `Se importaron ${logsAdded} registros exitosamente.${errors.length > 0 ? '\nErrores encontrados en algunas filas (ver consola).' : ''}`, 
+            newState 
+          });
+          if (errors.length > 0) console.warn("Import Errors:", errors);
+        } else {
+          resolve({ success: false, message: "No se encontraron registros válidos o los nombres no coinciden con los Maestros (Trabajadores, Lotes, etc)." });
+        }
+
+      } catch (err) {
+        console.error(err);
+        resolve({ success: false, message: "Error al leer el archivo Excel. Asegúrese de usar la plantilla oficial." });
+      }
+    };
+    reader.readAsBinaryString(file);
+  });
 };
 
 export const loadData = (): AppState => {

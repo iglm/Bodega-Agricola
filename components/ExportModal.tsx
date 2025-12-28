@@ -1,8 +1,9 @@
 
-import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart } from 'lucide-react';
+import React, { useRef } from 'react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Upload, Clipboard } from 'lucide-react';
 import { AppState } from '../types';
-import { generateGlobalReport } from '../services/reportService';
+import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate } from '../services/reportService';
+import { processExcelImport, saveData } from '../services/inventoryService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -13,7 +14,7 @@ interface ExportModalProps {
   onExportHarvestPDF?: () => void;
   onExportMachineryPDF?: () => void;
   onClose: () => void;
-  fullData?: AppState; // Optional prop to access full state for global report
+  fullData?: AppState; 
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
@@ -27,7 +28,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onClose,
     fullData
 }) => {
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleGlobalReport = () => {
       if (fullData) {
           generateGlobalReport(fullData);
@@ -35,6 +37,37 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       } else {
           alert("Datos no disponibles para reporte unificado.");
       }
+  };
+
+  const handleDownloadFieldTemplates = () => {
+      if (fullData) {
+          generateFieldTemplates(fullData);
+      }
+  };
+
+  const handleDownloadExcelTemplate = () => {
+      generateExcelImportTemplate();
+  };
+
+  const handleUploadExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !fullData) return;
+
+      if (!confirm("Se procesará el archivo Excel y se agregarán los nuevos registros a su base de datos. ¿Desea continuar?")) {
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+      }
+
+      processExcelImport(file, fullData).then(result => {
+          alert(result.message);
+          if (result.success && result.newState) {
+              // We need to trigger a global state update. 
+              // Since this component doesn't have setState, we save to LocalStorage and reload page to reflect changes safely.
+              saveData(result.newState);
+              window.location.reload(); 
+          }
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      });
   };
 
   return (
@@ -54,9 +87,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/20">
               <Download className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-white">Centro de Reportes</h3>
+            <h3 className="text-xl font-bold text-white">Centro de Gestión</h3>
           </div>
-          <p className="text-emerald-100/80 text-xs ml-1">Seleccione el formato deseado</p>
+          <p className="text-emerald-100/80 text-xs ml-1">Reportes y Trabajo de Campo Offline</p>
         </div>
 
         {/* Content */}
@@ -82,6 +115,51 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
                 </div>
             )}
+
+            {/* SECTION: FIELD WORK (OFFLINE) */}
+            <div className="space-y-3 bg-amber-900/10 p-4 rounded-xl border border-amber-500/20">
+                <h4 className="text-xs font-bold text-amber-500 uppercase flex items-center gap-2">
+                    <Clipboard className="w-4 h-4" /> Trabajo de Campo (Offline)
+                </h4>
+                <p className="text-[10px] text-slate-400 mb-2">
+                    Genere planillas para personal de campo y cargue los datos masivamente después.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={handleDownloadFieldTemplates}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all group"
+                    >
+                        <div className="w-8 h-8 bg-amber-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <FileText className="w-4 h-4 text-amber-500" />
+                        </div>
+                        <span className="text-slate-300 font-bold text-[10px] text-center">Imprimir Planillas PDF</span>
+                    </button>
+
+                    <button 
+                        onClick={handleDownloadExcelTemplate}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all group"
+                    >
+                        <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <span className="text-slate-300 font-bold text-[10px] text-center">Bajar Plantilla Excel</span>
+                    </button>
+                </div>
+
+                <label className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer group mt-2">
+                    <Upload className="w-4 h-4 group-hover:animate-bounce" />
+                    Subir Excel Diligenciado
+                    <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        accept=".xlsx, .xls"
+                        onChange={handleUploadExcel}
+                        className="hidden" 
+                    />
+                </label>
+            </div>
+
+            <div className="border-t border-slate-700"></div>
 
             {/* SECTION 1: INVENTORY */}
             <div className="space-y-3">

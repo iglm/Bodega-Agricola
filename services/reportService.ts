@@ -66,6 +66,89 @@ const addFooter = (doc: jsPDF) => {
     }
 };
 
+// --- NEW: FIELD TEMPLATES (FOR ILLITERATE/MANUAL WORKERS) ---
+export const generateFieldTemplates = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
+    
+    // PAGE 1: LABOR (JORNALES)
+    let yPos = addHeader(doc, "Planilla de Campo: Control de Jornales", "Llenar diariamente", activeWarehouseName, BRAND_COLORS.amber);
+    
+    // Helper Lists for Reference
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text("Referencia Rápida (Trabajadores):", 14, yPos);
+    let x = 14; 
+    let y = yPos + 5;
+    data.personnel.forEach((p, i) => {
+        if(x > 180) { x = 14; y += 5; }
+        doc.text(`• ${p.name}`, x, y);
+        x += 50;
+    });
+    
+    y += 8;
+    doc.text("Referencia Rápida (Labores):", 14, y);
+    x = 14; y += 5;
+    data.activities.forEach((a, i) => {
+        if(x > 180) { x = 14; y += 5; }
+        doc.text(`• ${a.name}`, x, y);
+        x += 50;
+    });
+
+    // Empty Grid for Writing
+    const emptyRows = Array(15).fill(["", "", "", "", ""]);
+    autoTable(doc, {
+        startY: y + 10,
+        head: [['Fecha', 'Nombre Trabajador', 'Labor Realizada', 'Lote / Sitio', 'Jornales (1, 0.5)']],
+        body: emptyRows,
+        theme: 'grid',
+        styles: { fontSize: 11, minCellHeight: 12, valign: 'middle' },
+        headStyles: { fillColor: [245, 158, 11], textColor: 255 }
+    });
+
+    // PAGE 2: HARVEST (COSECHAS)
+    doc.addPage();
+    yPos = addHeader(doc, "Planilla de Campo: Recolección y Cosecha", "Registro de Producción", activeWarehouseName, BRAND_COLORS.yellow);
+    
+    // Empty Grid
+    const harvestRows = Array(15).fill(["", "", "", "Kg / Arrobas / Uni"]);
+    autoTable(doc, {
+        startY: yPos + 10,
+        head: [['Fecha', 'Lote / Origen', 'Cultivo / Producto', 'Cantidad Recolectada']],
+        body: harvestRows,
+        theme: 'grid',
+        styles: { fontSize: 11, minCellHeight: 12, valign: 'middle' },
+        headStyles: { fillColor: [234, 179, 8], textColor: 255 }
+    });
+
+    addFooter(doc);
+    doc.save(`Planillas_Campo_${activeWarehouseName}.pdf`);
+};
+
+// --- NEW: EXCEL IMPORT TEMPLATE ---
+export const generateExcelImportTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Sheet 1: Jornales
+    const wsLabor = XLSX.utils.aoa_to_sheet([
+        ["Fecha", "Trabajador", "Labor", "Lote", "Valor", "Notas"],
+        ["2024-01-01", "Nombre Exacto Aqui", "Nombre Labor Aqui", "Nombre Lote Aqui", 50000, "Opcional"],
+        ["2024-01-02", "Juan Perez", "Guadaña", "Lote 1", 60000, ""]
+    ]);
+    XLSX.utils.book_append_sheet(wb, wsLabor, "Jornales (Importar)");
+
+    // Sheet 2: Cosechas
+    const wsHarvest = XLSX.utils.aoa_to_sheet([
+        ["Fecha", "Lote", "Cultivo", "Cantidad", "Unidad", "ValorTotal", "Notas"],
+        ["2024-01-01", "Lote 1", "Cafe", 100, "Kg", 500000, ""]
+    ]);
+    XLSX.utils.book_append_sheet(wb, wsHarvest, "Cosechas (Importar)");
+
+    XLSX.writeFile(wb, "Plantilla_Carga_Masiva_AgroSuite.xlsx");
+};
+
+// ... [Keep existing export functions: generateOrderPDF, generatePDF, generateExcel, etc.] ...
+
 export const generateOrderPDF = (data: AppState) => {
     const doc = new jsPDF();
     const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
@@ -562,6 +645,7 @@ export const generateGlobalReport = (data: AppState) => {
     doc.save(`Informe_Gerencial_Unificado_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
+// ... [Keep Manual PDF Generator] ...
 // --- MANUAL PDF GENERATOR (EXTENDED VERSION) ---
 export const generateManualPDF = () => {
     const doc = new jsPDF();
