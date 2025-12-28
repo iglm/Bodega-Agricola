@@ -1,6 +1,7 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style'; // Changed to xlsx-js-style for styling support
 import { AppState, LaborLog, RainLog, HarvestLog, Movement, InventoryItem } from '../types';
 import { convertToBase, formatCurrency, formatBaseQuantity, getCostPerGramOrMl } from './inventoryService';
 
@@ -18,41 +19,34 @@ const BRAND_COLORS = {
     purple: [147, 51, 234] as [number, number, number] // Purple for Admin
 };
 
+const AUTHOR_NAME = "Lucas Mateo Tabares Franco";
+const CONTACT_EMAIL = "mateotabares7@gmail.com";
+
+// ... [Existing PDF Helper Functions] ...
 const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string, themeColor: [number, number, number] = BRAND_COLORS.dark) => {
     const currentDate = new Date();
-    
-    // Top Banner
     doc.setFillColor(themeColor[0], themeColor[1], themeColor[2]);
     doc.rect(0, 0, 210, 35, 'F'); 
-
-    // App Name
     doc.setFontSize(22);
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("AgroSuite 360", 14, 15);
-
-    // Subtitle
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255); 
     doc.setFont("helvetica", "bold");
     doc.text(title, 14, 24);
-    
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(subtitle, 14, 30);
-
-    // Info Box
     doc.setFontSize(9);
     doc.text("Fecha Generación:", 140, 15);
     doc.setFont("helvetica", "bold");
     doc.text(currentDate.toLocaleDateString(), 196, 15, { align: 'right' });
-    
     doc.setFont("helvetica", "normal");
     doc.text("Sede / Finca:", 140, 20);
     doc.setFont("helvetica", "bold");
     doc.text(warehouseName, 196, 20, { align: 'right' });
-    
-    return 40; // Start Y for content
+    return 40;
 };
 
 const addFooter = (doc: jsPDF) => {
@@ -66,30 +60,25 @@ const addFooter = (doc: jsPDF) => {
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.setFont("helvetica", "normal");
-        doc.text('Generado por AgroSuite 360 - Software de Gestión Agrícola Integral', 14, pageHeight - 10);
+        doc.text(`Desarrollado por ${AUTHOR_NAME} - ${CONTACT_EMAIL} - Derechos Reservados`, 14, pageHeight - 10);
         doc.text(`Página ${i} de ${pageCount}`, 196, pageHeight - 10, { align: 'right' });
     }
 };
 
-// --- 1. COMPLETE FIELD TEMPLATES (PDF) ---
+// ... [Existing PDF Generator Functions remain unchanged] ...
 export const generateFieldTemplates = (data: AppState) => {
     const doc = new jsPDF();
     const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
-    
-    // PAGE 1: CONTROL DE JORNALES (LABOR)
     let yPos = addHeader(doc, "PLANILLA DE NOMINA Y LABORES", "Registro diario de actividades de campo", activeWarehouseName, BRAND_COLORS.amber);
-    
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text("TRABAJADORES ACTIVOS (Referencia para llenado):", 14, yPos);
-    
     let x = 14; let y = yPos + 5;
     data.personnel.forEach((p, i) => {
         if(x > 180) { x = 14; y += 4; }
         doc.text(`• ${p.name}`, x, y);
         x += 45;
     });
-    
     autoTable(doc, {
         startY: y + 5,
         head: [['FECHA', 'TRABAJADOR', 'LABOR REALIZADA', 'LOTE / SITIO', 'JORNALES (1, 0.5) o VALOR']],
@@ -98,11 +87,8 @@ export const generateFieldTemplates = (data: AppState) => {
         styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
         headStyles: { fillColor: BRAND_COLORS.amber, textColor: 255, fontStyle: 'bold' }
     });
-
-    // PAGE 2: INVENTORY WITHDRAWALS (SALIDAS)
     doc.addPage();
     yPos = addHeader(doc, "BITÁCORA DE BODEGA", "Control de Salidas de Insumos y Fertilizantes", activeWarehouseName, BRAND_COLORS.red);
-    
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text("LOTES Y DESTINOS (Referencia):", 14, yPos);
@@ -112,7 +98,6 @@ export const generateFieldTemplates = (data: AppState) => {
         doc.text(`• ${c.name}`, x, y);
         x += 45;
     });
-
     autoTable(doc, {
         startY: y + 5,
         head: [['FECHA', 'PRODUCTO / INSUMO', 'CANTIDAD', 'UNIDAD (Kg/L)', 'DESTINO (Lote)', 'RESPONSABLE']],
@@ -121,11 +106,8 @@ export const generateFieldTemplates = (data: AppState) => {
         styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
         headStyles: { fillColor: BRAND_COLORS.red, textColor: 255, fontStyle: 'bold' }
     });
-
-    // PAGE 3: HARVEST (COSECHAS)
     doc.addPage();
     yPos = addHeader(doc, "REGISTRO DE PRODUCCIÓN", "Control de Cosechas y Recolección", activeWarehouseName, BRAND_COLORS.yellow);
-    
     autoTable(doc, {
         startY: yPos + 5,
         head: [['FECHA', 'LOTE / ORIGEN', 'CULTIVO / VARIEDAD', 'CANTIDAD (Kg/Arrobas)', 'PRECIO / VALOR TOTAL', 'OBSERVACIONES']],
@@ -134,11 +116,8 @@ export const generateFieldTemplates = (data: AppState) => {
         styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
         headStyles: { fillColor: BRAND_COLORS.yellow, textColor: 255, fontStyle: 'bold' }
     });
-
-    // PAGE 4: MACHINERY MAINTENANCE
     doc.addPage();
     yPos = addHeader(doc, "BITÁCORA DE MAQUINARIA", "Control de Combustible y Mantenimientos", activeWarehouseName, BRAND_COLORS.orange);
-    
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text("MAQUINARIA REGISTRADA:", 14, yPos);
@@ -148,7 +127,6 @@ export const generateFieldTemplates = (data: AppState) => {
         doc.text(`• ${m.name}`, x, y);
         x += 45;
     });
-
     autoTable(doc, {
         startY: y + 5,
         head: [['FECHA', 'MÁQUINA', 'TIPO (Diesel/Repuesto)', 'COSTO ($)', 'HORÓMETRO / KM', 'DESCRIPCIÓN']],
@@ -157,17 +135,12 @@ export const generateFieldTemplates = (data: AppState) => {
         styles: { fontSize: 10, minCellHeight: 10, valign: 'middle', lineColor: 200 },
         headStyles: { fillColor: BRAND_COLORS.orange, textColor: 255, fontStyle: 'bold' }
     });
-
-    // PAGE 5: RAIN & FINANCES
     doc.addPage();
     yPos = addHeader(doc, "CONTROL ADMINISTRATIVO Y CLIMA", "Lluvias diarias y Gastos Generales", activeWarehouseName, BRAND_COLORS.blue);
-    
     doc.setFontSize(11);
     doc.setTextColor(BRAND_COLORS.blue[0], BRAND_COLORS.blue[1], BRAND_COLORS.blue[2]);
     doc.setFont("helvetica", "bold");
     doc.text("1. REGISTRO PLUVIOMÉTRICO (LLUVIAS)", 14, yPos);
-    
-    // Split rain table into 3 columns to save space
     const rainRows = Array(10).fill(["", "", "", "", "", ""]);
     autoTable(doc, {
         startY: yPos + 5,
@@ -177,13 +150,10 @@ export const generateFieldTemplates = (data: AppState) => {
         styles: { fontSize: 9, minCellHeight: 7, halign: 'center' },
         headStyles: { fillColor: BRAND_COLORS.blue, halign: 'center' }
     });
-
     let finalY = (doc as any).lastAutoTable.finalY + 15;
-    
     doc.setFontSize(11);
     doc.setTextColor(BRAND_COLORS.purple[0], BRAND_COLORS.purple[1], BRAND_COLORS.purple[2]);
     doc.text("2. GASTOS ADMINISTRATIVOS / GENERALES", 14, finalY);
-    
     autoTable(doc, {
         startY: finalY + 5,
         head: [['FECHA', 'CONCEPTO (Luz, Impuesto, Etc)', 'VALOR ($)', 'NOTAS / DETALLES']],
@@ -192,103 +162,198 @@ export const generateFieldTemplates = (data: AppState) => {
         styles: { fontSize: 10, minCellHeight: 10 },
         headStyles: { fillColor: BRAND_COLORS.purple }
     });
-
     addFooter(doc);
     doc.save(`Plantillas_Campo_${activeWarehouseName.replace(/\s+/g, '_')}.pdf`);
 };
 
-// --- 2. COMPLETE EXCEL IMPORT TEMPLATE ---
+// --- 2. PROFESSIONAL & SECURE EXCEL IMPORT TEMPLATE ---
 export const generateExcelImportTemplate = (data: AppState) => {
     const wb = XLSX.utils.book_new();
     const activeWarehouseName = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || 'Bodega';
 
-    // A. INSTRUCTIONS SHEET
-    const wsInstructions = XLSX.utils.aoa_to_sheet([
-        ["GUÍA DE USO DE LA PLANTILLA AGROSUITE 360"],
-        [""],
-        ["1. ESTA ES SU BASE DE DATOS MÓVIL: Use este archivo para ingresar información masiva desde su PC."],
-        ["2. NO CAMBIE EL NOMBRE DE LAS HOJAS (Pestañas inferiores). El sistema las busca por nombre exacto."],
-        ["3. USE LA HOJA 'MAESTROS_REFERENCIA' para COPIAR Y PEGAR los nombres exactos de sus trabajadores y productos."],
-        ["4. FORMATO FECHA: Use el formato AAAA-MM-DD (Ej: 2024-05-20) o el formato fecha de Excel."],
-        ["5. VALORES: Ingrese solo números en columnas de precio o cantidad (Sin símbolos $ o texto)."],
-    ]);
-    // Style Instructions
-    wsInstructions['!cols'] = [{ wch: 80 }];
-    XLSX.utils.book_append_sheet(wb, wsInstructions, "Instrucciones");
+    // Helper to Create Styled Locked Header Row
+    const createStyledHeader = (headers: string[], colorHex: string) => {
+        return headers.map(h => ({
+            v: h,
+            t: 's',
+            s: {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: colorHex } },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: { top: {style:'thin'}, bottom: {style:'medium'}, right: {style:'thin'} },
+                protection: { locked: true } // Header is LOCKED
+            }
+        }));
+    };
 
-    // B. REFERENCE SHEET (The "Garbage" Fixer - Contextual Data)
-    const refHeader = ["TRABAJADORES", "LOTES / DESTINOS", "PRODUCTOS / INSUMOS", "MAQUINARIA", "LABORES"];
+    // Helper for Copyright Row (Locked)
+    const createCopyrightRow = () => {
+        return [{
+            v: `PROPIEDAD INTELECTUAL DE ${AUTHOR_NAME.toUpperCase()} - NO MODIFICAR ESTRUCTURA`,
+            t: 's',
+            s: {
+                font: { bold: true, color: { rgb: "991B1B" }, sz: 10 },
+                fill: { fgColor: { rgb: "FEF3C7" } },
+                alignment: { horizontal: "center" },
+                protection: { locked: true }
+            }
+        }];
+    };
+
+    // Helper for Unlocked Data Cells
+    const createUnlockedCell = (val: any) => ({
+        v: val,
+        t: typeof val === 'number' ? 'n' : 's',
+        s: {
+            protection: { locked: false } // User can edit this
+        }
+    });
+
+    const createExampleRow = (values: any[]) => {
+        return values.map(v => ({
+            v: v,
+            t: typeof v === 'number' ? 'n' : 's',
+            s: {
+                font: { italic: true, color: { rgb: "666666" } },
+                fill: { fgColor: { rgb: "F3F4F6" } },
+                protection: { locked: false } // Example can be overwritten
+            }
+        }));
+    };
+
+    // Function to apply sheet protection
+    const protectSheet = (ws: any) => {
+        ws['!protect'] = {
+            password: "AgroSuiteSecure", // Prevent accidental structure changes
+            selectLockedCells: false, // User cannot select locked headers
+            selectUnlockedCells: true, // User CAN select data area
+            formatCells: false,
+            formatColumns: false,
+            formatRows: false,
+            insertColumns: false, // Critical: prevent breaking import logic
+            insertRows: true, // Allow adding data rows
+            deleteColumns: false,
+            deleteRows: true,
+            sort: true,
+            autoFilter: true
+        };
+    };
+
+    // --- SHEET 0: LEGAL COVER (PORTADA) ---
+    const wsLegal = XLSX.utils.aoa_to_sheet([
+        [{ v: "AGROSUITE 360 - HERRAMIENTA ADMINISTRATIVA OFICIAL", s: { font: { bold: true, sz: 20, color: { rgb: "064E3B" } } } }],
+        [""],
+        [{ v: "INFORMACIÓN DE PROPIEDAD INTELECTUAL Y LEGAL", s: { font: { bold: true, sz: 14 } } }],
+        [""],
+        [{ v: "AUTOR Y DESARROLLADOR:", s: { font: { bold: true } } }, { v: AUTHOR_NAME }],
+        [{ v: "CONTACTO DE SOPORTE:", s: { font: { bold: true } } }, { v: CONTACT_EMAIL }],
+        [""],
+        [{ v: "ADVERTENCIA LEGAL (LEY 23 DE 1982 / LEY 1273 DE 2009):", s: { font: { bold: true, color: { rgb: "991B1B" } } } }],
+        [{ v: "Este archivo Excel es una extensión funcional del software AgroSuite 360." }],
+        [{ v: "Su estructura lógica y diseño son propiedad intelectual exclusiva de Lucas Mateo Tabares Franco." }],
+        [{ v: "Queda estrictamente prohibida su distribución, venta o modificación estructural sin autorización escrita." }],
+        [""],
+        [{ v: "INSTRUCCIONES PARA EL USUARIO:", s: { font: { bold: true } } }],
+        [{ v: "1. Las celdas de encabezado están BLOQUEADAS para proteger la integridad de los datos." }],
+        [{ v: "2. Ingrese su información únicamente en las celdas blancas debajo de los encabezados." }],
+        [{ v: "3. No cambie el nombre de las pestañas." }]
+    ]);
+    wsLegal['!cols'] = [{ wch: 70 }, { wch: 40 }];
+    // Lock everything on legal sheet
+    wsLegal['!protect'] = { password: "legal", selectLockedCells: true, selectUnlockedCells: false }; 
+    XLSX.utils.book_append_sheet(wb, wsLegal, "LICENCIA_USO");
+
+    // B. REFERENCE SHEET
+    const refHeader = createStyledHeader(["TRABAJADORES (Copiar)", "LOTES / DESTINOS (Copiar)", "PRODUCTOS / INSUMOS (Copiar)", "MAQUINARIA (Copiar)", "LABORES (Copiar)"], "4B5563"); 
     const maxRows = Math.max(data.personnel.length, data.costCenters.length, data.inventory.length, data.machines.length, data.activities.length);
-    const refData = [refHeader];
+    const refData: any[] = [createCopyrightRow(), refHeader];
     
     for(let i=0; i<maxRows; i++) {
         refData.push([
-            data.personnel[i]?.name || "",
-            data.costCenters[i]?.name || "",
-            data.inventory[i]?.name || "",
-            data.machines[i]?.name || "",
-            data.activities[i]?.name || ""
+            { v: data.personnel[i]?.name || "", s: { fill: { fgColor: { rgb: "E5E7EB" } }, protection: {locked: true} } },
+            { v: data.costCenters[i]?.name || "", s: { fill: { fgColor: { rgb: "E5E7EB" } }, protection: {locked: true} } },
+            { v: data.inventory[i]?.name || "", s: { fill: { fgColor: { rgb: "E5E7EB" } }, protection: {locked: true} } },
+            { v: data.machines[i]?.name || "", s: { fill: { fgColor: { rgb: "E5E7EB" } }, protection: {locked: true} } },
+            { v: data.activities[i]?.name || "", s: { fill: { fgColor: { rgb: "E5E7EB" } }, protection: {locked: true} } }
         ]);
     }
-    const wsRef = XLSX.utils.aoa_to_sheet(refData);
+    const wsRef = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsRef, refData, { origin: "A1" });
     wsRef['!cols'] = [{ wch: 30 }, { wch: 30 }, { wch: 40 }, { wch: 30 }, { wch: 30 }];
-    XLSX.utils.book_append_sheet(wb, wsRef, "MAESTROS_REFERENCIA");
+    if(!wsRef['!merges']) wsRef['!merges'] = [];
+    wsRef['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+    wsRef['!protect'] = { password: "ref", selectLockedCells: true, selectUnlockedCells: false }; // Read only
+    XLSX.utils.book_append_sheet(wb, wsRef, "MAESTROS_COPIAR_AQUI");
 
     // C. JORNALES (LABOR)
-    const wsLabor = XLSX.utils.aoa_to_sheet([
-        ["Fecha", "Trabajador", "Labor", "Lote", "Valor", "Notas"],
-        ["2024-01-01", "EJEMPLO: Juan Perez", "Guadaña", "Lote 1", 50000, "Dia completo"]
-    ]);
-    wsLabor['!cols'] = [{ wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 30 }];
+    const laborHeaders = createStyledHeader(["Fecha (AAAA-MM-DD)", "Trabajador (Nombre Exacto)", "Labor (Nombre Exacto)", "Lote (Nombre Exacto)", "Valor ($)", "Notas"], "D97706");
+    const laborEx = createExampleRow(["2024-05-01", "EJ: Juan Perez", "Guadaña", "Lote 1", 50000, "Dia completo - BORRAR ESTA FILA"]);
+    const wsLabor = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsLabor, [createCopyrightRow(), laborHeaders, laborEx], { origin: "A1" });
+    wsLabor['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 40 }];
+    if(!wsLabor['!merges']) wsLabor['!merges'] = [];
+    wsLabor['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
+    protectSheet(wsLabor);
     XLSX.utils.book_append_sheet(wb, wsLabor, "Jornales_Nomina");
 
-    // D. COSECHAS (HARVEST)
-    const wsHarvest = XLSX.utils.aoa_to_sheet([
-        ["Fecha", "Lote", "Cultivo", "Cantidad", "Unidad", "ValorTotal", "Notas"],
-        ["2024-01-01", "Lote 1", "Cafe", 100, "Kg", 500000, "Primera pasilla"]
-    ]);
-    wsHarvest['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 }];
+    // D. COSECHAS
+    const harvestHeaders = createStyledHeader(["Fecha", "Lote (Origen)", "Cultivo (Producto)", "Cantidad", "Unidad (Kg/Arr)", "ValorTotal ($)", "Notas"], "CA8A04");
+    const harvestEx = createExampleRow(["2024-05-01", "Lote 1", "Cafe", 100, "Kg", 500000, "Pasilla - BORRAR"]);
+    const wsHarvest = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsHarvest, [createCopyrightRow(), harvestHeaders, harvestEx], { origin: "A1" });
+    wsHarvest['!cols'] = [{ wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 }];
+    if(!wsHarvest['!merges']) wsHarvest['!merges'] = [];
+    wsHarvest['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
+    protectSheet(wsHarvest);
     XLSX.utils.book_append_sheet(wb, wsHarvest, "Cosechas");
 
-    // E. INVENTARIO (MOVEMENTS)
-    const wsMov = XLSX.utils.aoa_to_sheet([
-        ["Fecha", "Tipo (ENTRADA/SALIDA)", "Producto", "Cantidad", "Unidad", "Destino_Lote_o_Maquina", "Costo_Total", "Notas"],
-        ["2024-01-01", "SALIDA", "Urea", 2, "Bulto 50kg", "Lote 1", 240000, "Abonada"],
-        ["2024-01-02", "ENTRADA", "Glifosato", 1, "Litro", "", 45000, "Compra Agro"]
-    ]);
-    wsMov['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 30 }];
+    // E. INVENTARIO
+    const movHeaders = createStyledHeader(["Fecha", "Tipo (ENTRADA/SALIDA)", "Producto (Exacto)", "Cantidad", "Unidad", "Destino_Lote_o_Maquina", "Costo_Total ($)", "Notas"], "059669");
+    const movEx = createExampleRow(["2024-05-01", "SALIDA", "Urea", 2, "Bulto 50kg", "Lote 1", 240000, "Abonada - BORRAR"]);
+    const wsMov = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsMov, [createCopyrightRow(), movHeaders, movEx], { origin: "A1" });
+    wsMov['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 30 }];
+    if(!wsMov['!merges']) wsMov['!merges'] = [];
+    wsMov['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } });
+    protectSheet(wsMov);
     XLSX.utils.book_append_sheet(wb, wsMov, "Inventario_Movimientos");
 
     // F. MAQUINARIA
-    const wsMach = XLSX.utils.aoa_to_sheet([
-        ["Fecha", "Maquina", "Tipo (Combustible/Reparacion)", "Costo", "Descripcion", "Horas_Km"],
-        ["2024-01-01", "Tractor", "Combustible", 100000, "ACPM", 1500]
-    ]);
+    const machHeaders = createStyledHeader(["Fecha", "Maquina (Nombre)", "Tipo (Combustible/Repuesto)", "Costo ($)", "Descripcion", "Horas_Km"], "EA580C");
+    const machEx = createExampleRow(["2024-05-01", "Tractor", "Combustible", 100000, "ACPM", 1500]);
+    const wsMach = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsMach, [createCopyrightRow(), machHeaders, machEx], { origin: "A1" });
     wsMach['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 10 }];
+    if(!wsMach['!merges']) wsMach['!merges'] = [];
+    wsMach['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
+    protectSheet(wsMach);
     XLSX.utils.book_append_sheet(wb, wsMach, "Maquinaria");
 
     // G. LLUVIAS
-    const wsRain = XLSX.utils.aoa_to_sheet([
-        ["Fecha", "Milimetros"],
-        ["2024-01-01", 15],
-        ["2024-01-02", 0]
-    ]);
+    const rainHeaders = createStyledHeader(["Fecha", "Milimetros"], "2563EB");
+    const rainEx = createExampleRow(["2024-05-01", 15]);
+    const wsRain = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsRain, [createCopyrightRow(), rainHeaders, rainEx], { origin: "A1" });
     wsRain['!cols'] = [{ wch: 15 }, { wch: 15 }];
+    if(!wsRain['!merges']) wsRain['!merges'] = [];
+    wsRain['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } });
+    protectSheet(wsRain);
     XLSX.utils.book_append_sheet(wb, wsRain, "Lluvias");
 
     // H. FINANZAS
-    const wsFin = XLSX.utils.aoa_to_sheet([
-        ["Fecha", "Tipo (INGRESO/GASTO)", "Categoria", "Monto", "Descripcion"],
-        ["2024-01-01", "GASTO", "Servicios", 150000, "Pago Luz Casa Principal"]
-    ]);
+    const finHeaders = createStyledHeader(["Fecha", "Tipo (INGRESO/GASTO)", "Categoria", "Monto ($)", "Descripcion"], "7C3AED");
+    const finEx = createExampleRow(["2024-05-01", "GASTO", "Servicios", 150000, "Pago Luz"]);
+    const wsFin = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(wsFin, [createCopyrightRow(), finHeaders, finEx], { origin: "A1" });
     wsFin['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 40 }];
+    if(!wsFin['!merges']) wsFin['!merges'] = [];
+    wsFin['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+    protectSheet(wsFin);
     XLSX.utils.book_append_sheet(wb, wsFin, "Gastos_Admin");
 
     // Save File
     XLSX.writeFile(wb, `Plantilla_Carga_Masiva_${activeWarehouseName.replace(/\s+/g, '_')}.xlsx`);
 };
-
-// --- EXISTING REPORT FUNCTIONS (KEPT FOR COMPATIBILITY) ---
 
 export const generatePDF = (data: AppState) => {
   const doc = new jsPDF();
@@ -625,7 +690,7 @@ export const generatePaymentReceipt = (workerName: string, logs: LaborLog[], war
     doc.text("Firma Beneficiario", 130, finalY + 5);
 
     doc.setFontSize(8);
-    doc.text("Generado por AgroSuite 360", 105, 280, { align: 'center' });
+    doc.text(`Generado por AgroSuite 360 - ${AUTHOR_NAME}`, 105, 280, { align: 'center' });
 
     doc.save(`Recibo_Pago_${workerName}_${date}.pdf`);
 };
@@ -650,6 +715,10 @@ export const generateManualPDF = () => {
     doc.setFontSize(12);
     doc.setTextColor(200, 200, 200);
     doc.text(`Versión 4.0 - Generado el ${currentDate}`, 105, 130, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text(`Desarrollado por Ing. ${AUTHOR_NAME}`, 105, 270, { align: 'center' });
+    doc.text(`Contacto: ${CONTACT_EMAIL}`, 105, 275, { align: 'center' });
 
     // Page 2: Introduction
     doc.addPage();
@@ -662,20 +731,24 @@ export const generateManualPDF = () => {
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const text1 = "AgroSuite 360 transforma la agricultura tradicional en una empresa agroindustrial basada en datos. A diferencia de un simple cuaderno, este sistema cruza información de Insumos, Mano de Obra, Maquinaria y Gastos Administrativos para revelar el costo real de producción.";
+    const text1 = "AgroSuite 360 transforma la agricultura tradicional en una empresa agroindustrial basada en datos. A diferencia de un simple cuaderno, este sistema cruza información de Insumos, Mano de Obra, Maquinaria y Gastos Administrativos para revelar el costo real de producción por kilo.";
     const splitText1 = doc.splitTextToSize(text1, 180);
     doc.text(splitText1, 14, y + 16);
     
     const y2 = y + 16 + (splitText1.length * 5);
 
+    // LEGAL SECTION
+    doc.setFillColor(254, 226, 226); // Red 50
+    doc.rect(14, y2 + 5, 180, 40, 'F');
+    doc.setTextColor(185, 28, 28); // Red 700
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Gestión Multi-Sede", 14, y2 + 10);
+    doc.text("AVISO LEGAL Y DERECHOS DE AUTOR", 20, y2 + 15);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    const text2 = "Ahora puede administrar múltiples fincas desde una sola aplicación. Cada finca tiene su propio inventario, personal y contabilidad independiente.";
-    const splitText2 = doc.splitTextToSize(text2, 180);
-    doc.text(splitText2, 14, y2 + 16);
+    const legalText = `Este software y su código fuente son propiedad intelectual exclusiva de ${AUTHOR_NAME}. Queda prohibida su copia, ingeniería inversa o distribución no autorizada. El uso indebido será sancionado conforme a la Ley 23 de 1982 y Ley 1273 de 2009 sobre Delitos Informáticos en Colombia.`;
+    const splitLegal = doc.splitTextToSize(legalText, 160);
+    doc.text(splitLegal, 20, y2 + 22);
 
     // Page 3: Modules
     doc.addPage();
