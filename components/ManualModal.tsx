@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText } from 'lucide-react';
+import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Sparkles, Mic, BrainCircuit } from 'lucide-react';
 import { generateManualPDF } from '../services/reportService';
 
 interface ManualModalProps {
   onClose: () => void;
 }
 
-type Section = 'intro' | 'modules' | 'finance' | 'tips' | 'data';
+type Section = 'intro' | 'modules' | 'finance' | 'tips' | 'data' | 'ai';
 
 export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
   const [activeSection, setActiveSection] = useState<Section>('intro');
@@ -22,7 +22,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                 <h4 className="text-3xl font-black text-white mb-2 tracking-tight">AgroSuite <span className="text-emerald-400">360</span></h4>
                 <p className="text-emerald-200 font-medium">Sistema de Gerencia Agrícola Integral</p>
                 <div className="mt-4 inline-block bg-white/10 px-3 py-1 rounded-full text-xs text-white border border-white/20">
-                    Versión 4.0: Gestión Multi-Finca & Finanzas
+                    Versión 4.5: Potenciado con IA Gemini
                 </div>
               </div>
             </div>
@@ -165,6 +165,54 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
             </div>
         );
 
+      case 'ai':
+        return (
+            <div className="space-y-6 animate-fade-in">
+                <h4 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-purple-400" />
+                    Asistente Inteligente (Gemini)
+                </h4>
+
+                <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 p-5 rounded-xl border border-indigo-500/30">
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                        AgroSuite 360 integra Inteligencia Artificial de Google para ayudarle a tomar decisiones y registrar datos sin escribir.
+                        <br/><br/>
+                        <span className="text-xs italic text-slate-400">Nota: Requiere conexión a internet.</span>
+                    </p>
+                </div>
+
+                <div className="grid gap-4">
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                        <h5 className="font-bold text-indigo-300 mb-2 flex items-center gap-2 text-sm">
+                            <BrainCircuit className="w-4 h-4" /> Analista Financiero
+                        </h5>
+                        <p className="text-xs text-slate-400 mb-2">
+                            Analiza tendencias y da consejos. Ejemplos de preguntas:
+                        </p>
+                        <ul className="list-disc list-inside text-[10px] text-slate-300 space-y-1">
+                            <li>"¿Por qué gasté tanto este mes?"</li>
+                            <li>"Dame un consejo para reducir costos de fertilización."</li>
+                            <li>"Analiza la rentabilidad del Lote 1."</li>
+                        </ul>
+                    </div>
+
+                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                        <h5 className="font-bold text-emerald-400 mb-2 flex items-center gap-2 text-sm">
+                            <Mic className="w-4 h-4" /> Comandos de Voz (Manos Libres)
+                        </h5>
+                        <p className="text-xs text-slate-400 mb-2">
+                            Dicte sus labores o gastos y la IA llenará el formulario. Ejemplos:
+                        </p>
+                        <ul className="list-disc list-inside text-[10px] text-slate-300 space-y-1">
+                            <li>"Gasté 2 bultos de urea en el Lote Nuevo."</li>
+                            <li>"Juan trabajó hoy guadañando en el Lote Principal y le pagué 60 mil."</li>
+                            <li>"Compré 5 litros de glifosato."</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        );
+
       case 'data':
         return (
             <div className="space-y-6 animate-fade-in">
@@ -241,6 +289,10 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                     <Sprout className="w-5 h-5" />
                     <span className="hidden md:block text-sm font-bold">Módulos Operativos</span>
                 </button>
+                <button onClick={() => setActiveSection('ai')} className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'ai' ? 'bg-slate-800 border-r-4 border-emerald-500' : 'text-slate-400'}`}>
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    <span className="hidden md:block text-sm font-bold text-purple-400">Inteligencia Artificial</span>
+                </button>
                 <button onClick={() => setActiveSection('finance')} className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'finance' ? 'bg-slate-800 border-r-4 border-emerald-500' : 'text-slate-400'}`}>
                     <DollarSign className="w-5 h-5" />
                     <span className="hidden md:block text-sm font-bold">Finanzas & Admin</span>
@@ -268,6 +320,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                     {activeSection === 'modules' && 'Guía de Operación Diaria'}
                     {activeSection === 'finance' && 'Control de Costos Ocultos'}
                     {activeSection === 'data' && 'Protocolos de Seguridad'}
+                    {activeSection === 'ai' && 'Asistente Virtual Gemini'}
                  </h3>
                  <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors">
                     <X className="w-5 h-5" />

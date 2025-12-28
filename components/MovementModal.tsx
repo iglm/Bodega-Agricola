@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine } from '../types';
 import { getBaseUnitType, convertToBase, calculateCost, formatCurrency, formatBaseQuantity } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
-import { X, TrendingUp, TrendingDown, ArrowRight, DollarSign, FileText, AlertTriangle, Users, MapPin, Receipt, Image as ImageIcon, Tag, Settings, UserCheck, Calculator, Calendar, Camera, Trash2, Tractor } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, ArrowRight, DollarSign, FileText, AlertTriangle, Users, MapPin, Receipt, Image as ImageIcon, Tag, Settings, UserCheck, Calculator, Calendar, Camera, Trash2, Tractor, Maximize } from 'lucide-react';
 
 interface MovementModalProps {
   item: InventoryItem;
@@ -64,7 +64,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const baseType = getBaseUnitType(item.lastPurchaseUnit);
   const MAX_NOTES_LENGTH = 200;
   
-  const EPSILON = 0.1;
+  const EPSILON = 0.0001; // Slightly more precise epsilon
 
   const compatibleUnits = Object.values(Unit).filter(u => {
      const t = getBaseUnitType(u);
@@ -118,10 +118,12 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     
     if (!isNaN(qtyNum) && qtyNum > 0) {
       if (isOut) {
+        // STOCK VALIDATION
         const requestedBaseAmount = convertToBase(qtyNum, unit);
-        if (requestedBaseAmount > item.currentQuantity + EPSILON) {
+        // Use epsilon to allow floating point equality
+        if (requestedBaseAmount > (item.currentQuantity + EPSILON)) {
             const availableReadable = formatBaseQuantity(item.currentQuantity, item.baseUnit);
-            setError(`Stock insuficiente. Disponible: ${availableReadable}`);
+            setError(`Stock insuficiente. Máximo disponible: ${availableReadable}`);
         }
         
         if (item.averageCost) {
@@ -160,15 +162,29 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     }
   };
 
+  const handleSetMax = () => {
+      const conversionFactor = convertToBase(1, unit);
+      const maxAmountInSelectedUnit = item.currentQuantity / conversionFactor;
+      // Round to 4 decimal places to avoid float issues but keep precision
+      const roundedMax = Math.floor(maxAmountInSelectedUnit * 10000) / 10000;
+      setQuantity(roundedMax.toString());
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const qtyNum = parseFloat(quantity);
     if (isNaN(qtyNum) || qtyNum <= 0) return;
+    
+    // Strict Backend-like validation
     if (isOut) {
         const requestedBaseAmount = convertToBase(qtyNum, unit);
-        if (requestedBaseAmount > item.currentQuantity + EPSILON) return;
-        // Destination Validation REMOVED - Made Optional
+        if (requestedBaseAmount > (item.currentQuantity + EPSILON)) {
+            // Re-trigger error if bypass attempt
+            setError("Stock insuficiente.");
+            return;
+        }
     }
+    
     if (error) return;
 
     const supplierName = suppliers.find(s => s.id === selectedSupplierId)?.name;
@@ -300,13 +316,25 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Cantidad</label>
+            <div className="relative">
+              <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Cantidad</label>
+                  {isOut && (
+                      <button 
+                        type="button" 
+                        onClick={handleSetMax}
+                        className="text-[10px] text-blue-500 hover:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/30 px-1.5 rounded flex items-center gap-0.5"
+                        title="Usar todo el stock disponible"
+                      >
+                          <Maximize className="w-3 h-3" /> Max
+                      </button>
+                  )}
+              </div>
               <input 
                 type="number" 
                 value={quantity}
                 onChange={e => setQuantity(e.target.value)}
-                className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-3 text-slate-800 dark:text-white outline-none focus:border-blue-500 ${error ? 'border-red-500 focus:border-red-500' : 'border-slate-300 dark:border-slate-700'} transition-colors`}
+                className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-3 text-slate-800 dark:text-white outline-none focus:border-blue-500 ${error ? 'border-red-500 focus:border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-slate-300 dark:border-slate-700'} transition-colors`}
                 placeholder="0.00"
                 step="0.01"
                 autoFocus={!showCalculator} 

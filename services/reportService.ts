@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
@@ -962,7 +963,7 @@ export const generateManualPDF = () => {
     
     doc.setFontSize(12);
     doc.setTextColor(200, 200, 200);
-    doc.text(`Versión 4.0 - Generado el ${currentDate}`, 105, 130, { align: 'center' });
+    doc.text(`Versión 4.5 - Generado el ${currentDate}`, 105, 130, { align: 'center' });
     
     doc.setFontSize(10);
     doc.text(`Desarrollado por Ing. ${AUTHOR_NAME}`, 105, 270, { align: 'center' });
@@ -1021,28 +1022,21 @@ export const generateManualPDF = () => {
     doc.text("Control de Maquinaria, Mantenimientos y Pluviometría.", 14, y + 56);
 
     doc.addPage();
-    y = addHeader(doc, "FINANZAS Y COSTOS OCULTOS", "Control Administrativo", "Manual Usuario");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Gastos Administrativos", 14, y + 10);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    const text3 = "Impuestos, servicios públicos, gasolina de gerencia, etc. Estos costos se prorratean automáticamente entre los lotes productivos según su área (si se define).";
-    const splitText3 = doc.splitTextToSize(text3, 180);
-    doc.text(splitText3, 14, y + 16);
-
-    doc.addPage();
-    y = addHeader(doc, "TIPS DE EXPERTO", "Manejo de Inversión", "Manual Usuario");
+    y = addHeader(doc, "INTELIGENCIA ARTIFICIAL (GEMINI)", "Nuevo Módulo", "Manual Usuario", BRAND_COLORS.purple);
     
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("Manejo de Lotes Improductivos (Renovación/Zocas)", 14, y + 10);
+    doc.text("Analista Financiero", 14, y + 10);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const textTip = "En toda finca agrícola (especialmente Café), una parte del área siempre está en renovación (Zoca o Siembra Nueva). Estos lotes generan gastos pero CERO ingresos.\n\nPara manejarlos en AgroSuite 360:\n1. Cree un 'Destino' separado llamado 'Lote Renovación'.\n2. Asigne todos los gastos de siembra, fertilizante de arraigo y desyerbas a este lote.\n3. En los Reportes, verá que este lote tiene pérdidas. ESTO ES CORRECTO. Le permitirá saber cuánto le cuesta levantar una hectárea hasta producción.";
-    const splitTip = doc.splitTextToSize(textTip, 180);
-    doc.text(splitTip, 14, y + 16);
+    doc.text("Pregunte directamente a sus datos. Ejemplo: '¿Por qué bajó mi rentabilidad este mes?'. La IA analizará sus registros de gastos y ventas para darle una respuesta escrita.", 14, y + 16);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Comandos de Voz", 14, y + 30);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Use el micrófono para registrar datos sin tocar la pantalla. Diga: 'Ayer gasté 3 jornales en el Lote 1'. El sistema detectará automáticamente el trabajador, la labor y el costo si ya están configurados.", 14, y + 36);
 
     addFooter(doc);
     doc.save("Manual_AgroSuite360.pdf");

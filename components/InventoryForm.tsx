@@ -1,8 +1,8 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Category, Unit, InventoryItem, Supplier } from '../types';
 import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle } from 'lucide-react';
-import { convertToBase } from '../services/inventoryService';
+import { convertToBase, getBaseUnitType } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
 
 interface InventoryFormProps {
@@ -10,7 +10,8 @@ interface InventoryFormProps {
   onSave: (
       item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
       initialQuantity: number,
-      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string }
+      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string },
+      initialUnit?: Unit
   ) => void;
   onCancel: () => void;
 }
@@ -21,6 +22,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [purchaseUnit, setPurchaseUnit] = useState<Unit>(Unit.BULTO_50KG);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [initialQuantity, setInitialQuantity] = useState('');
+  const [initialUnit, setInitialUnit] = useState<Unit>(Unit.BULTO_50KG);
   const [minStock, setMinStock] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
   
@@ -35,6 +37,16 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync initial unit with purchase unit changes if incompatible
+  useEffect(() => {
+      const baseType = getBaseUnitType(purchaseUnit);
+      const currentInitialBase = getBaseUnitType(initialUnit);
+      
+      if (baseType !== currentInitialBase) {
+          setInitialUnit(purchaseUnit);
+      }
+  }, [purchaseUnit]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>, isInvoice: boolean = false) => {
     if (e.target.files && e.target.files[0]) {
@@ -82,8 +94,11 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
         supplierId: selectedSupplierId || undefined,
         invoiceNumber: invoiceNumber || undefined,
         invoiceImage: invoiceImage || undefined
-    });
+    }, initialUnit);
   };
+
+  const baseType = getBaseUnitType(purchaseUnit);
+  const compatibleUnits = Object.values(Unit).filter(u => getBaseUnitType(u) === baseType);
 
   return (
     <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
@@ -229,9 +244,13 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                     className="flex-1 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none transition-colors font-bold"
                     placeholder="0"
                 />
-                <span className="text-sm font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-3 py-3 rounded-lg border border-blue-200 dark:border-blue-700">
-                    {purchaseUnit}
-                </span>
+                <select
+                    value={initialUnit}
+                    onChange={e => setInitialUnit(e.target.value as Unit)}
+                    className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-700 rounded-lg p-3 text-sm font-bold text-slate-600 dark:text-slate-400 outline-none"
+                >
+                    {compatibleUnits.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
              </div>
 
              {/* Transparency/Traceability Fields - IMPROVED UI */}

@@ -292,10 +292,17 @@ function App() {
   const handleAddItem = (
       newItem: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
       initialQty: number,
-      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string }
+      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string },
+      initialUnit?: Unit
   ) => {
     const baseUnit = getBaseUnitType(newItem.lastPurchaseUnit);
-    const initialStockBase = initialQty > 0 ? convertToBase(initialQty, newItem.lastPurchaseUnit) : 0;
+    
+    // Determine the unit used for initial stock (default to purchase unit if not specified)
+    const unitUsed = initialUnit || newItem.lastPurchaseUnit;
+    
+    // Calculate stock in BASE UNIT (g, ml, unit)
+    const initialStockBase = initialQty > 0 ? convertToBase(initialQty, unitUsed) : 0;
+    
     const baseInPurchase = convertToBase(1, newItem.lastPurchaseUnit);
     const initialAvgCost = newItem.lastPurchasePrice / baseInPurchase;
     const itemId = crypto.randomUUID();
@@ -311,7 +318,8 @@ function App() {
 
     let newMovements = [...data.movements];
     if (initialQty > 0) {
-      const cost = calculateCost(initialQty, newItem.lastPurchaseUnit, newItem.lastPurchasePrice, newItem.lastPurchaseUnit);
+      // Cost is calculated based on the unit used for entry
+      const cost = calculateCost(initialQty, unitUsed, newItem.lastPurchasePrice, newItem.lastPurchaseUnit);
       const supplierName = initialMovementDetails?.supplierId 
         ? activeSuppliers.find(s => s.id === initialMovementDetails.supplierId)?.name 
         : undefined;
@@ -323,7 +331,7 @@ function App() {
         itemName: item.name,
         type: 'IN',
         quantity: initialQty,
-        unit: newItem.lastPurchaseUnit,
+        unit: unitUsed, // Store the unit user actually selected
         calculatedCost: cost,
         date: new Date().toISOString(),
         notes: 'Inventario Inicial',
@@ -433,13 +441,14 @@ function App() {
   // --- AI COMMAND EXECUTOR ---
   const handleAICommand = (cmd: ParsedCommand) => {
       const today = new Date().toISOString().split('T')[0];
+      const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
       switch(cmd.action) {
           case 'ADD_LABOR': {
               const { personName, activityName, lotName, value } = cmd.data;
-              const person = activePersonnel.find(p => p.name.includes(personName)) || activePersonnel[0];
-              const act = activeActivities.find(a => a.name.includes(activityName)) || activeActivities[0];
-              const lot = activeCostCenters.find(c => c.name.includes(lotName)) || activeCostCenters[0];
+              const person = activePersonnel.find(p => normalize(p.name).includes(normalize(personName))) || activePersonnel[0];
+              const act = activeActivities.find(a => normalize(a.name).includes(normalize(activityName))) || activeActivities[0];
+              const lot = activeCostCenters.find(c => normalize(c.name).includes(normalize(lotName))) || activeCostCenters[0];
               
               if(person && act && lot) {
                   handleAddLaborLog({
@@ -458,8 +467,8 @@ function App() {
           }
           case 'ADD_MOVEMENT_OUT': {
               const { itemName, quantity, lotName } = cmd.data;
-              const item = activeInventory.find(i => i.name.toLowerCase().includes(itemName.toLowerCase()));
-              const lot = activeCostCenters.find(c => c.name.includes(lotName));
+              const item = activeInventory.find(i => normalize(i.name).includes(normalize(itemName)));
+              const lot = activeCostCenters.find(c => normalize(c.name).includes(normalize(lotName)));
               
               if(item) {
                   handleAddMovement({
