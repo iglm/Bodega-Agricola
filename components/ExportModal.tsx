@@ -103,9 +103,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/20">
               <Download className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-white">Centro de Gestión</h3>
+            <div>
+              <h3 className="text-xl font-bold text-white">Centro de Gestión</h3>
+              <p className="text-emerald-100/80 text-xs mt-0.5">
+                  Exportando datos de: <strong>{activeData?.warehouses.find(w => w.id === activeData.activeWarehouseId)?.name || 'Finca Actual'}</strong>
+              </p>
+            </div>
           </div>
-          <p className="text-emerald-100/80 text-xs ml-1">Reportes y Trabajo de Campo Offline</p>
         </div>
 
         {/* Content */}

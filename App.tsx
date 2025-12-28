@@ -205,8 +205,8 @@ function App() {
   };
   const handleDeleteSupplier = (id: string) => setData(prev => ({ ...prev, suppliers: prev.suppliers.filter(s => s.id !== id) }));
   
-  const handleAddCostCenter = (name: string, budget: number, area?: number) => {
-     setData(prev => ({ ...prev, costCenters: [...prev.costCenters, { id: crypto.randomUUID(), warehouseId: activeId, name, budget, area }] }));
+  const handleAddCostCenter = (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string) => {
+     setData(prev => ({ ...prev, costCenters: [...prev.costCenters, { id: crypto.randomUUID(), warehouseId: activeId, name, budget, area, stage, plantCount, cropType }] }));
   };
   const handleDeleteCostCenter = (id: string) => setData(prev => ({ ...prev, costCenters: prev.costCenters.filter(c => c.id !== id) }));
 
@@ -397,13 +397,21 @@ function App() {
   // Export Data should only include current farm
   const getExportData = (): AppState => ({ 
       ...data, 
+      // Master Data (Filtered for specific export)
+      suppliers: activeSuppliers,
+      costCenters: activeCostCenters,
+      personnel: activePersonnel,
+      activities: activeActivities,
+      machines: activeMachines,
+      // Transaction Data (Filtered)
       inventory: activeInventory, 
       movements: activeMovements,
       laborLogs: activeLaborLogs,
       harvests: activeHarvests,
       maintenanceLogs: activeMaintenance,
       rainLogs: activeRainLogs,
-      financeLogs: activeFinanceLogs
+      financeLogs: activeFinanceLogs,
+      agenda: activeAgenda
   });
 
   if (view === 'landing') {
