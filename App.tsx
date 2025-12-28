@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
 import { StatsView } from './components/StatsView';
@@ -24,7 +24,7 @@ import { PayrollModal } from './components/PayrollModal';
 import { AppState, InventoryItem, Movement, Unit, Warehouse, Supplier, CostCenter, Personnel, Activity, LaborLog, HarvestLog, AgendaEvent, Machine, MaintenanceLog, RainLog, FinanceLog } from './types';
 import { loadData, saveData, convertToBase, getBaseUnitType, calculateCost, calculateWeightedAverageCost } from './services/inventoryService';
 import { generateExcel, generatePDF, generateOrderPDF, generateLaborPDF, generateLaborExcel, generateHarvestPDF, generateMachineryPDF } from './services/reportService';
-import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Pickaxe, Tractor, HelpCircle, Globe, Landmark } from 'lucide-react';
+import { Plus, Download, Gift, Sprout, BookOpen, ChevronDown, Warehouse as WarehouseIcon, Save, Sun, Moon, Settings, BarChart3, Package, Database, ClipboardCheck, Pickaxe, Tractor, HelpCircle, Globe, Landmark, FileSpreadsheet } from 'lucide-react';
 
 function App() {
   const [view, setView] = useState<'landing' | 'app'>('landing');
@@ -49,6 +49,7 @@ function App() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const isFirstRender = useRef(true);
 
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -93,8 +94,15 @@ function App() {
     }
   }, []);
 
+  // Debounced Save Logic
   useEffect(() => {
     if (view === 'app') {
+      // Skip save on the very first render to prevent overwriting with initial state
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        return;
+      }
+
       setIsSaving(true);
       const handler = setTimeout(() => {
         saveData(data);
@@ -468,8 +476,8 @@ function App() {
               <ClipboardCheck className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Auditoría</span>
             </button>
             <button onClick={() => setShowExport(true)} className="col-span-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-emerald-100 transition-colors">
-              <Download className="w-4 h-4" /> 
-              <span className="text-[9px] font-bold hidden sm:inline">Reportes</span>
+              <FileSpreadsheet className="w-4 h-4" /> 
+              <span className="text-[9px] font-bold hidden sm:inline">Excel / Carga</span>
             </button>
             <button onClick={() => setShowSupport(true)} className="col-span-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800 p-2 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:bg-yellow-100 transition-colors">
               <Gift className="w-4 h-4" /> <span className="text-[9px] font-bold hidden sm:inline">Apoyar</span>

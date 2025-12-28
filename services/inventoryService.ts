@@ -1,5 +1,5 @@
 
-import { InventoryItem, Movement, Unit, AppState, Warehouse, LaborLog, HarvestLog } from '../types';
+import { InventoryItem, Movement, Unit, AppState, Warehouse, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog } from '../types';
 import * as XLSX from 'xlsx';
 
 const STORAGE_KEY = 'agrobodega_pro_data_v1';
@@ -72,7 +72,7 @@ export const getCostPerGramOrMl = (item: InventoryItem): number => {
   return item.lastPurchasePrice / basePurchase;
 };
 
-// --- BULK IMPORT LOGIC ---
+// --- BULK IMPORT LOGIC (UPDATED FOR ALL MODULES) ---
 
 export const processExcelImport = async (file: File, currentState: AppState): Promise<{ success: boolean, message: string, newState?: AppState }> => {
   return new Promise((resolve) => {
@@ -88,24 +88,29 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
 
         const activeId = newState.activeWarehouseId;
 
-        // 1. PROCESS LABOR SHEET (Jornales)
-        const laborSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('jornales'));
-        if (laborSheetName) {
-          const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[laborSheetName]);
-          rows.forEach((row, index) => {
-             // Expects: Fecha, Trabajador, Labor, Lote, Valor, Notas
-             if (!row.Fecha || !row.Trabajador || !row.Labor || !row.Lote || !row.Valor) return;
+        // HELPER: Find matching ID by name (case insensitive)
+        const findId = (list: any[], name: string) => {
+            if (!name) return undefined;
+            return list.find(i => i.name.toLowerCase() === name.toString().toLowerCase() && i.warehouseId === activeId);
+        };
 
-             // Find IDs by Name Matching (Case Insensitive)
-             const person = newState.personnel.find(p => p.name.toLowerCase() === row.Trabajador.toString().toLowerCase() && p.warehouseId === activeId);
-             const activity = newState.activities.find(a => a.name.toLowerCase() === row.Labor.toString().toLowerCase() && a.warehouseId === activeId);
-             const lot = newState.costCenters.find(c => c.name.toLowerCase() === row.Lote.toString().toLowerCase() && c.warehouseId === activeId);
+        // 1. JORNALES_NOMINA
+        const laborSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('jornales'));
+        if (laborSheet) {
+          const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[laborSheet]);
+          rows.forEach((row, index) => {
+             // Skip reference rows if user left them
+             if (row.Trabajador?.includes("Copiar")) return;
+
+             const person = findId(newState.personnel, row.Trabajador);
+             const activity = findId(newState.activities, row.Labor);
+             const lot = findId(newState.costCenters, row.Lote);
 
              if (person && activity && lot) {
-               const newLog: LaborLog = {
+               newState.laborLogs = [...newState.laborLogs, {
                  id: crypto.randomUUID(),
                  warehouseId: activeId,
-                 date: new Date(row.Fecha).toISOString().split('T')[0], // Assuming Excel format is standard or simple date string
+                 date: new Date(row.Fecha).toISOString().split('T')[0],
                  personnelId: person.id,
                  personnelName: person.name,
                  activityId: activity.id,
@@ -113,29 +118,23 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
                  costCenterId: lot.id,
                  costCenterName: lot.name,
                  value: Number(row.Valor),
-                 notes: row.Notas || 'Importado desde Excel',
+                 notes: row.Notas || 'Importado Excel',
                  paid: false
-               };
-               newState.laborLogs = [...newState.laborLogs, newLog];
+               }];
                logsAdded++;
-             } else {
-               errors.push(`Fila ${index + 2} (Jornales): No se encontró coincidencia para Trabajador, Labor o Lote.`);
              }
           });
         }
 
-        // 2. PROCESS HARVEST SHEET (Cosechas)
-        const harvestSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('cosechas'));
-        if (harvestSheetName) {
-           const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[harvestSheetName]);
-           rows.forEach((row, index) => {
-              // Expects: Fecha, Lote, Cultivo, Cantidad, Unidad, ValorTotal
-              if (!row.Fecha || !row.Lote || !row.Cultivo || !row.Cantidad || !row.ValorTotal) return;
-
-              const lot = newState.costCenters.find(c => c.name.toLowerCase() === row.Lote.toString().toLowerCase() && c.warehouseId === activeId);
-              
+        // 2. COSECHAS
+        const harvestSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('cosechas'));
+        if (harvestSheet) {
+           const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[harvestSheet]);
+           rows.forEach(row => {
+              if (row.Lote?.includes("Lote 1")) return; // Skip example
+              const lot = findId(newState.costCenters, row.Lote);
               if (lot) {
-                const newHarvest: HarvestLog = {
+                newState.harvests = [...newState.harvests, {
                   id: crypto.randomUUID(),
                   warehouseId: activeId,
                   date: new Date(row.Fecha).toISOString().split('T')[0],
@@ -145,30 +144,129 @@ export const processExcelImport = async (file: File, currentState: AppState): Pr
                   quantity: Number(row.Cantidad),
                   unit: row.Unidad || 'Kg',
                   totalValue: Number(row.ValorTotal),
-                  notes: row.Notas || 'Importado desde Excel'
-                };
-                newState.harvests = [...newState.harvests, newHarvest];
+                  notes: row.Notas || 'Importado Excel'
+                }];
                 logsAdded++;
-              } else {
-                errors.push(`Fila ${index + 2} (Cosechas): Lote "${row.Lote}" no encontrado.`);
               }
            });
+        }
+
+        // 3. MOVIMIENTOS (New)
+        const movSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('inventario'));
+        if (movSheet) {
+            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[movSheet]);
+            rows.forEach(row => {
+                if (row.Producto?.includes("Urea")) return; // Skip example
+                
+                const item = findId(newState.inventory, row.Producto);
+                if (item) {
+                    const type = row.Tipo.toUpperCase().includes('ENTRADA') ? 'IN' : 'OUT';
+                    
+                    // Logic to update inventory quantity is complex here because we are mass importing history.
+                    // For safety, this import ADDS LOGS but DOES NOT recalculate average cost historically.
+                    // It strictly updates current quantity based on the movement.
+                    
+                    const baseQty = convertToBase(Number(row.Cantidad), row.Unidad as Unit);
+                    const targetItemIndex = newState.inventory.findIndex(i => i.id === item.id);
+                    
+                    if (targetItemIndex >= 0) {
+                        // Update Stock
+                        if (type === 'IN') {
+                            newState.inventory[targetItemIndex].currentQuantity += baseQty;
+                        } else {
+                            newState.inventory[targetItemIndex].currentQuantity = Math.max(0, newState.inventory[targetItemIndex].currentQuantity - baseQty);
+                        }
+
+                        newState.movements = [{
+                            id: crypto.randomUUID(),
+                            warehouseId: activeId,
+                            itemId: item.id,
+                            itemName: item.name,
+                            type: type,
+                            quantity: Number(row.Cantidad),
+                            unit: row.Unidad as Unit,
+                            calculatedCost: Number(row.Costo_Total),
+                            date: new Date(row.Fecha).toISOString(),
+                            notes: row.Notas || 'Importado Excel',
+                            costCenterName: row.Destino_Lote_o_Maquina // Just storing string for reference
+                        }, ...newState.movements];
+                        logsAdded++;
+                    }
+                }
+            });
+        }
+
+        // 4. MAQUINARIA (New)
+        const machSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('maquinaria'));
+        if (machSheet) {
+            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[machSheet]);
+            rows.forEach(row => {
+                if(row.Maquina?.includes("Tractor")) return;
+                const mach = findId(newState.machines, row.Maquina);
+                if (mach) {
+                    newState.maintenanceLogs = [...newState.maintenanceLogs, {
+                        id: crypto.randomUUID(),
+                        warehouseId: activeId,
+                        machineId: mach.id,
+                        date: new Date(row.Fecha).toISOString().split('T')[0],
+                        type: row.Tipo || 'Correctivo',
+                        cost: Number(row.Costo),
+                        description: row.Descripcion || 'Importado',
+                        usageAmount: row.Horas_Km ? Number(row.Horas_Km) : undefined
+                    }];
+                    logsAdded++;
+                }
+            });
+        }
+
+        // 5. LLUVIAS (New)
+        const rainSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('lluvias'));
+        if (rainSheet) {
+            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[rainSheet]);
+            rows.forEach(row => {
+                newState.rainLogs = [...newState.rainLogs, {
+                    id: crypto.randomUUID(),
+                    warehouseId: activeId,
+                    date: new Date(row.Fecha).toISOString().split('T')[0],
+                    millimeters: Number(row.Milimetros),
+                    notes: 'Importado'
+                }];
+                logsAdded++;
+            });
+        }
+
+        // 6. FINANZAS (New)
+        const finSheet = workbook.SheetNames.find(n => n.toLowerCase().includes('gastos'));
+        if (finSheet) {
+            const rows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[finSheet]);
+            rows.forEach(row => {
+                const type = row.Tipo?.toUpperCase().includes('INGRESO') ? 'INCOME' : 'EXPENSE';
+                newState.financeLogs = [...newState.financeLogs, {
+                    id: crypto.randomUUID(),
+                    warehouseId: activeId,
+                    date: new Date(row.Fecha).toISOString().split('T')[0],
+                    type: type,
+                    category: row.Categoria || 'Otros',
+                    amount: Number(row.Monto),
+                    description: row.Descripcion || 'Importado Excel'
+                }];
+                logsAdded++;
+            });
         }
 
         if (logsAdded > 0) {
           resolve({ 
             success: true, 
-            message: `Se importaron ${logsAdded} registros exitosamente.${errors.length > 0 ? '\nErrores encontrados en algunas filas (ver consola).' : ''}`, 
+            message: `Proceso completado: ${logsAdded} registros nuevos añadidos a la base de datos.`, 
             newState 
           });
-          if (errors.length > 0) console.warn("Import Errors:", errors);
         } else {
-          resolve({ success: false, message: "No se encontraron registros válidos o los nombres no coinciden con los Maestros (Trabajadores, Lotes, etc)." });
+          resolve({ success: false, message: "No se encontraron nuevos registros válidos. Verifique que los nombres (Trabajadores, Lotes, etc.) coincidan con los de la App." });
         }
 
       } catch (err) {
         console.error(err);
-        resolve({ success: false, message: "Error al leer el archivo Excel. Asegúrese de usar la plantilla oficial." });
+        resolve({ success: false, message: "Error crítico al leer el archivo. Asegúrese de usar la plantilla oficial." });
       }
     };
     reader.readAsBinaryString(file);

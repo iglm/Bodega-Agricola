@@ -46,7 +46,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   const handleDownloadExcelTemplate = () => {
-      generateExcelImportTemplate();
+      if (fullData) {
+        generateExcelImportTemplate(fullData);
+      }
   };
 
   const handleUploadExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,9 +97,52 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
             
-            {/* NEW: UNIFIED REPORT BUTTON */}
+            {/* SECTION: FIELD WORK (OFFLINE) - NOW AT TOP */}
+            <div className="space-y-3 bg-amber-900/20 p-4 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-900/10">
+                <h4 className="text-sm font-bold text-amber-500 uppercase flex items-center gap-2 border-b border-amber-500/20 pb-2 mb-2">
+                    <Clipboard className="w-4 h-4" /> Plantillas & Carga Masiva
+                </h4>
+                <p className="text-[10px] text-slate-300 mb-2 leading-tight">
+                    Descargue plantillas inteligentes con sus datos actuales para trabajar offline y subir masivamente.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={handleDownloadFieldTemplates}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-amber-500/50 transition-all group"
+                    >
+                        <div className="w-8 h-8 bg-amber-900/40 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <FileText className="w-4 h-4 text-amber-500" />
+                        </div>
+                        <span className="text-slate-300 font-bold text-[10px] text-center group-hover:text-white">Imprimir Planillas PDF</span>
+                    </button>
+
+                    <button 
+                        onClick={handleDownloadExcelTemplate}
+                        className="flex flex-col items-center justify-center p-3 bg-slate-900 border border-slate-700 rounded-xl hover:bg-slate-800 hover:border-emerald-500/50 transition-all group"
+                    >
+                        <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <span className="text-slate-300 font-bold text-[10px] text-center group-hover:text-white">Bajar Plantilla Excel</span>
+                    </button>
+                </div>
+
+                <label className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer group mt-2 shadow-sm hover:shadow-md">
+                    <Upload className="w-4 h-4 group-hover:animate-bounce" />
+                    Subir Excel Diligenciado
+                    <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        accept=".xlsx, .xls"
+                        onChange={handleUploadExcel}
+                        className="hidden" 
+                    />
+                </label>
+            </div>
+
+            {/* UNIFIED REPORT BUTTON */}
             {fullData && (
-                <div className="mb-4">
+                <div>
                     <button 
                         onClick={handleGlobalReport}
                         className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-900/40 hover:scale-[1.02] transition-transform group"
@@ -115,49 +160,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
                 </div>
             )}
-
-            {/* SECTION: FIELD WORK (OFFLINE) */}
-            <div className="space-y-3 bg-amber-900/10 p-4 rounded-xl border border-amber-500/20">
-                <h4 className="text-xs font-bold text-amber-500 uppercase flex items-center gap-2">
-                    <Clipboard className="w-4 h-4" /> Trabajo de Campo (Offline)
-                </h4>
-                <p className="text-[10px] text-slate-400 mb-2">
-                    Genere planillas para personal de campo y cargue los datos masivamente después.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                    <button 
-                        onClick={handleDownloadFieldTemplates}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-amber-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileText className="w-4 h-4 text-amber-500" />
-                        </div>
-                        <span className="text-slate-300 font-bold text-[10px] text-center">Imprimir Planillas PDF</span>
-                    </button>
-
-                    <button 
-                        onClick={handleDownloadExcelTemplate}
-                        className="flex flex-col items-center justify-center p-3 bg-slate-900/50 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all group"
-                    >
-                        <div className="w-8 h-8 bg-emerald-900/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <span className="text-slate-300 font-bold text-[10px] text-center">Bajar Plantilla Excel</span>
-                    </button>
-                </div>
-
-                <label className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer group mt-2">
-                    <Upload className="w-4 h-4 group-hover:animate-bounce" />
-                    Subir Excel Diligenciado
-                    <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        accept=".xlsx, .xls"
-                        onChange={handleUploadExcel}
-                        className="hidden" 
-                    />
-                </label>
-            </div>
 
             <div className="border-t border-slate-700"></div>
 
