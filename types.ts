@@ -47,7 +47,11 @@ export interface CostCenter {
   name: string;
   description?: string;
   budget?: number;
-  area?: number;
+  area?: number; // Hectares
+  // NEW FIELDS FOR REAL AGRONOMIC MANAGEMENT
+  stage?: 'Produccion' | 'Levante' | 'Infraestructura'; 
+  plantCount?: number; // Number of trees/plants
+  cropType?: string; // New: To group by "Café", "Plátano", etc.
 }
 
 export interface Activity {

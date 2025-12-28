@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Supplier, CostCenter, Personnel, AppState, Activity } from '../types';
-import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive } from 'lucide-react';
+import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf } from 'lucide-react';
 import { formatCurrency } from '../services/inventoryService';
 
 interface SettingsModalProps {
@@ -15,7 +16,7 @@ interface SettingsModalProps {
 
   onAddSupplier: (name: string, phone: string, email: string, address: string) => void;
   onDeleteSupplier: (id: string) => void;
-  onAddCostCenter: (name: string, budget: number, area?: number) => void;
+  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string) => void;
   onDeleteCostCenter: (id: string) => void;
   onAddPersonnel?: (name: string, role: string) => void;
   onDeletePersonnel?: (id: string) => void;
@@ -49,6 +50,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [loteName, setLoteName] = useState('');
   const [loteBudget, setLoteBudget] = useState('');
   const [loteArea, setLoteArea] = useState('');
+  const [loteStage, setLoteStage] = useState<'Produccion' | 'Levante' | 'Infraestructura'>('Produccion');
+  const [lotePlants, setLotePlants] = useState('');
+  const [loteCrop, setLoteCrop] = useState('Café');
 
   // Supplier State
   const [supName, setSupName] = useState('');
@@ -85,11 +89,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onAddCostCenter(
         loteName, 
         loteBudget ? parseFloat(loteBudget) : 0,
-        loteArea ? parseFloat(loteArea) : undefined
+        loteArea ? parseFloat(loteArea) : undefined,
+        loteStage,
+        lotePlants ? parseInt(lotePlants) : undefined,
+        loteCrop
     );
     setLoteName('');
     setLoteBudget('');
     setLoteArea('');
+    setLotePlants('');
   };
 
   const handleAddSupplier = (e: React.FormEvent) => {
@@ -116,6 +124,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onAddActivity(actName);
       setActName('');
   }
+
+  const commonCrops = ['Café', 'Cacao', 'Plátano', 'Banano', 'Aguacate', 'Cítricos', 'Maíz', 'Caña', 'Ganadería', 'Pasto', 'Hortalizas', 'Otro'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
@@ -298,6 +308,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 autoFocus
                             />
                         </div>
+                        
+                        {/* New Crop Type Selector */}
+                        <div>
+                             <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
+                                <Leaf className="w-3 h-3" /> Cultivo Principal (Importante para Reportes)
+                             </label>
+                             <select 
+                                value={loteCrop}
+                                onChange={(e) => setLoteCrop(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
+                             >
+                                {commonCrops.map(crop => <option key={crop} value={crop}>{crop}</option>)}
+                             </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
+                                    <LandPlot className="w-3 h-3" /> Etapa / Estado
+                                </label>
+                                <select 
+                                    value={loteStage}
+                                    onChange={(e) => setLoteStage(e.target.value as any)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
+                                >
+                                    <option value="Produccion">En Producción</option>
+                                    <option value="Levante">Levante / Inversión</option>
+                                    <option value="Infraestructura">Infraestructura</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
+                                    <Sprout className="w-3 h-3" /> Cantidad Plantas
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value={lotePlants}
+                                    onChange={(e) => setLotePlants(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
+                                    placeholder="Ej: 5000"
+                                />
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
@@ -325,7 +379,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 />
                             </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">El área se usará para calcular indicadores de eficiencia.</p>
 
                         <button 
                             type="submit"
@@ -354,14 +407,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         <MapPin className="w-4 h-4 text-purple-500" />
                                         <span className="text-slate-200 text-sm font-bold">{c.name}</span>
                                     </div>
-                                    <div className="flex items-center gap-3 mt-1">
-                                        {c.budget && c.budget > 0 && (
-                                            <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                                                Ppto: {formatCurrency(c.budget)}
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        {c.cropType && (
+                                            <span className="text-[10px] bg-indigo-900/30 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/30 font-bold">
+                                                {c.cropType}
+                                            </span>
+                                        )}
+                                        {c.stage && (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${c.stage === 'Produccion' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30' : 'bg-amber-900/20 text-amber-400 border-amber-900/30'}`}>
+                                                {c.stage}
                                             </span>
                                         )}
                                         {c.area && c.area > 0 && (
-                                            <span className="text-[10px] text-emerald-500 bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-900/30">
+                                            <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
                                                 {c.area} Ha
                                             </span>
                                         )}
