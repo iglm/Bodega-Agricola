@@ -2,7 +2,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx';
-import { AppState, LaborLog } from '../types';
+import { AppState, LaborLog, RainLog } from '../types';
 import { convertToBase, formatCurrency, formatBaseQuantity, getCostPerGramOrMl } from './inventoryService';
 
 // --- SHARED CONFIG ---
@@ -13,7 +13,8 @@ const BRAND_COLORS = {
     light: [236, 253, 245], // Emerald 50
     amber: [245, 158, 11], // Amber 500 for Labor
     yellow: [234, 179, 8], // Yellow for Harvest
-    orange: [249, 115, 22] // Orange for Machinery
+    orange: [249, 115, 22], // Orange for Machinery
+    blue: [37, 99, 235] // Blue for Rain
 };
 
 const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouseName: string, themeColor: number[] = BRAND_COLORS.dark) => {
@@ -329,6 +330,62 @@ export const generateLaborExcel = (data: AppState) => {
     XLSX.utils.book_append_sheet(wb, ws, "Jornales y Labores");
 
     XLSX.writeFile(wb, `AgroBodega_ManoObra_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+// --- NEW RAIN REPORTS ---
+export const generateRainPDF = (rainLogs: RainLog[], warehouseName: string) => {
+    const doc = new jsPDF();
+    let yPos = addHeader(doc, "Registro Pluviométrico", "Control de Lluvias", warehouseName, BRAND_COLORS.blue);
+
+    doc.setFontSize(14);
+    doc.setTextColor(BRAND_COLORS.slate[0], BRAND_COLORS.slate[1], BRAND_COLORS.slate[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("Historial de Precipitaciones", 14, yPos);
+    
+    doc.setDrawColor(37, 99, 235); // Blue
+    doc.setLineWidth(0.5);
+    doc.line(14, yPos + 2, 105, yPos + 2);
+
+    const rows = rainLogs.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(r => [
+        new Date(r.date).toLocaleDateString(),
+        `${r.millimeters} mm`
+    ]);
+
+    // Calculate total rain (optional stat)
+    const totalRain = rainLogs.reduce((acc, r) => acc + r.millimeters, 0);
+
+    autoTable(doc, {
+        startY: yPos + 8,
+        head: [['Fecha', 'Milímetros (Lluvia)']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] }, // Blue 600
+        styles: { fontSize: 10, halign: 'center' },
+        foot: [['TOTAL ACUMULADO', `${totalRain} mm`]],
+        footStyles: { fillColor: [147, 197, 253], textColor: 0, fontStyle: 'bold' }
+    });
+
+    addFooter(doc);
+    doc.save(`Reporte_Lluvias_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+export const generateRainExcel = (rainLogs: RainLog[]) => {
+    const wb = XLSX.utils.book_new();
+    
+    const header = [
+        { v: "Fecha", s: { font: { bold: true } } },
+        { v: "Milímetros", s: { font: { bold: true } } }
+    ];
+
+    const body = rainLogs.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(r => [
+        new Date(r.date).toLocaleDateString(),
+        r.millimeters
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+    XLSX.utils.book_append_sheet(wb, ws, "Pluviometría");
+
+    XLSX.writeFile(wb, `AgroBodega_Lluvias_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 // --- PAYMENT SLIP GENERATOR ---

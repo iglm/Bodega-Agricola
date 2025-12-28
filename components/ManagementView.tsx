@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { AgendaEvent, Machine, MaintenanceLog, RainLog, CostCenter } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool } from 'lucide-react';
+import { generateRainExcel, generateRainPDF } from '../services/reportService';
+import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download } from 'lucide-react';
 
 interface ManagementViewProps {
   agenda: AgendaEvent[];
@@ -64,6 +66,20 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
       });
       setRainMm('');
   };
+
+  // RAIN CHART DATA LOGIC
+  const rainChartData = useMemo(() => {
+      const data = rainLogs.slice().sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-10);
+      if (data.length === 0) return null;
+      
+      const maxMm = Math.max(...data.map(d => d.millimeters), 10);
+      const height = 100;
+      const barWidth = 10;
+      const gap = 20;
+      const totalWidth = data.length * (barWidth + gap);
+
+      return { data, maxMm, height, barWidth, gap, totalWidth };
+  }, [rainLogs]);
 
   // MACHINE HANDLERS
   const handleCreateMachine = (e: React.FormEvent) => {
@@ -259,6 +275,29 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
         {subTab === 'rain' && (
             <div className="space-y-6 animate-fade-in">
                 
+                {/* Reports Header (NEW) */}
+                <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                        <Download className="w-4 h-4" /> Reportes Lluvia
+                    </h4>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => generateRainPDF(rainLogs, "Bodega Principal")}
+                            className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2 rounded-lg hover:scale-105 transition-transform"
+                            title="Descargar PDF"
+                        >
+                            <FileText className="w-4 h-4" />
+                        </button>
+                        <button 
+                            onClick={() => generateRainExcel(rainLogs)}
+                            className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 p-2 rounded-lg hover:scale-105 transition-transform"
+                            title="Descargar Excel"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
                 {/* Add Rain Form */}
                 <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
                     <h3 className="text-blue-400 font-bold mb-2 text-sm uppercase flex items-center gap-2">
@@ -287,27 +326,80 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                     </form>
                 </div>
 
-                {/* Rain Chart (Simple CSS Bars) */}
+                {/* REAL SVG Rain Chart (Improved) */}
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <h4 className="text-xs text-slate-500 uppercase font-bold mb-4">Últimos 7 Registros</h4>
-                    <div className="flex items-end justify-between h-32 gap-2">
-                        {rainLogs.slice(-7).map(log => {
-                            const heightPercent = Math.min((log.millimeters / 100) * 100, 100); // Cap at 100mm visually
-                            return (
-                                <div key={log.id} className="flex flex-col items-center flex-1 group">
-                                    <div className="text-[10px] font-bold text-blue-500 mb-1 opacity-0 group-hover:opacity-100 transition-opacity">{log.millimeters}</div>
-                                    <div 
-                                        className="w-full bg-blue-500/50 rounded-t-sm hover:bg-blue-400 transition-all relative"
-                                        style={{ height: `${Math.max(heightPercent, 5)}%` }} // Min height 5%
-                                    ></div>
-                                    <div className="text-[9px] text-slate-400 mt-1 transform -rotate-45 origin-top-left translate-y-2">
-                                        {new Date(log.date).getDate()}/{new Date(log.date).getMonth()+1}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {rainLogs.length === 0 && <p className="text-xs text-slate-500 w-full text-center self-center">Sin datos</p>}
-                    </div>
+                    <h4 className="text-xs text-slate-500 uppercase font-bold mb-4">Gráfico Real (Últimos 10 registros)</h4>
+                    
+                    {rainChartData ? (
+                        <div className="w-full overflow-x-auto pb-2">
+                            <div className="min-w-[300px]">
+                                <svg 
+                                    viewBox={`0 0 ${rainChartData.totalWidth + 20} ${rainChartData.height + 30}`} 
+                                    className="w-full h-32 overflow-visible"
+                                >
+                                    {/* Y Axis Line */}
+                                    <line x1="0" y1="0" x2="0" y2={rainChartData.height} stroke="#64748b" strokeWidth="1" />
+                                    
+                                    {/* Bars */}
+                                    {rainChartData.data.map((d, i) => {
+                                        const barHeight = (d.millimeters / rainChartData.maxMm) * rainChartData.height;
+                                        const x = i * (rainChartData.barWidth + rainChartData.gap) + 10;
+                                        const y = rainChartData.height - barHeight;
+                                        
+                                        return (
+                                            <g key={i}>
+                                                {/* Tooltip hint / Value top */}
+                                                <text 
+                                                    x={x + rainChartData.barWidth/2} 
+                                                    y={y - 5} 
+                                                    textAnchor="middle" 
+                                                    fill="#3b82f6" 
+                                                    fontSize="10" 
+                                                    fontWeight="bold"
+                                                >
+                                                    {d.millimeters}
+                                                </text>
+                                                
+                                                {/* Bar */}
+                                                <rect 
+                                                    x={x} 
+                                                    y={y} 
+                                                    width={rainChartData.barWidth} 
+                                                    height={barHeight} 
+                                                    fill="url(#rainGradient)" 
+                                                    rx="2"
+                                                />
+                                                
+                                                {/* Date Label */}
+                                                <text 
+                                                    x={x + rainChartData.barWidth/2} 
+                                                    y={rainChartData.height + 15} 
+                                                    textAnchor="middle" 
+                                                    fill="#94a3b8" 
+                                                    fontSize="8"
+                                                    transform={`rotate(0, ${x + rainChartData.barWidth/2}, ${rainChartData.height + 15})`}
+                                                >
+                                                    {new Date(d.date).getDate()}/{new Date(d.date).getMonth()+1}
+                                                </text>
+                                            </g>
+                                        );
+                                    })}
+                                    
+                                    {/* Gradient Definition */}
+                                    <defs>
+                                        <linearGradient id="rainGradient" x1="0" x2="0" y1="0" y2="1">
+                                            <stop offset="0%" stopColor="#3b82f6" />
+                                            <stop offset="100%" stopColor="#1d4ed8" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="h-32 flex items-center justify-center text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                            Sin datos suficientes para graficar
+                        </div>
+                    )}
                 </div>
 
                 {/* Rain List */}

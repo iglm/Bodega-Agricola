@@ -1,16 +1,21 @@
+
 import React, { useState, useRef } from 'react';
-import { Category, Unit, InventoryItem } from '../types';
-import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar } from 'lucide-react';
+import { Category, Unit, InventoryItem, Supplier } from '../types';
+import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus } from 'lucide-react';
 import { convertToBase } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
 
 interface InventoryFormProps {
-  // Updated: Omit 'averageCost' as it is calculated by the service/app logic, not input by user
-  onSave: (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number) => void;
+  suppliers: Supplier[];
+  onSave: (
+      item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
+      initialQuantity: number,
+      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string }
+  ) => void;
   onCancel: () => void;
 }
 
-export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }) => {
+export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave, onCancel }) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState<Category>(Category.FERTILIZANTE);
   const [purchaseUnit, setPurchaseUnit] = useState<Unit>(Unit.BULTO_50KG);
@@ -18,22 +23,34 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
   const [initialQuantity, setInitialQuantity] = useState('');
   const [minStock, setMinStock] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  
+  // Product Image
   const [image, setImage] = useState<string | undefined>(undefined);
   const [isProcessingImg, setIsProcessingImg] = useState(false);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Initial Purchase Details
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
+  const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>, isInvoice: boolean = false) => {
     if (e.target.files && e.target.files[0]) {
-      setIsProcessingImg(true);
+      if (isInvoice) setIsProcessingInvoiceImg(true);
+      else setIsProcessingImg(true);
+      
       try {
         const compressed = await compressImage(e.target.files[0]);
-        setImage(compressed);
+        if (isInvoice) setInvoiceImage(compressed);
+        else setImage(compressed);
       } catch (err) {
         console.error("Error compressing image", err);
         alert("Error al procesar la imagen. Intente con otra.");
       } finally {
-        setIsProcessingImg(false);
+        if (isInvoice) setIsProcessingInvoiceImg(false);
+        else setIsProcessingImg(false);
       }
     }
   };
@@ -61,7 +78,11 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
       description: '',
       expirationDate: expirationDate || undefined,
       image
-    }, initQty);
+    }, initQty, {
+        supplierId: selectedSupplierId || undefined,
+        invoiceNumber: invoiceNumber || undefined,
+        invoiceImage: invoiceImage || undefined
+    });
   };
 
   return (
@@ -83,7 +104,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
         
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           
-          {/* Image Picker */}
+          {/* Product Image Picker */}
           <div className="flex justify-center">
              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                 {image ? (
@@ -107,7 +128,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
                         ) : (
                             <>
                                 <Camera className="w-8 h-8 mb-1" />
-                                <span className="text-[10px] font-bold">AGREGAR FOTO</span>
+                                <span className="text-[10px] font-bold text-center px-1">FOTO PRODUCTO</span>
                             </>
                         )}
                     </div>
@@ -117,7 +138,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
                     ref={fileInputRef} 
                     className="hidden" 
                     accept="image/*"
-                    onChange={handleImageSelect}
+                    onChange={(e) => handleImageSelect(e, false)}
                 />
              </div>
           </div>
@@ -166,19 +187,6 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
               </div>
           </div>
 
-          {/* Expiration */}
-          <div>
-             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Fecha de Vencimiento (Opcional)
-             </label>
-             <input 
-                type="date" 
-                value={expirationDate}
-                onChange={e => setExpirationDate(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
-             />
-          </div>
-
           {/* Price */}
           <div>
              <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase mb-1 flex items-center gap-1">
@@ -195,40 +203,106 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ onSave, onCancel }
              <p className="text-[10px] text-slate-500 mt-1">Este será el precio base para calcular el valor del inventario.</p>
           </div>
 
-          {/* Admin Alert Config */}
-          <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-900/30">
-             <label className="block text-xs font-bold text-yellow-700 dark:text-yellow-500 uppercase mb-1 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> Alerta Stock Bajo (Opcional)
+          {/* Expiration */}
+          <div>
+             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> Fecha de Vencimiento (Opcional)
              </label>
-             <div className="flex items-center gap-2">
-                 <input 
-                    type="number" 
-                    value={minStock}
-                    onChange={e => setMinStock(e.target.value)}
-                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-white outline-none transition-colors text-sm"
-                    placeholder="Ej: 5"
-                 />
-                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                     {purchaseUnit}
-                 </span>
-             </div>
-             <p className="text-[10px] text-slate-500 dark:text-slate-500 mt-1">El sistema avisará cuando quede menos de esta cantidad.</p>
+             <input 
+                type="date" 
+                value={expirationDate}
+                onChange={e => setExpirationDate(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+             />
           </div>
 
-          {/* Initial Stock */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Inventario Inicial (Opcional)</label>
+          {/* --- INITIAL STOCK SECTION --- */}
+          <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-900/30 space-y-4">
+             <div className="flex justify-between items-center">
+                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 uppercase">Inventario Inicial (Opcional)</label>
+             </div>
              <div className="flex items-center gap-2">
-                 <input 
+                <input 
                     type="number" 
                     value={initialQuantity}
                     onChange={e => setInitialQuantity(e.target.value)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none transition-colors"
+                    className="flex-1 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg p-3 text-slate-800 dark:text-white outline-none transition-colors font-bold"
                     placeholder="0"
-                 />
-                 <span className="text-sm font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                     {purchaseUnit}
-                 </span>
+                />
+                <span className="text-sm font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-3 py-3 rounded-lg border border-blue-200 dark:border-blue-700">
+                    {purchaseUnit}
+                </span>
+             </div>
+
+             {/* Transparency/Traceability Fields */}
+             {/* Always visible but maybe semi-transparent if quantity is 0, to encourage entry */}
+             <div className={`space-y-3 pt-3 border-t border-blue-200 dark:border-blue-800/50 transition-opacity ${!initialQuantity || initialQuantity === '0' ? 'opacity-50' : 'opacity-100'}`}>
+                 <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-blue-600 dark:text-blue-300 font-bold uppercase flex items-center gap-1">
+                        <Receipt className="w-3 h-3" /> Evidencia de Compra (Contabilidad)
+                    </p>
+                    {(!initialQuantity || initialQuantity === '0') && <span className="text-[9px] text-slate-400 italic">Ingrese cantidad arriba para activar</span>}
+                 </div>
+                 
+                 {/* Supplier */}
+                 <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Proveedor (Opcional)</label>
+                    <select
+                        value={selectedSupplierId}
+                        onChange={e => setSelectedSupplierId(e.target.value)}
+                        disabled={!initialQuantity || initialQuantity === '0'}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-white outline-none text-xs disabled:cursor-not-allowed"
+                    >
+                        <option value="">-- Seleccionar o Dejar Vacio --</option>
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    {suppliers.length === 0 && (
+                        <p className="text-[9px] text-slate-400 mt-1">
+                            * Puede registrar el insumo sin proveedor y editarlo luego en el historial.
+                        </p>
+                    )}
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-3">
+                     {/* Invoice Number */}
+                     <div>
+                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">N° Factura (Opcional)</label>
+                        <input 
+                            type="text" 
+                            value={invoiceNumber}
+                            onChange={e => setInvoiceNumber(e.target.value)}
+                            disabled={!initialQuantity || initialQuantity === '0'}
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-white outline-none text-xs disabled:cursor-not-allowed"
+                            placeholder="#12345"
+                        />
+                     </div>
+                     
+                     {/* Invoice Photo */}
+                     <div>
+                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Foto Recibo (Opcional)</label>
+                        <div 
+                            onClick={() => {
+                                if(initialQuantity && initialQuantity !== '0') invoiceInputRef.current?.click()
+                            }}
+                            className={`w-full h-[38px] border border-dashed rounded-lg flex items-center justify-center transition-colors ${!initialQuantity || initialQuantity === '0' ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-900/50' : 'cursor-pointer hover:border-blue-500'} ${invoiceImage ? 'bg-emerald-100 border-emerald-500 text-emerald-600' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-400'}`}
+                        >
+                            {isProcessingInvoiceImg ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"></div>
+                            ) : invoiceImage ? (
+                                <span className="text-[10px] font-bold flex items-center gap-1"><FileText className="w-3 h-3"/> LISTO</span>
+                            ) : (
+                                <span className="text-[10px] flex items-center gap-1"><Camera className="w-3 h-3"/> Subir</span>
+                            )}
+                        </div>
+                        <input 
+                            type="file" 
+                            ref={invoiceInputRef} 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={(e) => handleImageSelect(e, true)}
+                        />
+                     </div>
+                 </div>
              </div>
           </div>
 

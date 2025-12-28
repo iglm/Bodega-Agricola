@@ -264,7 +264,12 @@ function App() {
     if (!safeData.adminPin) setIsAdminUnlocked(true); else setIsAdminUnlocked(false);
   };
 
-  const handleAddItem = (newItem: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQty: number) => {
+  // UPDATED: Now accepts initialMovementDetails
+  const handleAddItem = (
+      newItem: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
+      initialQty: number,
+      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string }
+  ) => {
     const baseUnit = getBaseUnitType(newItem.lastPurchaseUnit);
     const initialStockBase = initialQty > 0 ? convertToBase(initialQty, newItem.lastPurchaseUnit) : 0;
     const baseInPurchase = convertToBase(1, newItem.lastPurchaseUnit);
@@ -283,6 +288,11 @@ function App() {
     let newMovements = [...data.movements];
     if (initialQty > 0) {
       const cost = calculateCost(initialQty, newItem.lastPurchaseUnit, newItem.lastPurchasePrice, newItem.lastPurchaseUnit);
+      
+      const supplierName = initialMovementDetails?.supplierId 
+        ? data.suppliers.find(s => s.id === initialMovementDetails.supplierId)?.name 
+        : undefined;
+
       newMovements = [{
         id: crypto.randomUUID(),
         itemId: item.id,
@@ -293,7 +303,12 @@ function App() {
         unit: newItem.lastPurchaseUnit,
         calculatedCost: cost,
         date: new Date().toISOString(),
-        notes: 'Inventario Inicial'
+        notes: 'Inventario Inicial',
+        // Inject new details
+        supplierId: initialMovementDetails?.supplierId,
+        supplierName: supplierName,
+        invoiceNumber: initialMovementDetails?.invoiceNumber,
+        invoiceImage: initialMovementDetails?.invoiceImage
       }, ...newMovements];
     }
     
@@ -547,7 +562,7 @@ function App() {
         </button>
       )}
 
-      {showAddForm && <InventoryForm onSave={handleAddItem} onCancel={() => setShowAddForm(false)} />}
+      {showAddForm && <InventoryForm suppliers={data.suppliers} onSave={handleAddItem} onCancel={() => setShowAddForm(false)} />}
       {showLaborForm && <LaborForm personnel={data.personnel} costCenters={data.costCenters} activities={data.activities || []} onSave={handleAddLaborLog} onCancel={() => setShowLaborForm(false)} onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} />}
       {movementModal && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} machines={data.machines} movements={activeMovements} onSave={handleAddMovement} onCancel={() => setMovementModal(null)} />}
       {showSettings && <SettingsModal suppliers={data.suppliers} costCenters={data.costCenters} personnel={data.personnel} activities={data.activities} onAddSupplier={handleAddSupplier} onDeleteSupplier={handleDeleteSupplier} onAddCostCenter={handleAddCostCenter} onDeleteCostCenter={handleDeleteCostCenter} onAddPersonnel={handleAddPersonnel} onDeletePersonnel={handleDeletePersonnel} onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onClose={() => setShowSettings(false)} />}
