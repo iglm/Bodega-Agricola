@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="author" content="Lucas Mateo Tabares Franco" />
     <meta name="copyright" content="© 2025 Lucas Mateo Tabares Franco - AgroSuite 360" />
-    <meta name="description" content="Sistema de gestión agrícola integral protegido por derechos de autor. Ley 23 de 1982." />
-    <title>AgroSuite 360 - Gestión Inteligente</title>
+    <meta name="description" content="Sistema de gestión agrícola integral. Play Store Ready." />
+    <title>AgroSuite 360</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -15,98 +15,51 @@
         theme: {
           extend: {
             colors: {
-              agro: {
-                50: '#ecfdf5',
-                100: '#d1fae5',
-                500: '#10b981',
-                600: '#059669',
-                700: '#047857',
-                800: '#065f46',
-                900: '#064e3b',
-                dark: '#022c22',
-              }
-            },
-            screens: {
-              'standalone': { 'raw': '(display-mode: standalone)' },
-            },
-            keyframes: {
-              shake: {
-                '0%, 100%': { transform: 'translateX(0)' },
-                '25%': { transform: 'translateX(-5px)' },
-                '75%': { transform: 'translateX(5px)' },
-              }
-            },
-            animation: {
-              shake: 'shake 0.4s ease-in-out',
+              agro: { 50: '#ecfdf5', 100: '#d1fae5', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b' }
             }
           }
         }
       }
     </script>
     <style>
-      /* Custom scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sab: env(safe-area-inset-bottom);
       }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #94a3b8; /* Slate 400 */
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #64748b; /* Slate 500 */
-      }
-      
-      /* Dark mode scrollbar adjustments */
-      .dark ::-webkit-scrollbar-track {
-        background: #1e293b;
-      }
-      .dark ::-webkit-scrollbar-thumb {
-        background: #334155;
-      }
-
-      /* Mobile App Behavior Optimization */
-      html {
-        -webkit-tap-highlight-color: transparent; /* Remove blue highlight on tap */
-        touch-action: manipulation; /* Improve touch response */
-      }
-      
       body {
-        /* Prevent text selection to feel like an app */
-        -webkit-user-select: none;
-        user-select: none;
-        /* Handle Safe Areas for iPhone X+ and Android Edge-to-Edge */
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
+        padding-top: var(--sat);
+        padding-bottom: var(--sab);
+        -webkit-tap-highlight-color: transparent;
+        overflow-x: hidden;
       }
-
-      /* Allow text selection only on inputs and textareas */
-      input, textarea {
-        -webkit-user-select: text;
-        user-select: text;
+      input, textarea { -webkit-user-select: text; user-select: text; }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+      .scroll-container {
+        height: 100%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.460.0",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
     "xlsx": "https://esm.sh/xlsx-js-style@1.2.0",
-    "xlsx-js-style": "https://esm.sh/xlsx-js-style@^1.2.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+    "xlsx-js-style": "https://esm.sh/xlsx-js-style@1.2.0",
+    "@google/genai": "https://esm.sh/@google/genai@1.34.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
 </head>
-  <body class="bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen overflow-x-hidden">
+  <body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
     <div id="root"></div>
   </body>
 </html>

@@ -1,27 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
-import { Supplier, CostCenter, Personnel, AppState, Activity } from '../types';
-import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf } from 'lucide-react';
+import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification } from '../types';
+import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../services/inventoryService';
+import { LegalComplianceModal } from './LegalComplianceModal';
 
 interface SettingsModalProps {
   suppliers: Supplier[];
   costCenters: CostCenter[];
   personnel?: Personnel[];
-  activities?: Activity[]; // New prop
-  
-  // Data Management
-  fullState?: AppState;
-  onRestoreData?: (data: AppState) => void;
-
+  activities?: Activity[]; 
+  fullState: AppState;
+  onUpdateState: (data: AppState) => void;
   onAddSupplier: (name: string, phone: string, email: string, address: string) => void;
   onDeleteSupplier: (id: string) => void;
-  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string) => void;
+  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string) => void;
   onDeleteCostCenter: (id: string) => void;
-  onAddPersonnel?: (name: string, role: string) => void;
+  onAddPersonnel?: (person: Omit<Personnel, 'id' | 'warehouseId'>) => void;
   onDeletePersonnel?: (id: string) => void;
-  onAddActivity?: (name: string) => void; // New
-  onDeleteActivity?: (id: string) => void; // New
+  onAddActivity?: (name: string, classification?: CostClassification) => void; 
+  onDeleteActivity?: (id: string) => void; 
   onClose: () => void;
 }
 
@@ -31,7 +29,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   personnel = [],
   activities = [],
   fullState,
-  onRestoreData,
+  onUpdateState,
   onAddSupplier,
   onDeleteSupplier,
   onAddCostCenter,
@@ -42,9 +40,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDeleteActivity,
   onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'lotes' | 'proveedores' | 'personal' | 'labores'>('proveedores');
-  const [storageUsage, setStorageUsage] = useState<number>(0); // MB
-  const [storagePercent, setStoragePercent] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<'lotes' | 'proveedores' | 'personal' | 'labores' | 'config' | 'legal'>('proveedores');
+  const [showLegalDetail, setShowLegalDetail] = useState(false);
+  const [localFactor, setLocalFactor] = useState(fullState.laborFactor);
+  const [factorSaved, setFactorSaved] = useState(false);
   
   // Lotes State
   const [loteName, setLoteName] = useState('');
@@ -53,6 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [loteStage, setLoteStage] = useState<'Produccion' | 'Levante' | 'Infraestructura'>('Produccion');
   const [lotePlants, setLotePlants] = useState('');
   const [loteCrop, setLoteCrop] = useState('Café');
+  const [associatedCrop, setAssociatedCrop] = useState('');
 
   // Supplier State
   const [supName, setSupName] = useState('');
@@ -63,25 +63,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Personnel State
   const [perName, setPerName] = useState('');
   const [perRole, setPerRole] = useState('');
+  const [perDoc, setPerDoc] = useState('');
+  const [perPhone, setPerPhone] = useState('');
+  const [perEmergency, setPerEmergency] = useState('');
+  const [perEps, setPerEps] = useState('');
+  const [perArl, setPerArl] = useState(false);
+  const [perBirth, setPerBirth] = useState('');
 
   // Activity State
   const [actName, setActName] = useState('');
-
-  // Calculate Storage Usage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        let total = 0;
-        for (let x in localStorage) {
-            if (Object.prototype.hasOwnProperty.call(localStorage, x)) {
-                total += (localStorage[x].length * 2);
-            }
-        }
-        const usedMB = total / 1024 / 1024;
-        setStorageUsage(usedMB);
-        // Estimate 5MB limit for typical mobile browser localstorage
-        setStoragePercent(Math.min((usedMB / 5) * 100, 100));
-    }
-  }, []);
+  const [actClass, setActClass] = useState<CostClassification>('JOINT');
 
   const handleAddLote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,489 +83,287 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         loteArea ? parseFloat(loteArea) : undefined,
         loteStage,
         lotePlants ? parseInt(lotePlants) : undefined,
-        loteCrop
+        loteCrop,
+        associatedCrop || undefined
     );
-    setLoteName('');
-    setLoteBudget('');
-    setLoteArea('');
-    setLotePlants('');
+    setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); setAssociatedCrop('');
   };
 
   const handleAddSupplier = (e: React.FormEvent) => {
     e.preventDefault();
     if (!supName.trim()) return;
     onAddSupplier(supName, supPhone, supEmail, supAddress);
-    setSupName('');
-    setSupPhone('');
-    setSupEmail('');
-    setSupAddress('');
+    setSupName(''); setSupPhone(''); setSupEmail(''); setSupAddress('');
   };
 
   const handleAddPersonnel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!perName.trim() || !onAddPersonnel) return;
-    onAddPersonnel(perName, perRole);
-    setPerName('');
-    setPerRole('');
+    onAddPersonnel({
+      name: perName, role: perRole, documentId: perDoc, phone: perPhone,
+      emergencyContact: perEmergency, eps: perEps, arl: perArl, birthDate: perBirth
+    });
+    setPerName(''); setPerRole(''); setPerDoc(''); setPerPhone(''); setPerEmergency(''); setPerEps(''); setPerArl(false); setPerBirth('');
   }
 
   const handleAddActivity = (e: React.FormEvent) => {
       e.preventDefault();
       if (!actName.trim() || !onAddActivity) return;
-      onAddActivity(actName);
-      setActName('');
+      onAddActivity(actName, actClass);
+      setActName(''); setActClass('JOINT');
   }
 
-  const commonCrops = ['Café', 'Cacao', 'Plátano', 'Banano', 'Aguacate', 'Cítricos', 'Maíz', 'Caña', 'Ganadería', 'Pasto', 'Hortalizas', 'Otro'];
+  const handleSaveFactor = () => {
+    onUpdateState({ ...fullState, laborFactor: localFactor });
+    setFactorSaved(true);
+    setTimeout(() => setFactorSaved(false), 2000);
+  };
+
+  const commonCrops = ['Café', 'Cacao', 'Plátano', 'Banano', 'Aguacate', 'Cítricos', 'Maíz', 'Caña', 'Otro'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-slate-800 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
+      <div className="bg-slate-800 w-full max-w-lg rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
         
-        {/* Header */}
-        <div className="bg-slate-900 p-4 border-b border-slate-700 flex justify-between items-center">
+        <div className="bg-slate-900 p-6 border-b border-slate-700 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-purple-900/30 p-2 rounded-lg border border-purple-500/30">
+            <div className="bg-purple-900/30 p-2 rounded-xl border border-purple-500/30">
               <Settings className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-white font-bold text-lg leading-none">Administración de Maestros</h3>
-              <div className="flex items-center gap-2 mt-1">
-                  <HardDrive className="w-3 h-3 text-slate-500" />
-                  <div className="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full ${storagePercent > 80 ? 'bg-red-500' : 'bg-emerald-500'}`} 
-                        style={{ width: `${storagePercent}%` }}
-                      ></div>
-                  </div>
-                  <span className="text-[9px] text-slate-400">{storageUsage.toFixed(2)} MB usados</span>
-              </div>
+              <h3 className="text-white font-bold text-lg leading-none">Configuración de Maestros</h3>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Estructura de Unidad Productiva</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-700 text-slate-400 transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-slate-700 overflow-x-auto">
-          <button 
-            onClick={() => setActiveTab('proveedores')}
-            className={`flex-1 p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors min-w-[90px] ${activeTab === 'proveedores' ? 'bg-slate-800 text-emerald-400 border-b-2 border-emerald-500' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
-          >
-            <Users className="w-3 h-3" />
-            Prov.
-          </button>
-          <button 
-            onClick={() => setActiveTab('lotes')}
-            className={`flex-1 p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors min-w-[90px] ${activeTab === 'lotes' ? 'bg-slate-800 text-purple-400 border-b-2 border-purple-500' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
-          >
-            <MapPin className="w-3 h-3" />
-            Destinos
-          </button>
-          <button 
-            onClick={() => setActiveTab('personal')}
-            className={`flex-1 p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors min-w-[90px] ${activeTab === 'personal' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-500' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
-          >
-            <UserCheck className="w-3 h-3" />
-            Personal
-          </button>
-          <button 
-            onClick={() => setActiveTab('labores')}
-            className={`flex-1 p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors min-w-[90px] ${activeTab === 'labores' ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-500' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
-          >
-            <Pickaxe className="w-3 h-3" />
-            Labores
-          </button>
+        <div className="flex bg-slate-950 p-1 overflow-x-auto scrollbar-hide">
+          {['proveedores', 'lotes', 'personal', 'labores', 'config', 'legal'].map((tab) => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`flex-1 p-3 text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all rounded-xl ${activeTab === tab ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-white'}`}
+            >
+              {tab === 'proveedores' && <Users className="w-3 h-3" />}
+              {tab === 'lotes' && <MapPin className="w-3 h-3" />}
+              {tab === 'personal' && <UserCheck className="w-3 h-3" />}
+              {tab === 'labores' && <Pickaxe className="w-3 h-3" />}
+              {tab === 'config' && <Scale className="w-3 h-3" />}
+              {tab === 'legal' && <Gavel className="w-3 h-3" />}
+              {tab}
+            </button>
+          ))}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
           
-          {/* --- SUPPLIERS TAB --- */}
           {activeTab === 'proveedores' && (
-            <div className="space-y-4 animate-fade-in">
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                    <h4 className="text-emerald-400 text-xs uppercase font-bold mb-3 flex items-center gap-2">
-                        <Plus className="w-3 h-3" /> Registrar Nuevo Proveedor
-                    </h4>
-                    <form onSubmit={handleAddSupplier} className="space-y-3">
-                        <div>
-                            <label className="text-[10px] text-slate-400 uppercase font-bold ml-1">Nombre / Razón Social *</label>
-                            <input 
-                                type="text" 
-                                value={supName}
-                                onChange={(e) => setSupName(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none"
-                                placeholder="Ej: Agroinsumos del Norte S.A.S"
-                                autoFocus
-                            />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1"><Phone className="w-3 h-3"/> Teléfono</label>
-                                <input 
-                                    type="text" 
-                                    value={supPhone}
-                                    onChange={(e) => setSupPhone(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none"
-                                    placeholder="Opcional"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1"><Mail className="w-3 h-3"/> Email</label>
-                                <input 
-                                    type="email" 
-                                    value={supEmail}
-                                    onChange={(e) => setSupEmail(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none"
-                                    placeholder="Opcional"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1"><Home className="w-3 h-3"/> Dirección</label>
-                            <input 
-                                type="text" 
-                                value={supAddress}
-                                onChange={(e) => setSupAddress(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none"
-                                placeholder="Opcional (Ej: Km 5 Vía al Llano)"
-                            />
-                        </div>
-
-                        <button 
-                            type="submit"
-                            disabled={!supName}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 mt-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Guardar Proveedor
-                        </button>
-                    </form>
+            <div className="space-y-6 animate-fade-in">
+              <form onSubmit={handleAddSupplier} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Proveedor</h4>
+                <input type="text" value={supName} onChange={e => setSupName(e.target.value)} placeholder="Nombre del Proveedor" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                <div className="grid grid-cols-2 gap-3">
+                    <input type="text" value={supPhone} onChange={e => setSupPhone(e.target.value)} placeholder="Teléfono" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                    <input type="email" value={supEmail} onChange={e => setSupEmail(e.target.value)} placeholder="Email" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                 </div>
-
-                <div className="space-y-2">
-                    <h4 className="text-slate-500 text-xs uppercase font-bold mb-2">
-                        Proveedores Registrados ({suppliers.length})
-                    </h4>
-                    {suppliers.length === 0 ? (
-                        <p className="text-slate-500 text-sm text-center py-4 bg-slate-900/30 rounded-lg border border-dashed border-slate-700">
-                            No hay proveedores. Regístrelos para usarlos en Entradas.
-                        </p>
-                    ) : (
-                        suppliers.map(s => (
-                            <div key={s.id} className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0 text-blue-400">
-                                        <Users className="w-4 h-4" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-slate-200 text-sm font-bold truncate">{s.name}</p>
-                                        <p className="text-slate-500 text-xs truncate">
-                                            {[s.phone, s.address].filter(Boolean).join(' • ') || 'Sin detalles'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button onClick={() => onDeleteSupplier(s.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ))
-                    )}
-                </div>
+                <input type="text" value={supAddress} onChange={e => setSupAddress(e.target.value)} placeholder="Dirección" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Proveedor</button>
+              </form>
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                {suppliers.map(s => (
+                  <div key={s.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <Users className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <p className="text-sm font-bold text-white">{s.name}</p>
+                        <p className="text-[10px] text-slate-400">{s.phone || 'Sin teléfono'}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onDeleteSupplier(s.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* --- LOTES TAB --- */}
+          {activeTab === 'personal' && (
+            <div className="space-y-6 animate-fade-in">
+              <form onSubmit={handleAddPersonnel} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                  <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Trabajador</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                      <input type="text" value={perName} onChange={e => setPerName(e.target.value)} placeholder="Nombre Completo" className="col-span-2 w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                      <input type="text" value={perRole} onChange={e => setPerRole(e.target.value)} placeholder="Rol (Ej: Operario)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                      <input type="text" value={perDoc} onChange={e => setPerDoc(e.target.value)} placeholder="Documento ID" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                      <input type="tel" value={perPhone} onChange={e => setPerPhone(e.target.value)} placeholder="Teléfono" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                      <input type="tel" value={perEmergency} onChange={e => setPerEmergency(e.target.value)} placeholder="Contacto Emergencia" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                      <input type="text" value={perEps} onChange={e => setPerEps(e.target.value)} placeholder="EPS" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                      <input type="date" value={perBirth} onChange={e => setPerBirth(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                  </div>
+                  <label className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={perArl} onChange={e => setPerArl(e.target.checked)} className="h-4 w-4 rounded text-emerald-500 bg-slate-800 border-slate-600 focus:ring-emerald-500"/>
+                      <span className="text-sm font-bold text-white">Afiliado a ARL</span>
+                  </label>
+                  <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Trabajador</button>
+              </form>
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                {personnel.map(p => (
+                  <div key={p.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <UserCheck className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <p className="text-sm font-bold text-white">{p.name}</p>
+                        <p className="text-[10px] text-slate-400">{p.role}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onDeletePersonnel && onDeletePersonnel(p.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'labores' && (
+            <div className="space-y-6 animate-fade-in">
+              <form onSubmit={handleAddActivity} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nueva Labor</h4>
+                <input type="text" value={actName} onChange={e => setActName(e.target.value)} placeholder="Nombre de la Labor (Ej: Plateo)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                <select value={actClass} onChange={e => setActClass(e.target.value as CostClassification)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
+                    <option value="JOINT">Costo Conjunto</option>
+                    <option value="COFFEE">Solo Café</option>
+                    <option value="PLANTAIN">Solo Plátano</option>
+                    <option value="OTHER">Otro Cultivo</option>
+                </select>
+                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Labor</button>
+              </form>
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                {activities.map(a => (
+                  <div key={a.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <Pickaxe className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <p className="text-sm font-bold text-white">{a.name}</p>
+                        <p className="text-[10px] text-slate-400">{a.costClassification}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onDeleteActivity && onDeleteActivity(a.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'lotes' && (
-            <div className="space-y-4 animate-fade-in">
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                    <h4 className="text-purple-400 text-xs uppercase font-bold mb-3 flex items-center gap-2">
-                        <Plus className="w-3 h-3" /> Crear Nuevo Destino / Lote
-                    </h4>
-                    <p className="text-[10px] text-slate-400 mb-2">Lugares de destino del gasto (Ej: Lote 1, Invernadero).</p>
-                    <form onSubmit={handleAddLote} className="flex flex-col gap-3">
-                        <div>
-                             <label className="text-[10px] text-slate-400 uppercase font-bold ml-1">Nombre del Lugar *</label>
-                             <input 
-                                type="text" 
-                                value={loteName}
-                                onChange={(e) => setLoteName(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
-                                placeholder="Ej: Lote Maíz Norte"
-                                autoFocus
-                            />
-                        </div>
-                        
-                        {/* New Crop Type Selector */}
-                        <div>
-                             <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
-                                <Leaf className="w-3 h-3" /> Cultivo Principal (Importante para Reportes)
-                             </label>
-                             <select 
-                                value={loteCrop}
-                                onChange={(e) => setLoteCrop(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
-                             >
-                                {commonCrops.map(crop => <option key={crop} value={crop}>{crop}</option>)}
-                             </select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
-                                    <LandPlot className="w-3 h-3" /> Etapa / Estado
-                                </label>
-                                <select 
-                                    value={loteStage}
-                                    onChange={(e) => setLoteStage(e.target.value as any)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
-                                >
-                                    <option value="Produccion">En Producción</option>
-                                    <option value="Levante">Levante / Inversión</option>
-                                    <option value="Infraestructura">Infraestructura</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
-                                    <Sprout className="w-3 h-3" /> Cantidad Plantas
-                                </label>
-                                <input 
-                                    type="number" 
-                                    value={lotePlants}
-                                    onChange={(e) => setLotePlants(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
-                                    placeholder="Ej: 5000"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
-                                    <DollarSign className="w-3 h-3" /> Presupuesto (COP)
-                                </label>
-                                <input 
-                                    type="number" 
-                                    value={loteBudget}
-                                    onChange={(e) => setLoteBudget(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
-                                    placeholder="Ej: 5000000"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
-                                    <LandPlot className="w-3 h-3" /> Área (Hectáreas)
-                                </label>
-                                <input 
-                                    type="number" 
-                                    value={loteArea}
-                                    onChange={(e) => setLoteArea(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 outline-none"
-                                    placeholder="Ej: 10.5"
-                                    step="0.1"
-                                />
-                            </div>
-                        </div>
-
-                        <button 
-                            type="submit"
-                            disabled={!loteName}
-                            className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Agregar Destino
-                        </button>
-                    </form>
+            <div className="space-y-6 animate-fade-in">
+              <form onSubmit={handleAddLote} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Lote / Centro de Costo</h4>
+                <input type="text" value={loteName} onChange={e => setLoteName(e.target.value)} placeholder="Nombre del Lote" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" value={loteArea} onChange={e => setLoteArea(e.target.value)} placeholder="Área (Ha)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                  <select value={loteCrop} onChange={e => setLoteCrop(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
+                      {commonCrops.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} placeholder="Nº de Plantas" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                  <input type="text" value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} placeholder="Cultivo Asociado" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                 </div>
+                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Lote</button>
+              </form>
+              
+              <div className="mt-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                      <strong>Guía Rápida:</strong> El registro de lluvias y mantenimientos se realiza desde la pestaña principal <strong>"Campo"</strong>. Aquí se configuran los lotes base.
+                  </p>
+              </div>
 
-                <div className="space-y-2">
-                    <h4 className="text-slate-500 text-xs uppercase font-bold mb-2">
-                        Listado Actual ({costCenters.length})
-                    </h4>
-                    {costCenters.length === 0 ? (
-                        <p className="text-slate-500 text-sm text-center py-4 bg-slate-900/30 rounded-lg border border-dashed border-slate-700">
-                            No hay destinos creados.
-                        </p>
-                    ) : (
-                        costCenters.map(c => (
-                            <div key={c.id} className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors">
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-purple-500" />
-                                        <span className="text-slate-200 text-sm font-bold">{c.name}</span>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                        {c.cropType && (
-                                            <span className="text-[10px] bg-indigo-900/30 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/30 font-bold">
-                                                {c.cropType}
-                                            </span>
-                                        )}
-                                        {c.stage && (
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${c.stage === 'Produccion' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30' : 'bg-amber-900/20 text-amber-400 border-amber-900/30'}`}>
-                                                {c.stage}
-                                            </span>
-                                        )}
-                                        {c.area && c.area > 0 && (
-                                            <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded border border-blue-500/30 font-bold">
-                                                {c.area} Ha
-                                            </span>
-                                        )}
-                                        {c.budget && c.budget > 0 && (
-                                            <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold">
-                                                Ppto: {formatCurrency(c.budget)}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                <button onClick={() => onDeleteCostCenter(c.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ))
-                    )}
-                </div>
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                {costCenters.map(c => (
+                  <div key={c.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <p className="text-sm font-bold text-white">{c.name}</p>
+                        <p className="text-[10px] text-slate-400">{c.area} Ha • {c.cropType}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onDeleteCostCenter(c.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-           {/* --- PERSONAL TAB --- */}
-           {activeTab === 'personal' && (
-            <div className="space-y-4 animate-fade-in">
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                    <h4 className="text-blue-400 text-xs uppercase font-bold mb-3 flex items-center gap-2">
-                        <Plus className="w-3 h-3" /> Registrar Trabajador / Responsable
-                    </h4>
-                    <p className="text-[10px] text-slate-400 mb-2">Personas autorizadas para retirar insumos o trabajar jornales.</p>
-                    <form onSubmit={handleAddPersonnel} className="space-y-3">
-                        <div>
-                             <label className="text-[10px] text-slate-400 uppercase font-bold ml-1">Nombre Completo *</label>
-                             <input 
-                                type="text" 
-                                value={perName}
-                                onChange={(e) => setPerName(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none"
-                                placeholder="Ej: Juan Pérez"
-                                autoFocus
-                            />
-                        </div>
-                        <div>
-                             <label className="text-[10px] text-slate-400 uppercase font-bold ml-1 flex items-center gap-1">
-                                <Briefcase className="w-3 h-3" /> Cargo (Opcional)
-                             </label>
-                             <input 
-                                type="text" 
-                                value={perRole}
-                                onChange={(e) => setPerRole(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 outline-none"
-                                placeholder="Ej: Aplicador, Mayordomo"
-                            />
-                        </div>
-                        <button 
-                            type="submit"
-                            disabled={!perName}
-                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Agregar Persona
-                        </button>
-                    </form>
-                </div>
+          {activeTab === 'legal' && (
+              <div className="space-y-6 animate-fade-in">
+                  <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                      <h4 className="text-emerald-500 text-xs uppercase font-black mb-4 flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4" /> Centro de Transparencia
+                      </h4>
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                          Consulta en cualquier momento los términos legales, tu política de privacidad y tus derechos como usuario.
+                      </p>
+                      <button 
+                          onClick={() => setShowLegalDetail(true)}
+                          className="w-full bg-slate-950 border border-slate-700 p-6 rounded-3xl flex items-center justify-between hover:bg-slate-900 transition-all group"
+                      >
+                          <div className="flex items-center gap-4">
+                              <FileText className="w-6 h-6 text-emerald-500" />
+                              <div className="text-left">
+                                  <p className="font-black text-sm text-white uppercase">Política de Privacidad</p>
+                                  <p className="text-[9px] text-slate-500 font-bold">Habeas Data & Uso de IA 2025</p>
+                              </div>
+                          </div>
+                          <Zap className="w-5 h-5 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
 
-                <div className="space-y-2">
-                    <h4 className="text-slate-500 text-xs uppercase font-bold mb-2">
-                        Personal Registrado ({personnel.length})
-                    </h4>
-                    {personnel.length === 0 ? (
-                        <p className="text-slate-500 text-sm text-center py-4 bg-slate-900/30 rounded-lg border border-dashed border-slate-700">
-                            No hay personal registrado.
-                        </p>
-                    ) : (
-                        personnel.map(p => (
-                            <div key={p.id} className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <UserCheck className="w-4 h-4 text-blue-500" />
-                                    <div>
-                                        <p className="text-slate-200 text-sm font-bold">{p.name}</p>
-                                        <p className="text-slate-500 text-xs">{p.role || 'Sin Cargo'}</p>
-                                    </div>
-                                </div>
-                                {onDeletePersonnel && (
-                                    <button onClick={() => onDeletePersonnel(p.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
+                      <div className="bg-blue-900/10 p-4 rounded-2xl border border-blue-500/30 flex gap-3 items-start mt-4">
+                          <Info className="w-5 h-5 text-blue-400 shrink-0" />
+                          <p className="text-[9px] text-slate-400 leading-tight italic">
+                              AgroSuite 360 se adhiere estrictamente a la Ley 1581 de 2012. Tus datos de finca son privados y se almacenan exclusivamente de forma local.
+                          </p>
+                      </div>
+                  </div>
+              </div>
           )}
 
-           {/* --- LABORES (ACTIVITIES) TAB --- */}
-           {activeTab === 'labores' && (
-            <div className="space-y-4 animate-fade-in">
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                    <h4 className="text-amber-400 text-xs uppercase font-bold mb-3 flex items-center gap-2">
-                        <Plus className="w-3 h-3" /> Registrar Tipo de Labor
-                    </h4>
-                    <p className="text-[10px] text-slate-400 mb-2">Actividades estándar para jornales (Ej: Guadaña, Fumigación).</p>
-                    <form onSubmit={handleAddActivity} className="space-y-3">
-                        <div>
-                             <label className="text-[10px] text-slate-400 uppercase font-bold ml-1">Nombre de la Labor *</label>
-                             <input 
-                                type="text" 
-                                value={actName}
-                                onChange={(e) => setActName(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 outline-none"
-                                placeholder="Ej: Plateo"
-                                autoFocus
-                            />
-                        </div>
-                        <button 
-                            type="submit"
-                            disabled={!actName}
-                            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Agregar Labor
-                        </button>
-                    </form>
-                </div>
-
-                <div className="space-y-2">
-                    <h4 className="text-slate-500 text-xs uppercase font-bold mb-2">
-                        Labores Disponibles ({activities.length})
-                    </h4>
-                    {activities.length === 0 ? (
-                        <p className="text-slate-500 text-sm text-center py-4 bg-slate-900/30 rounded-lg border border-dashed border-slate-700">
-                            No hay labores creadas.
-                        </p>
-                    ) : (
-                        activities.map(a => (
-                            <div key={a.id} className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <Pickaxe className="w-4 h-4 text-amber-500" />
-                                    <div>
-                                        <p className="text-slate-200 text-sm font-bold">{a.name}</p>
-                                    </div>
-                                </div>
-                                {onDeleteActivity && (
-                                    <button onClick={() => onDeleteActivity(a.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
+          {activeTab === 'config' && (
+              <div className="space-y-6 animate-fade-in">
+                  <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                      <h4 className="text-amber-500 text-xs uppercase font-black mb-4 flex items-center gap-2">
+                          <Scale className="w-4 h-4" /> Costeo de Mano de Obra
+                      </h4>
+                      <p className="text-xs text-slate-400 font-medium">
+                          Define el factor prestacional para calcular el costo real de la empresa por cada jornal pagado.
+                      </p>
+                      <div>
+                          <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Factor Multiplicador</label>
+                          <div className="flex items-center gap-2 mt-1">
+                              <input 
+                                  type="number"
+                                  step="0.01"
+                                  value={localFactor}
+                                  onChange={(e) => setLocalFactor(parseFloat(e.target.value) || 1.0)}
+                                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-4 text-amber-500 font-mono font-black text-lg outline-none focus:ring-2 focus:ring-amber-500"
+                              />
+                              <button onClick={handleSaveFactor} className="p-4 bg-emerald-600 text-white rounded-xl disabled:bg-slate-600">
+                                  {factorSaved ? <CheckCircle className="w-5 h-5" /> : <Save className="w-5 h-5" />}
+                              </button>
+                          </div>
+                      </div>
+                      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 flex items-start gap-3">
+                         <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                         <p className="text-[9px] text-slate-400 leading-tight">
+                             <strong>Guía:</strong> Factor <strong>1.0</strong> para jornal informal. Factor <strong>1.52</strong> para empresa formal (incluye parafiscales y prestaciones). Puede ajustarlo a su medida.
+                         </p>
+                      </div>
+                  </div>
+              </div>
           )}
-
         </div>
       </div>
+      {showLegalDetail && <LegalComplianceModal onClose={() => setShowLegalDetail(false)} />}
     </div>
   );
 };

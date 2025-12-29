@@ -2,143 +2,114 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AppState } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-/**
- * ANALYST ENGINE
- */
-export const getFarmAnalysis = async (data: AppState, query: string) => {
-  try {
-    const inventorySummary = data.inventory.map(i => `${i.name}: ${i.currentQuantity} ${i.baseUnit}`).join(', ');
-    const activeLotes = data.costCenters.map(c => `${c.name} (${c.cropType || 'Var'}, ${c.area || 0}Ha, ${c.stage})`).join(', ');
-    
-    const totalLabor = data.laborLogs.reduce((acc, l) => acc + l.value, 0);
-    const totalHarvest = data.harvests.reduce((acc, h) => acc + h.totalValue, 0);
-    const totalInputs = data.movements.filter(m => m.type === 'OUT').reduce((acc, m) => acc + m.calculatedCost, 0);
-    const totalAdmin = data.financeLogs.filter(f => f.type === 'EXPENSE').reduce((acc, f) => acc + f.amount, 0);
-
-    const systemInstruction = `Eres el Consultor Senior de AgroSuite 360. 
-      Analiza los datos proporcionados con rigor financiero y agronómico.
-      REGLAS:
-      1. Sé profesional y técnico. 
-      2. Usa Markdown para destacar cifras.
-      3. Sugiere correcciones basadas en rentabilidad.`;
-
-    const prompt = `DATOS ACTUALES:
-      - Lotes: ${activeLotes}
-      - Inventario: ${inventorySummary}
-      - Costos Labor: $${totalLabor}
-      - Costos Insumos: $${totalInputs}
-      - Gastos Admin: $${totalAdmin}
-      - Ventas Totales: $${totalHarvest}
-      
-      PREGUNTA DEL PRODUCTOR: "${query}"`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { systemInstruction, temperature: 0.7 }
-    });
-
-    return response.text || "No pude procesar el análisis.";
-  } catch (error) {
-    return "Error de comunicación con el consultor AI.";
-  }
-};
-
-/**
- * MULTIMODAL VISION ENGINE
- */
-export const analyzeFarmImage = async (base64Image: string, mimeType: string, userPrompt?: string) => {
-  try {
-    const defaultPrompt = `
-      Eres el Ojo Digital de AgroSuite 360. 
-      - Si es una FACTURA/RECIBO: Extrae productos, cantidades y precios totales. Formatea como tabla.
-      - Si es un CULTIVO/PLAGA: Identifica posibles problemas fitosanitarios y da una recomendación orgánica y una química.
-      - Si es MAQUINARIA: Sugiere puntos de mantenimiento preventivo.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          { inlineData: { data: base64Image.split(',')[1], mimeType } },
-          { text: userPrompt || "Analiza esta imagen para un productor agrícola." }
-        ]
-      },
-      config: {
-        systemInstruction: defaultPrompt,
-        temperature: 0.4 // Lower temperature for more factual analysis
-      }
-    });
-    
-    return response.text || "La IA no pudo interpretar la imagen claramente.";
-  } catch (error) {
-    console.error("Vision Error:", error);
-    return "Error procesando la imagen. Asegúrate de que sea nítida y tenga buena luz.";
-  }
-};
-
-/**
- * COMMAND PARSER
- */
 export interface ParsedCommand {
-  action: 'ADD_LABOR' | 'ADD_MOVEMENT_IN' | 'ADD_MOVEMENT_OUT' | 'ADD_HARVEST' | 'UNKNOWN';
-  data: {
-    personName?: string;
-    activityName?: string;
-    lotName?: string;
-    itemName?: string;
-    quantity?: number;
-    value?: number;
-    unit?: string;
-    cropName?: string;
-    dateOffset?: number;
-  };
-  confidence: string;
+  action: 'INVENTORY_IN' | 'INVENTORY_OUT' | 'LABOR' | 'HARVEST' | 'UNKNOWN';
+  confidence: 'Alta' | 'Media' | 'Baja';
+  data: any;
+  explanation: string;
 }
 
-export const parseFarmCommand = async (
-  text: string, 
-  catalogs: { items: string[], people: string[], lotes: string[], activities: string[] }
-): Promise<ParsedCommand> => {
-  try {
-    const systemInstruction = `Asistente administrativo agrícola. Extrae entidades JSON de frases de campo.`;
-    const prompt = `TEXTO: "${text}". CATÁLOGOS: Insumos: ${catalogs.items.join(', ')}. Personal: ${catalogs.people.join(', ')}. Lotes: ${catalogs.lotes.join(', ')}. Labores: ${catalogs.activities.join(', ')}`;
+// Fix: Always initialize GoogleGenAI with a fresh instance using named parameters
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            action: { type: Type.STRING, enum: ['ADD_LABOR', 'ADD_MOVEMENT_IN', 'ADD_MOVEMENT_OUT', 'ADD_HARVEST', 'UNKNOWN'] },
-            data: {
-              type: Type.OBJECT,
-              properties: {
-                personName: { type: Type.STRING },
-                activityName: { type: Type.STRING },
-                lotName: { type: Type.STRING },
-                itemName: { type: Type.STRING },
-                quantity: { type: Type.NUMBER },
-                value: { type: Type.NUMBER },
-                unit: { type: Type.STRING },
-                cropName: { type: Type.STRING },
-                dateOffset: { type: Type.INTEGER }
-              }
-            },
-            confidence: { type: Type.STRING }
-          },
-          required: ['action', 'data', 'confidence']
-        }
+/**
+ * Fix: Implemented missing parseFarmCommand to handle dictation and logic parsing
+ * for AIAssistant component.
+ */
+export const parseFarmCommand = async (prompt: string, catalogs: any): Promise<ParsedCommand> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Instrucción: "${prompt}". Contexto de catálogos: ${JSON.stringify(catalogs)}`,
+    config: {
+      responseMimeType: "application/json",
+      systemInstruction: "Eres un intérprete de comandos para AgroSuite 360. Identifica la acción (INVENTORY_IN, INVENTORY_OUT, LABOR, HARVEST) y extrae los parámetros (itemName, quantity, personnelName, etc.). Usa los catálogos provistos para normalizar los nombres.",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          action: { type: Type.STRING },
+          confidence: { type: Type.STRING },
+          explanation: { type: Type.STRING },
+          data: { type: Type.OBJECT }
+        },
+        required: ["action", "confidence", "explanation", "data"]
       }
-    });
+    }
+  });
 
-    return JSON.parse(response.text) as ParsedCommand;
-  } catch (error) {
-    return { action: 'UNKNOWN', data: {}, confidence: "Error de interpretación." };
+  try {
+    return JSON.parse(response.text || '{}') as ParsedCommand;
+  } catch (e) {
+    return { action: 'UNKNOWN', confidence: 'Baja', data: {}, explanation: "Error al interpretar el comando." };
+  }
+};
+
+export const getFarmAnalysis = async (data: AppState, prompt: string) => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Datos Actuales del ERP:\n- Lotes: ${data.costCenters.length}\n- Insumos: ${data.inventory.length}\n- Factor Laboral: ${data.laborFactor}\n\nConsulta del Usuario: ${prompt}`,
+    config: { 
+      systemInstruction: "Eres el Director Técnico de AgroSuite 360. Analiza los datos proporcionados para optimizar la rentabilidad por lote y el cumplimiento de BPA ICA. Tus respuestas deben ser cortas, técnicas y accionables." 
+    }
+  });
+  return response.text;
+};
+
+export const analyzeFarmImage = async (base64: string, mimeType: string, prompt?: string) => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { 
+        parts: [
+            { inlineData: { data: base64.split(',')[1], mimeType: mimeType } },
+            { text: prompt || "Analiza esta imagen agrícola. Si es una planta, busca plagas. Si es una factura, extrae valores." }
+        ] 
+    },
+    config: {
+        systemInstruction: "Eres un Ingeniero Agrónomo experto. Proporciona diagnósticos precisos basados en la imagen visual."
+    }
+  });
+  return response.text;
+};
+
+export const processInvoiceVision = async (base64: string, mimeType: string): Promise<ParsedCommand> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { 
+        parts: [
+            { inlineData: { data: base64.split(',')[1], mimeType: mimeType } },
+            { text: "Extrae los datos de esta factura de agroquímicos." }
+        ] 
+    },
+    config: {
+      responseMimeType: "application/json",
+      systemInstruction: "Analiza la factura y devuelve un JSON para cargar en AgroSuite 360. Debe incluir action='INVENTORY_IN', explanation, y data (itemName, quantity, unit, unitPrice).",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          action: { type: Type.STRING },
+          confidence: { type: Type.STRING },
+          explanation: { type: Type.STRING },
+          data: {
+            type: Type.OBJECT,
+            properties: {
+              itemName: { type: Type.STRING },
+              quantity: { type: Type.NUMBER },
+              unit: { type: Type.STRING },
+              unitPrice: { type: Type.NUMBER }
+            }
+          }
+        },
+        required: ["action", "explanation", "data"]
+      }
+    }
+  });
+  
+  try {
+    return JSON.parse(response.text || '{}') as ParsedCommand;
+  } catch (e) {
+    return { action: 'UNKNOWN', confidence: 'Baja', data: {}, explanation: "Error al procesar JSON de la IA." };
   }
 };

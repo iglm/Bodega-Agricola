@@ -1,274 +1,130 @@
 
-import { InventoryItem, Movement, Unit, AppState, Warehouse, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog } from '../types';
+import { InventoryItem, Movement, Unit, AppState, SWOT } from '../types';
 
-const STORAGE_KEY = 'agrobodega_pro_data_v1';
-const DEBOUNCE_TIME = 500; // ms
+const STORAGE_KEY = 'agrosuite_360_v1_expert';
 
-// Temporizador interno para el debouncing
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-let lastPendingData: AppState | null = null;
+export const generateId = () => Math.random().toString(36).substring(2, 15);
 
-// Base conversion factors (to grams or milliliters)
-const CONVERSION_RATES: Record<Unit, number> = {
-  [Unit.BULTO_50KG]: 50000, 
-  [Unit.KILO]: 1000,        
-  [Unit.GRAMO]: 1,          
-  [Unit.LITRO]: 1000,       
-  [Unit.MILILITRO]: 1,      
-  [Unit.UNIDAD]: 1          
+const CONVERSION_RATES: Record<string, number> = {
+  [Unit.BULTO_50KG]: 50000, [Unit.KILO]: 1000, [Unit.GRAMO]: 1,
+  [Unit.LITRO]: 1000, [Unit.MILILITRO]: 1, [Unit.UNIDAD]: 1
 };
 
-const UNIT_TYPE: Record<Unit, 'g' | 'ml' | 'unit'> = {
-  [Unit.BULTO_50KG]: 'g',
-  [Unit.KILO]: 'g',
-  [Unit.GRAMO]: 'g',
-  [Unit.LITRO]: 'ml',
-  [Unit.MILILITRO]: 'ml',
-  [Unit.UNIDAD]: 'unit'
-};
+export const convertToBase = (qty: number, unit: Unit) => qty * CONVERSION_RATES[unit];
 
 export const getBaseUnitType = (unit: Unit): 'g' | 'ml' | 'unit' => {
-  return UNIT_TYPE[unit];
+  if (unit === Unit.UNIDAD) return 'unit';
+  if (unit === Unit.LITRO || unit === Unit.MILILITRO) return 'ml';
+  return 'g';
 };
 
-export const convertToBase = (quantity: number, unit: Unit): number => {
-  return quantity * CONVERSION_RATES[unit];
+export const getCostPerGramOrMl = (item: InventoryItem) => {
+  return item.averageCost;
 };
 
-export const calculateCost = (
-  amountUsed: number, 
-  unitUsed: Unit, 
-  purchasePrice: number, 
-  purchaseUnit: Unit
-): number => {
-  const baseUsed = convertToBase(amountUsed, unitUsed);
-  const basePurchase = convertToBase(1, purchaseUnit); 
-  
-  const costPerBaseUnit = purchasePrice / basePurchase;
-  
-  return baseUsed * costPerBaseUnit;
+export const calculateCost = (qty: number, unit: Unit, avgCost: number) => {
+  return convertToBase(qty, unit) * avgCost;
 };
 
-export const calculateWeightedAverageCost = (
-  currentQuantity: number,
-  currentAvgCost: number,
-  incomingQuantity: number,
-  incomingUnit: Unit,
-  incomingUnitPrice: number
-): number => {
-  const currentTotalValue = currentQuantity * currentAvgCost;
-  const incomingBaseQuantity = convertToBase(incomingQuantity, incomingUnit);
-  const baseInPurchaseUnit = convertToBase(1, incomingUnit);
-  const costPerBaseIncoming = incomingUnitPrice / baseInPurchaseUnit; 
-  const incomingTotalValue = incomingBaseQuantity * costPerBaseIncoming;
-  const nextTotalQty = currentQuantity + incomingBaseQuantity;
+export const formatCurrency = (val: number) => 
+  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
 
-  if (nextTotalQty <= 0) return currentAvgCost;
-  
-  return (currentTotalValue + incomingTotalValue) / nextTotalQty;
+export const formatBaseQuantity = (qty: number, type: string) => {
+  if (type === 'unit') return `${qty} und`;
+  if (type === 'g' && qty >= 1000) return `${(qty/1000).toFixed(2)} kg`;
+  if (type === 'g') return `${qty.toFixed(0)} g`;
+  if (type === 'ml' && qty >= 1000) return `${(qty/1000).toFixed(2)} L`;
+  if (type === 'ml') return `${qty.toFixed(0)} ml`;
+  return `${qty.toFixed(0)} ${type}`;
 };
 
-/**
- * Procesa un movimiento y devuelve el inventario actualizado y el costo calculado del movimiento.
- */
-export const processInventoryMovement = (
-  inventory: InventoryItem[],
-  movData: Omit<Movement, 'id' | 'date' | 'warehouseId'>,
-  newUnitPrice?: number,
-  newExpirationDate?: string
-): { updatedInventory: InventoryItem[], movementCost: number } => {
-  const baseQuantity = convertToBase(movData.quantity, movData.unit);
+export const calculateWeightedAverageCost = (item: InventoryItem, incomingQty: number, incomingUnit: Unit, incomingPrice: number) => {
+  const currentTotalVal = item.currentQuantity * item.averageCost;
+  const incomingBaseQty = convertToBase(incomingQty, incomingUnit);
+  const costPerBase = incomingPrice / convertToBase(1, incomingUnit);
+  const incomingTotalVal = incomingBaseQty * costPerBase;
+  const nextQty = item.currentQuantity + incomingBaseQty;
+  return nextQty > 0 ? (currentTotalVal + incomingTotalVal) / nextQty : item.averageCost;
+};
+
+export const processInventoryMovement = (inventory: InventoryItem[], movement: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newPrice?: number, newExpirationDate?: string) => {
+  const itemIndex = inventory.findIndex(i => i.id === movement.itemId);
+  if (itemIndex === -1) return { updatedInventory: inventory, movementCost: 0 };
+
+  const updatedInventory = [...inventory];
+  const item = { ...updatedInventory[itemIndex] };
+  const baseQty = convertToBase(movement.quantity, movement.unit);
   let movementCost = 0;
 
-  const updatedInventory = inventory.map(item => {
-    if (item.id === movData.itemId) {
-      let nextQty = item.currentQuantity;
-      let nextAvgCost = item.averageCost;
-      let nextLastPrice = item.lastPurchasePrice;
-      let nextLastUnit = item.lastPurchaseUnit;
-      let nextExpDate = item.expirationDate;
+  if (movement.type === 'IN') {
+    const unitPrice = newPrice || item.lastPurchasePrice;
+    movementCost = movement.quantity * unitPrice;
+    item.averageCost = calculateWeightedAverageCost(item, movement.quantity, movement.unit, unitPrice);
+    item.currentQuantity += baseQty;
+    item.lastPurchasePrice = unitPrice;
+    item.lastPurchaseUnit = movement.unit;
+    if (newExpirationDate) item.expirationDate = newExpirationDate;
+  } else {
+    movementCost = baseQty * item.averageCost;
+    item.currentQuantity -= baseQty;
+  }
 
-      if (movData.type === 'IN') {
-        if (newUnitPrice !== undefined) {
-          nextAvgCost = calculateWeightedAverageCost(
-            item.currentQuantity,
-            item.averageCost,
-            movData.quantity,
-            movData.unit,
-            newUnitPrice
-          );
-          nextLastPrice = newUnitPrice;
-          nextLastUnit = movData.unit;
-          const baseInPurchaseUnit = convertToBase(1, movData.unit);
-          movementCost = baseQuantity * (newUnitPrice / baseInPurchaseUnit);
-          if (newExpirationDate) nextExpDate = newExpirationDate;
-        } else {
-          movementCost = baseQuantity * item.averageCost;
-        }
-        nextQty += baseQuantity;
-      } else {
-        movementCost = baseQuantity * item.averageCost;
-        nextQty -= baseQuantity;
-      }
-
-      if (nextQty < 0.0001) nextQty = 0;
-
-      return {
-        ...item,
-        currentQuantity: nextQty,
-        averageCost: nextAvgCost,
-        lastPurchasePrice: nextLastPrice,
-        lastPurchaseUnit: nextLastUnit,
-        expirationDate: nextExpDate
-      };
-    }
-    return item;
-  });
-
+  updatedInventory[itemIndex] = item;
   return { updatedInventory, movementCost };
 };
 
-export const getCostPerGramOrMl = (item: InventoryItem): number => {
-  if (item.averageCost && item.averageCost > 0) {
-    return item.averageCost;
-  }
-  const basePurchase = convertToBase(1, item.lastPurchaseUnit);
-  return item.lastPurchasePrice / basePurchase;
-};
-
-/**
- * Persiste los datos de forma inmediata.
- * Útil para cierres de app o procesos críticos.
- */
-export const saveDataNow = (data: AppState) => {
-    if (saveTimeout) {
-        clearTimeout(saveTimeout);
-        saveTimeout = null;
-    }
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        lastPendingData = null;
-    } catch (e) {
-        console.error("Error crítico guardando en localStorage", e);
-    }
-};
-
-/**
- * Guarda datos con debouncing para evitar sobrecarga del hilo principal y del disco.
- */
-export const saveData = (data: AppState) => {
-  lastPendingData = data;
-  
-  if (saveTimeout) {
-      clearTimeout(saveTimeout);
-  }
-
-  saveTimeout = setTimeout(() => {
-    saveDataNow(data);
-  }, DEBOUNCE_TIME);
-};
-
 export const loadData = (): AppState => {
-  try {
-    const rawData = localStorage.getItem(STORAGE_KEY);
-    if (rawData) {
-      const parsed = JSON.parse(rawData);
-      let migrated = { ...parsed };
-
-      // 1. Initialize Warehouses if missing (Migration V1)
-      let defaultId = '';
-      if (!migrated.warehouses || migrated.warehouses.length === 0) {
-        defaultId = crypto.randomUUID();
-        const defaultWarehouse: Warehouse = {
-          id: defaultId,
-          name: 'Finca Principal',
-          description: 'Sede migrada por defecto',
-          created: new Date().toISOString()
-        };
-        migrated.warehouses = [defaultWarehouse];
-        migrated.activeWarehouseId = defaultId;
-      } else {
-        defaultId = migrated.activeWarehouseId || migrated.warehouses[0].id;
-      }
-
-      // 2. Initialize Arrays
-      const arraysToFix = [
-          'suppliers', 'costCenters', 'personnel', 'activities', 
-          'laborLogs', 'harvests', 'agenda', 'machines', 
-          'maintenanceLogs', 'rainLogs', 'financeLogs', 'inventory', 'movements'
-      ];
-      
-      arraysToFix.forEach(key => {
-          if (!migrated[key]) migrated[key] = [];
-      });
-
-      // 3. MULTI-FARM MIGRATION: Assign warehouseId to orphaned records
-      const assignFarm = (item: any) => {
-          if (!item.warehouseId) item.warehouseId = defaultId;
-          return item;
-      };
-
-      arraysToFix.forEach(key => {
-          migrated[key] = migrated[key].map(assignFarm);
-      });
-
-      // 4. Default Activities (if empty)
-      if (migrated.activities.length === 0) {
-          migrated.activities = [
-            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Guadaña / Plateo' },
-            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Fumigación' },
-            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Fertilización' },
-            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Cosecha' },
-            { id: crypto.randomUUID(), warehouseId: defaultId, name: 'Poda' },
-          ];
-      }
-
-      return migrated;
+  const storedData = localStorage.getItem(STORAGE_KEY);
+  let parsed: any = {};
+  
+  if (storedData) {
+    try {
+      parsed = JSON.parse(storedData);
+    } catch (e) {
+      console.error("Error parsing local storage data", e);
     }
-  } catch (e) {
-    console.error("Error loading data from storage. Possible corruption.", e);
   }
 
-  // Fallback to initial state
-  const initId = crypto.randomUUID();
-  return { 
-    warehouses: [{ id: initId, name: 'Finca Principal', created: new Date().toISOString() }],
-    activeWarehouseId: initId,
-    inventory: [], 
-    movements: [],
-    suppliers: [],
-    costCenters: [],
-    personnel: [],
-    activities: [
-        { id: crypto.randomUUID(), warehouseId: initId, name: 'Guadaña / Plateo' },
-        { id: crypto.randomUUID(), warehouseId: initId, name: 'Fumigación' },
-        { id: crypto.randomUUID(), warehouseId: initId, name: 'Fertilización' },
-        { id: crypto.randomUUID(), warehouseId: initId, name: 'Cosecha' }
-    ],
-    laborLogs: [],
-    harvests: [],
-    agenda: [],
-    machines: [],
-    maintenanceLogs: [],
-    rainLogs: [],
-    financeLogs: []
+  const id = parsed.activeWarehouseId || generateId();
+  
+  return {
+    warehouses: parsed.warehouses || [{ id, name: 'Finca Principal', created: new Date().toISOString() }],
+    activeWarehouseId: id,
+    inventory: parsed.inventory || [],
+    movements: parsed.movements || [],
+    suppliers: parsed.suppliers || [],
+    costCenters: parsed.costCenters || [],
+    personnel: parsed.personnel || [],
+    activities: parsed.activities || [],
+    laborLogs: parsed.laborLogs || [],
+    harvests: parsed.harvests || [],
+    machines: parsed.machines || [],
+    maintenanceLogs: parsed.maintenanceLogs || [],
+    rainLogs: parsed.rainLogs || [],
+    financeLogs: parsed.financeLogs || [],
+    soilAnalyses: parsed.soilAnalyses || [],
+    ppeLogs: parsed.ppeLogs || [],
+    wasteLogs: parsed.wasteLogs || [],
+    agenda: parsed.agenda || [],
+    phenologyLogs: parsed.phenologyLogs || [],
+    pestLogs: parsed.pestLogs || [],
+    laborFactor: parsed.laborFactor || 1.0,
+    adminPin: parsed.adminPin || undefined,
+    swot: parsed.swot || {
+      f: 'Experiencia técnica en el cultivo.',
+      o: 'Demanda de productos orgánicos.',
+      d: 'Costos de insumos elevados.',
+      a: 'Cambio climático severo.'
+    },
+    bpaChecklist: parsed.bpaChecklist || {},
+    assets: parsed.assets || []
   };
 };
 
-export const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
-};
-
-export const formatBaseQuantity = (qty: number, type: 'g' | 'ml' | 'unit'): string => {
-  if (type === 'unit') return `${qty} und`;
-  if (type === 'g') {
-    if (qty >= 50000) return `${(qty / 50000).toFixed(2)} Bultos`;
-    if (qty >= 1000) return `${(qty / 1000).toFixed(2)} kg`;
-    return `${qty.toFixed(0)} g`;
+export const saveData = (data: AppState) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("Error saving data to local storage", e);
   }
-  if (type === 'ml') {
-    if (qty >= 1000) return `${(qty / 1000).toFixed(2)} L`;
-    return `${qty.toFixed(0)} ml`;
-  }
-  return `${qty}`;
 };

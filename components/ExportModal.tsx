@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck } from 'lucide-react';
 import { AppState } from '../types';
-import { generateGlobalReport, generateFieldTemplates, generateExcelImportTemplate, getCoffeeExampleData } from '../services/reportService';
+import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport } from '../services/reportService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -44,7 +44,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh]">
         
-        {/* Header */}
         <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 p-6 relative flex-shrink-0">
           <button onClick={onClose} className="absolute top-4 right-4 text-emerald-200/70 hover:text-white transition-colors">
             <X className="w-5 h-5" />
@@ -61,10 +60,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar bg-slate-900/30">
             
-            {/* SECTION: FREE TOOLS */}
             <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <FileText className="w-3 h-3" /> Reportes Básicos (Gratis)
@@ -81,7 +78,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 </div>
             </div>
 
-            {/* SECTION: PRO TOOLS */}
             <div className="space-y-3 bg-emerald-900/10 p-4 rounded-2xl border border-emerald-500/20 relative">
                 {!isSupporter && (
                     <div className="absolute -top-2 -right-2">
@@ -108,16 +104,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Informe Global</span>
                     </button>
 
-                    <button onClick={() => handleProAction(onExportLaborPDF!)} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
+                    <button onClick={() => handleProAction(() => generateExecutiveReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden col-span-2">
                         {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
-                        <Pickaxe className={`w-5 h-5 ${isSupporter ? 'text-amber-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Nómina PDF</span>
-                    </button>
-
-                    <button onClick={() => handleProAction(onExportHarvestPDF!)} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
-                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
-                        <Sprout className={`w-5 h-5 ${isSupporter ? 'text-yellow-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Cosechas PDF</span>
+                        <ShieldCheck className={`w-5 h-5 ${isSupporter ? 'text-blue-400' : 'text-slate-500'}`} />
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Informe de Auditoría Técnica (Dossier)</span>
                     </button>
                 </div>
 
@@ -131,7 +121,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 )}
             </div>
 
-            {/* SECTION: FIELD TEMPLATES */}
             <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <Clipboard className="w-3 h-3" /> Auxiliares de Campo

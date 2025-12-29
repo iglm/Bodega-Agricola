@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Category, Unit, InventoryItem, Supplier } from '../types';
-import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle, Info, Tag, Bookmark } from 'lucide-react';
+import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle, Info, Tag, Bookmark, ShieldCheck, Loader2 } from 'lucide-react';
 import { convertToBase, getBaseUnitType } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
 
@@ -25,19 +25,20 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [initialUnit, setInitialUnit] = useState<Unit>(Unit.BULTO_50KG);
   const [minStock, setMinStock] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [safetyDays, setSafetyDays] = useState('');
   const [image, setImage] = useState<string | undefined>(undefined);
   const [isProcessingImg, setIsProcessingImg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const invoiceFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
-  const invoiceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
       const baseType = getBaseUnitType(purchaseUnit);
       if (baseType !== getBaseUnitType(initialUnit)) setInitialUnit(purchaseUnit);
-  }, [purchaseUnit]);
+  }, [purchaseUnit, initialUnit]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>, isInvoice: boolean = false) => {
     if (e.target.files && e.target.files[0]) {
@@ -60,7 +61,10 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
       name, category, lastPurchaseUnit: purchaseUnit,
       lastPurchasePrice: Number(purchasePrice),
       minStock: minStockBase, minStockUnit: minStock ? purchaseUnit : undefined,
-      description: '', expirationDate: expirationDate || undefined, image
+      description: '', 
+      expirationDate: expirationDate || undefined, 
+      safetyIntervalDays: safetyDays ? parseInt(safetyDays) : undefined,
+      image
     }, initQty, {
         supplierId: selectedSupplierId || undefined,
         invoiceNumber: invoiceNumber || undefined,
@@ -79,7 +83,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
              </div>
              <div>
                 <h3 className="text-slate-800 dark:text-white font-black text-xl">Nuevo Producto</h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Registro de Inventario</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gestión de Insumos</p>
              </div>
           </div>
           <button onClick={onCancel} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 transition-colors">
@@ -89,11 +93,10 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
         
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar pb-10">
           
-          {/* SECCIÓN 1: IDENTIDAD */}
           <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                   <Bookmark className="w-4 h-4 text-emerald-500" />
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Información Básica</h4>
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Identificación</h4>
               </div>
               <div className="flex gap-4 items-start">
                   <div className="shrink-0">
@@ -105,7 +108,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => handleImageSelect(e, false)} />
                   </div>
                   <div className="flex-1 space-y-4">
-                      <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-800 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="Nombre (Ej: Urea 46%)" required autoFocus />
+                      <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-800 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="Nombre (Ej: Amistar Top)" required autoFocus />
                       <div className="grid grid-cols-2 gap-3">
                           <select value={category} onChange={e => setCategory(e.target.value as Category)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none">
                               {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
@@ -118,47 +121,66 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
               </div>
           </div>
 
-          {/* SECCIÓN 2: COSTOS Y ALERTAS */}
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-5">
               <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-blue-500" />
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Finanzas y Control</h4>
+                  <ShieldCheck className="w-4 h-4 text-blue-500" />
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Seguridad Alimentaria (PHI)</h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Precio de Compra</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Precio Compra</label>
                       <input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-emerald-600 font-mono font-black outline-none focus:ring-2 focus:ring-emerald-500" placeholder="$ 0" required />
                   </div>
                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Stock Mínimo Alerta</label>
-                      <input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-orange-500 font-mono font-black outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ej: 5" />
+                      <label className="text-[10px] font-black text-blue-500 uppercase ml-2">Días Carencia (BPA)</label>
+                      <input type="number" value={safetyDays} onChange={e => setSafetyDays(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 text-blue-600 font-mono font-black outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: 15" />
                   </div>
               </div>
-              <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Fecha de Vencimiento</label>
-                  <input type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-600 dark:text-white font-bold outline-none" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Stock Mínimo</label>
+                      <input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-orange-500 font-mono font-black outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ej: 5" />
+                  </div>
+                  <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Vencimiento</label>
+                      <input type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-600 dark:text-white font-bold outline-none" />
+                  </div>
               </div>
           </div>
-
-          {/* SECCIÓN 3: SALDO INICIAL */}
+          
           <div className="bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-[2rem] border border-indigo-100 dark:border-indigo-900/30 space-y-4">
               <h4 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                  <Package className="w-4 h-4" /> Inventario Existente
+                  <Receipt className="w-4 h-4" /> Datos de Compra Inicial
               </h4>
+              
               <div className="flex gap-2">
-                  <input type="number" value={initialQuantity} onChange={e => setInitialQuantity(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-indigo-700 dark:text-indigo-300 font-black outline-none" placeholder="Cantidad hoy" />
+                  <input type="number" value={initialQuantity} onChange={e => setInitialQuantity(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-indigo-700 dark:text-indigo-300 font-black outline-none" placeholder="Cant. Actual" />
                   <select value={initialUnit} onChange={e => setInitialUnit(e.target.value as Unit)} className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-xs font-black text-slate-500 outline-none">
                       {Object.values(Unit).filter(u => getBaseUnitType(u) === getBaseUnitType(purchaseUnit)).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
               </div>
-              
-              <div className={`space-y-4 pt-4 border-t border-indigo-200/50 transition-all ${!initialQuantity || initialQuantity === '0' ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 text-xs font-bold text-slate-600">
-                          <option value="">-- Proveedor --</option>
-                          {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                      <input type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 text-xs font-bold text-slate-600" placeholder="N° Factura" />
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><Users className="w-3 h-3" /> Proveedor (Opcional)</label>
+                <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-slate-800 dark:text-white font-bold text-xs">
+                  <option value="">Sin Proveedor</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText className="w-3 h-3" /> Factura (Opcional)</label>
+                    <input type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-slate-800 dark:text-white font-bold text-xs" placeholder="N° Factura" />
+                  </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><Camera className="w-3 h-3" /> Foto Factura</label>
+                     <div onClick={() => invoiceFileInputRef.current?.click()} className="w-full h-[58px] rounded-2xl bg-white dark:bg-slate-900 border-2 border-dashed border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-400 hover:border-indigo-500 hover:text-indigo-500 transition-all cursor-pointer relative overflow-hidden group">
+                        {isProcessingInvoiceImg ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+                         invoiceImage ? <img src={invoiceImage} className="w-full h-full object-cover" /> : 
+                         <span className="text-[9px] font-black">SUBIR FOTO</span>}
+                     </div>
+                     <input type="file" ref={invoiceFileInputRef} className="hidden" accept="image/*" onChange={e => handleImageSelect(e, true)} />
                   </div>
               </div>
           </div>

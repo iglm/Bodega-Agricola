@@ -6,7 +6,8 @@ import { Landmark, TrendingUp, TrendingDown, Plus, Trash2, Calendar, AlertTriang
 
 interface FinanceViewProps {
   financeLogs: FinanceLog[];
-  onAddTransaction: (t: Omit<FinanceLog, 'id'>) => void;
+  // Fix: Omit warehouseId as it is handled by the parent component (App.tsx)
+  onAddTransaction: (t: Omit<FinanceLog, 'id' | 'warehouseId'>) => void;
   onDeleteTransaction: (id: string) => void;
 }
 

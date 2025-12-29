@@ -6,6 +6,7 @@ export enum Category {
   HERBICIDA = 'Herbicida',
   BIOESTIMULANTE = 'Bioestimulante',
   DESINFECTANTE = 'Desinfectante',
+  BIOABONO = 'Bioabono',
   OTRO = 'Otro'
 }
 
@@ -22,15 +23,65 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  isSupporter?: boolean;
   avatar?: string;
-  isSupporter?: boolean; 
-  subscriptionExpiry?: string; // Para manejar renovaciones
+}
+
+export interface AgendaEvent {
+  id: string;
+  warehouseId: string;
+  date: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface SWOT {
+  f: string;
+  o: string;
+  d: string;
+  a: string;
+}
+
+export interface BpaCriterion {
+  id:string;
+  category: 'CHEMICALS' | 'SST' | 'ENVIRONMENT' | 'TRACEABILITY' | 'INFRASTRUCTURE';
+  code: string;
+  label: string;
+  isCritical: boolean;
+  compliant: boolean;
+  na?: boolean;
+}
+
+export interface Asset {
+  id: string;
+  warehouseId: string;
+  name: string;
+  purchasePrice: number;
+  lifespanYears: number;
+  purchaseDate: string;
+  category: 'MAQUINARIA' | 'HERRAMIENTA' | 'INFRAESTRUCTURA';
+}
+
+export interface PhenologyLog {
+  id: string;
+  warehouseId: string;
+  costCenterId: string;
+  date: string;
+  stage: 'Dormancia' | 'Brote' | 'Floración' | 'Cuajado' | 'Llenado' | 'Maduración';
+  notes?: string;
+}
+
+export interface PestLog {
+  id: string;
+  warehouseId: string;
+  costCenterId: string;
+  date: string;
+  pestOrDisease: string;
+  incidence: 'Baja' | 'Media' | 'Alta';
+  notes?: string;
 }
 
 export interface AppState {
-  user?: User;
-  isSupporter?: boolean; 
-  subscriptionExpiry?: string;
   warehouses: Warehouse[];
   activeWarehouseId: string;
   inventory: InventoryItem[];
@@ -41,24 +92,162 @@ export interface AppState {
   activities: Activity[]; 
   laborLogs: LaborLog[]; 
   harvests: HarvestLog[];
-  agenda: AgendaEvent[];
   machines: Machine[];
   maintenanceLogs: MaintenanceLog[];
   rainLogs: RainLog[];
   financeLogs: FinanceLog[]; 
+  soilAnalyses: SoilAnalysis[];
+  ppeLogs: PPELog[];
+  wasteLogs: WasteLog[];
+  agenda: AgendaEvent[];
+  phenologyLogs: PhenologyLog[];
+  pestLogs: PestLog[];
+  swot?: SWOT;
+  bpaChecklist: Record<string, boolean>;
+  assets: Asset[];
+  laborFactor: number; // Nueva propiedad: 1.0 para informal, 1.52 para legal
+  adminPin?: string; // PIN de seguridad para acciones gerenciales
 }
 
-export interface Warehouse { id: string; name: string; description?: string; created: string; }
-export interface Supplier { id: string; warehouseId?: string; name: string; phone?: string; email?: string; address?: string; }
-export interface Personnel { id: string; warehouseId?: string; name: string; role?: string; }
-export interface CostCenter { id: string; warehouseId?: string; name: string; description?: string; budget?: number; area?: number; stage?: 'Produccion' | 'Levante' | 'Infraestructura'; plantCount?: number; cropType?: string; }
-export interface Activity { id: string; warehouseId?: string; name: string; description?: string; }
-export interface LaborLog { id: string; warehouseId?: string; date: string; personnelId: string; personnelName: string; costCenterId: string; costCenterName: string; activityId: string; activityName: string; value: number; notes?: string; paid?: boolean; paymentDate?: string; }
-export interface InventoryItem { id: string; warehouseId: string; name: string; category: Category; currentQuantity: number; baseUnit: 'g' | 'ml' | 'unit'; image?: string; lastPurchasePrice: number; lastPurchaseUnit: Unit; averageCost: number; minStock?: number; minStockUnit?: Unit; description?: string; expirationDate?: string; }
-export interface Movement { id: string; warehouseId: string; itemId: string; itemName: string; type: 'IN' | 'OUT'; quantity: number; unit: Unit; calculatedCost: number; date: string; notes?: string; invoiceNumber?: string; invoiceImage?: string; outputCode?: string; supplierId?: string; supplierName?: string; costCenterId?: string; costCenterName?: string; machineId?: string; machineName?: string; personnelId?: string; personnelName?: string; }
-export interface HarvestLog { id: string; warehouseId?: string; date: string; costCenterId: string; costCenterName: string; cropName: string; quantity: number; unit: string; totalValue: number; notes?: string; }
-export interface AgendaEvent { id: string; warehouseId?: string; date: string; title: string; description?: string; completed: boolean; personnelId?: string; personnelName?: string; activityId?: string; activityName?: string; costCenterId?: string; costCenterName?: string; machineId?: string; machineName?: string; estimatedCost?: number; }
-export interface Machine { id: string; warehouseId?: string; name: string; brand?: string; purchaseDate?: string; }
-export interface MaintenanceLog { id: string; warehouseId?: string; machineId: string; date: string; type: 'Preventivo' | 'Correctivo' | 'Combustible'; cost: number; description: string; usageAmount?: number; }
-export interface RainLog { id: string; warehouseId?: string; date: string; millimeters: number; notes?: string; }
-export interface FinanceLog { id: string; warehouseId?: string; date: string; type: 'INCOME' | 'EXPENSE'; category: 'Servicios' | 'Impuestos' | 'Bancario' | 'Transporte' | 'Administracion' | 'Otros' | 'Prestamo' | 'Capital'; amount: number; description: string; }
+export interface Warehouse { id: string; name: string; created: string; }
+
+export interface CostCenter { 
+  id: string; 
+  warehouseId: string; 
+  name: string; 
+  area: number; 
+  productionArea?: number;
+  stage: 'Produccion' | 'Levante' | 'Infraestructura'; 
+  cropType: string;
+  associatedCrop?: string;
+  budget?: number;
+  coordinates?: { lat: number; lng: number };
+  plantCount?: number;
+}
+
+export interface InventoryItem { 
+  id: string; 
+  warehouseId: string; 
+  name: string; 
+  category: Category; 
+  currentQuantity: number; 
+  baseUnit: 'g' | 'ml' | 'unit'; 
+  averageCost: number; 
+  lastPurchasePrice: number;
+  lastPurchaseUnit: Unit;
+  minStock?: number;
+  minStockUnit?: Unit;
+  image?: string;
+  description?: string;
+  expirationDate?: string;
+  safetyIntervalDays?: number;
+}
+
+export interface LaborLog { 
+  id: string; 
+  warehouseId: string; 
+  date: string; 
+  personnelId: string;
+  personnelName: string; 
+  activityId: string;
+  activityName: string; 
+  costCenterId: string;
+  costCenterName: string;
+  value: number; 
+  paid: boolean;
+  notes?: string;
+}
+
+export interface HarvestLog { 
+  id: string; 
+  warehouseId: string; 
+  costCenterId: string;
+  costCenterName: string;
+  date: string; 
+  cropName: string; 
+  quantity: number; 
+  unit: string; 
+  totalValue: number;
+  quality1Qty?: number;
+  quality2Qty?: number;
+  wasteQty?: number;
+  rejectionCause?: string;
+  notes?: string;
+  yieldFactor?: number;
+}
+
+export interface Movement { 
+  id: string; 
+  warehouseId: string; 
+  itemId: string; 
+  itemName: string; 
+  type: 'IN' | 'OUT'; 
+  quantity: number; 
+  unit: Unit; 
+  calculatedCost: number; 
+  date: string; 
+  notes?: string;
+  invoiceNumber?: string;
+  invoiceImage?: string;
+  outputCode?: string;
+  supplierId?: string;
+  supplierName?: string;
+  costCenterId?: string;
+  costCenterName?: string;
+  machineId?: string;
+  machineName?: string;
+  personnelId?: string;
+  personnelName?: string;
+  phiApplied?: number;
+}
+
+export interface SoilAnalysis { 
+  id: string; 
+  warehouseId: string; 
+  costCenterId: string;
+  costCenterName: string; 
+  date: string; 
+  ph: number;
+  nitrogen: number;
+  phosphorus: number;
+  potassium: number;
+  calcium?: number;
+  magnesium?: number;
+  sulfur?: number;
+  aluminum?: number;
+  boron?: number;
+  organicMatter: number;
+  notes: string; 
+}
+
+export interface PPELog { id: string; warehouseId: string; personnelId: string; personnelName: string; date: string; items: string[]; notes?: string; }
+export interface WasteLog { id: string; warehouseId: string; date: string; itemDescription: string; quantity: number; tripleWashed: boolean; disposalPoint?: string; }
+export interface Machine { id: string; warehouseId: string; name: string; brand?: string; purchaseDate?: string; purchaseValue?: number; expectedLifeHours?: number; capacityTheoretical?: number; width?: number; efficiency?: number; dischargeRateLitersPerMin?: number; avgSpeedKmh?: number; }
+export interface MaintenanceLog { id: string; warehouseId: string; machineId: string; date: string; cost: number; description: string; hoursWorked?: number; fuelUsedLiters?: number; }
+export interface RainLog { id: string; warehouseId: string; date: string; millimeters: number; }
+export interface FinanceLog { id: string; warehouseId: string; date: string; type: 'INCOME' | 'EXPENSE'; amount: number; category: string; description: string; }
+
+export type CostClassification = 'JOINT' | 'COFFEE' | 'PLANTAIN' | 'OTHER';
+
+export interface Activity { 
+  id: string; 
+  warehouseId: string; 
+  name: string; 
+  costClassification?: CostClassification;
+}
+
+export interface Personnel { 
+  id: string; 
+  warehouseId: string; 
+  name: string; 
+  role: string; 
+  documentId?: string;
+  phone?: string;
+  emergencyContact?: string;
+  eps?: string;
+  arl?: boolean;
+  birthDate?: string;
+  disability?: string;
+}
+
+export interface Supplier { id: string; warehouseId: string; name: string; phone?: string; email?: string; address?: string; }

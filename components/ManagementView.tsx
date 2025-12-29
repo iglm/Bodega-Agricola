@@ -1,654 +1,284 @@
 
 import React, { useState, useMemo } from 'react';
-import { AgendaEvent, Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity } from '../types';
-import { formatCurrency } from '../services/inventoryService';
-import { generateRainExcel, generateRainPDF } from '../services/reportService';
-import { Calendar, CheckSquare, Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor } from 'lucide-react';
+import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, BpaCriterion, PhenologyLog, PestLog } from '../types';
+import { formatCurrency, generateId } from '../services/inventoryService';
+import { Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug } from 'lucide-react';
 
 interface ManagementViewProps {
-  agenda: AgendaEvent[];
   machines: Machine[];
   maintenanceLogs: MaintenanceLog[];
   rainLogs: RainLog[];
   costCenters: CostCenter[];
-  personnel: Personnel[]; // New
-  activities: Activity[]; // New
-  // Actions
-  onAddEvent: (e: Omit<AgendaEvent, 'id'>) => void;
-  onToggleEvent: (id: string) => void;
-  onDeleteEvent: (id: string) => void;
-  onConvertEvent?: (e: AgendaEvent, actualValue: number, machineCost?: number) => void; // Updated signature
-  onAddMachine: (m: Omit<Machine, 'id'>) => void;
-  onAddMaintenance: (m: Omit<MaintenanceLog, 'id'>) => void;
+  personnel: Personnel[];
+  activities: Activity[];
+  soilAnalyses: SoilAnalysis[];
+  ppeLogs: PPELog[];
+  wasteLogs: WasteLog[];
+  assets: Asset[];
+  bpaChecklist: Record<string, boolean>;
+  phenologyLogs: PhenologyLog[];
+  pestLogs: PestLog[];
+  onAddMachine: (m: Omit<Machine, 'id' | 'warehouseId'>) => void;
+  onUpdateMachine: (machine: Machine) => void;
+  onAddMaintenance: (m: Omit<MaintenanceLog, 'id' | 'warehouseId'>) => void;
   onDeleteMachine: (id: string) => void;
-  onAddRain: (r: Omit<RainLog, 'id'>) => void;
+  onAddRain: (r: Omit<RainLog, 'id' | 'warehouseId'>) => void;
   onDeleteRain: (id: string) => void;
+  onAddSoilAnalysis: (s: Omit<SoilAnalysis, 'id' | 'warehouseId'>) => void;
+  onDeleteSoilAnalysis: (id: string) => void;
+  onAddPPE: (p: Omit<PPELog, 'id' | 'warehouseId'>) => void;
+  onDeletePPE: (id: string) => void;
+  onAddWaste: (w: Omit<WasteLog, 'id' | 'warehouseId'>) => void;
+  onDeleteWaste: (id: string) => void;
+  onAddAsset: (a: Omit<Asset, 'id' | 'warehouseId'>) => void;
+  onDeleteAsset: (id: string) => void;
+  onToggleBpa: (code: string) => void;
+  onAddPhenologyLog: (log: Omit<PhenologyLog, 'id' | 'warehouseId'>) => void;
+  onDeletePhenologyLog: (id: string) => void;
+  onAddPestLog: (log: Omit<PestLog, 'id' | 'warehouseId'>) => void;
+  onDeletePestLog: (id: string) => void;
   isAdmin: boolean;
 }
 
+const BPA_TEMPLATE: BpaCriterion[] = [
+  { id: '1', category: 'CHEMICALS', code: 'CH.01', label: 'Bodega de químicos ventilada y con llave', isCritical: true, compliant: false },
+  { id: '2', category: 'CHEMICALS', code: 'CH.02', label: 'Registro de aplicaciones (Res. 082394)', isCritical: true, compliant: false },
+  { id: '3', category: 'SST', code: 'SST.01', label: 'Uso de EPP según etiqueta de producto', isCritical: true, compliant: false },
+  { id: '4', category: 'SST', code: 'SST.02', label: 'Botiquín de primeros auxilios dotado', isCritical: false, compliant: false },
+  { id: '5', category: 'ENVIRONMENT', code: 'ENV.01', label: 'Triple lavado y perforación de envases', isCritical: true, compliant: false },
+  { id: '6', category: 'TRACEABILITY', code: 'TRA.01', label: 'Registros de cosecha diarios por lote', isCritical: true, compliant: false },
+  { id: '7', category: 'INFRASTRUCTURE', code: 'INF.01', label: 'Instalaciones sanitarias limpias y con agua', isCritical: true, compliant: false },
+];
+
 export const ManagementView: React.FC<ManagementViewProps> = ({
-    agenda, machines, maintenanceLogs, rainLogs, costCenters, personnel, activities,
-    onAddEvent, onToggleEvent, onDeleteEvent, onConvertEvent,
-    onAddMachine, onAddMaintenance, onDeleteMachine,
-    onAddRain, onDeleteRain, isAdmin
+    machines, maintenanceLogs, rainLogs, costCenters, personnel, activities,
+    soilAnalyses, ppeLogs, wasteLogs, assets, bpaChecklist, phenologyLogs, pestLogs,
+    onAddMachine, onUpdateMachine, onAddMaintenance, onDeleteMachine,
+    onAddRain, onDeleteRain,
+    onAddSoilAnalysis, onDeleteSoilAnalysis,
+    onAddPPE, onDeletePPE,
+    onAddWaste, onDeleteWaste,
+    onAddAsset, onDeleteAsset, onToggleBpa,
+    onAddPhenologyLog, onDeletePhenologyLog,
+    onAddPestLog, onDeletePestLog,
+    isAdmin
 }) => {
-  const [subTab, setSubTab] = useState<'agenda' | 'machinery' | 'rain'>('agenda');
+  const [subTab, setSubTab] = useState<'audit' | 'assets' | 'agronomy' | 'sst' | 'tools'>('audit');
 
-  // Agenda Forms state
-  const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
-  const [eventPersonId, setEventPersonId] = useState('');
-  const [eventActivityId, setEventActivityId] = useState('');
-  const [eventLotId, setEventLotId] = useState('');
-  const [eventMachineId, setEventMachineId] = useState(''); // New Machine Link
-  const [eventCost, setEventCost] = useState('');
-  const [eventDesc, setEventDesc] = useState('');
+  // Forms State
+  const [assetName, setAssetName] = useState('');
+  const [assetPrice, setAssetPrice] = useState('');
+  const [assetLife, setAssetLife] = useState('10');
+  const [assetCat, setAssetCat] = useState<'MAQUINARIA' | 'HERRAMIENTA' | 'INFRAESTRUCTURA'>('MAQUINARIA');
 
-  // Execution State (Converting Task to Log)
-  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
-  const [actualTaskCost, setActualTaskCost] = useState(''); // Labor Cost
-  const [actualMachineCost, setActualMachineCost] = useState(''); // Machine Cost (Fuel/Usage)
-  
-  const [rainDate, setRainDate] = useState(new Date().toISOString().split('T')[0]);
-  const [rainMm, setRainMm] = useState('');
-
-  const [machineName, setMachineName] = useState('');
-  const [maintType, setMaintType] = useState<'Preventivo' | 'Correctivo' | 'Combustible'>('Correctivo');
+  const [maintMachineId, setMaintMachineId] = useState('');
   const [maintCost, setMaintCost] = useState('');
   const [maintDesc, setMaintDesc] = useState('');
-  const [maintUsage, setMaintUsage] = useState(''); // New: Hours/Km
-  const [selectedMachineId, setSelectedMachineId] = useState('');
+  const [maintHours, setMaintHours] = useState('');
+  const [maintFuel, setMaintFuel] = useState('');
 
-  // AGENDA HANDLERS
-  const handleAddEvent = (e: React.FormEvent) => {
-      e.preventDefault();
+  const [rainMm, setRainMm] = useState('');
+  const [phenoLotId, setPhenoLotId] = useState('');
+  const [phenoStage, setPhenoStage] = useState<'Floración' | 'Cuajado' | 'Llenado' | 'Maduración'>('Floración');
+  const [pestLotId, setPestLotId] = useState('');
+  const [pestName, setPestName] = useState('');
+  const [pestIncidence, setPestIncidence] = useState<'Baja' | 'Media' | 'Alta'>('Baja');
+
+  // SST Forms State
+  const [ppePersonnelId, setPpePersonnelId] = useState('');
+  const [ppeItems, setPpeItems] = useState('');
+  const [wasteDescription, setWasteDescription] = useState('');
+  const [wasteQty, setWasteQty] = useState('');
+  const [wasteTripleWashed, setWasteTripleWashed] = useState(true);
+
+  // Tools State
+  const [toolMachineId, setToolMachineId] = useState('');
+  const [toolDischarge, setToolDischarge] = useState('');
+  const [toolWidth, setToolWidth] = useState('');
+  const [toolSpeed, setToolSpeed] = useState('');
+  const [toolTank, setToolTank] = useState('');
+  const [toolDose, setToolDose] = useState('');
+
+
+  const bpaSummary = useMemo(() => {
+    const criteria = BPA_TEMPLATE.map(c => ({ ...c, compliant: !!bpaChecklist[c.code] }));
+    const total = criteria.length;
+    const compliant = criteria.filter(c => c.compliant).length;
+    const criticalFail = criteria.some(c => c.isCritical && !c.compliant);
+    return { criteria, percent: (compliant / total) * 100, criticalFail };
+  }, [bpaChecklist]);
+
+  const toolCalculations = useMemo(() => {
+      const discharge = parseFloat(toolDischarge);
+      const width = parseFloat(toolWidth);
+      const speed = parseFloat(toolSpeed);
+      if (!discharge || !width || !speed) return { LHa: 0, productPerTank: 0 };
       
-      const person = personnel.find(p => p.id === eventPersonId);
-      const activity = activities.find(a => a.id === eventActivityId);
-      const lot = costCenters.find(c => c.id === eventLotId);
-      const machine = machines.find(m => m.id === eventMachineId);
-
-      // Basic title construction if no specific description
-      let title = eventDesc;
-      if (!title) {
-          if (activity && lot) title = `${activity.name} en ${lot.name}`;
-          else if (activity) title = activity.name;
-          else title = "Tarea General";
+      const LHa = (discharge * 600) / (width * speed);
+      const tank = parseFloat(toolTank);
+      const dose = parseFloat(toolDose);
+      
+      let productPerTank = 0;
+      if (LHa > 0 && tank > 0 && dose > 0) {
+          productPerTank = (tank * dose) / LHa;
       }
 
-      onAddEvent({
-          date: eventDate,
-          title: title,
-          description: eventDesc,
-          completed: false,
-          personnelId: eventPersonId || undefined,
-          personnelName: person?.name,
-          activityId: eventActivityId || undefined,
-          activityName: activity?.name,
-          costCenterId: eventLotId || undefined,
-          costCenterName: lot?.name,
-          machineId: eventMachineId || undefined,
-          machineName: machine?.name,
-          estimatedCost: eventCost ? parseFloat(eventCost) : undefined
-      });
+      return { LHa, productPerTank };
+  }, [toolDischarge, toolWidth, toolSpeed, toolTank, toolDose]);
 
-      // Reset
-      setEventDesc(''); setEventCost('');
+  const handleAddRain = (e: React.FormEvent) => { e.preventDefault(); if(rainMm) { onAddRain({date: new Date().toISOString(), millimeters: parseFloat(rainMm)}); setRainMm(''); } };
+  const handleAddPheno = (e: React.FormEvent) => { e.preventDefault(); if(phenoLotId) { onAddPhenologyLog({date: new Date().toISOString(), costCenterId: phenoLotId, stage: phenoStage}); setPhenoLotId(''); } };
+  const handleAddPest = (e: React.FormEvent) => { e.preventDefault(); if(pestLotId && pestName) { onAddPestLog({date: new Date().toISOString(), costCenterId: pestLotId, pestOrDisease: pestName, incidence: pestIncidence}); setPestLotId(''); setPestName(''); } };
+  const handleAddMaintenance = (e: React.FormEvent) => { e.preventDefault(); if(maintMachineId && maintDesc) { onAddMaintenance({date: new Date().toISOString(), machineId: maintMachineId, description: maintDesc, cost: parseFloat(maintCost) || 0, hoursWorked: parseFloat(maintHours) || undefined, fuelUsedLiters: parseFloat(maintFuel) || undefined }); setMaintMachineId(''); setMaintCost(''); setMaintDesc(''); setMaintHours(''); setMaintFuel(''); } };
+  const handleAddAssetSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!assetName || !assetPrice) return; onAddAsset({ name: assetName, purchasePrice: parseFloat(assetPrice), lifespanYears: parseInt(assetLife), category: assetCat, purchaseDate: new Date().toISOString().split('T')[0] }); setAssetName(''); setAssetPrice(''); };
+  
+  const handleAddPPEsubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ppePersonnelId || !ppeItems) return;
+    const person = personnel.find(p => p.id === ppePersonnelId);
+    if (!person) return;
+    onAddPPE({ date: new Date().toISOString(), personnelId: ppePersonnelId, personnelName: person.name, items: ppeItems.split(',').map(s => s.trim()) });
+    setPpePersonnelId(''); setPpeItems('');
   };
-
-  const handleExecuteTask = (e: AgendaEvent) => {
-      if (completingTaskId === e.id) {
-          // Confirm
-          if (onConvertEvent && actualTaskCost) {
-              const machineCost = actualMachineCost ? parseFloat(actualMachineCost) : 0;
-              onConvertEvent(e, parseFloat(actualTaskCost), machineCost);
-              
-              setCompletingTaskId(null);
-              setActualTaskCost('');
-              setActualMachineCost('');
-          }
-      } else {
-          // Open confirm mode
-          setCompletingTaskId(e.id);
-          setActualTaskCost(e.estimatedCost ? e.estimatedCost.toString() : '');
-          setActualMachineCost('');
-      }
+  
+  const handleAddWasteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wasteDescription || !wasteQty) return;
+    onAddWaste({ date: new Date().toISOString(), itemDescription: wasteDescription, quantity: parseFloat(wasteQty), tripleWashed: wasteTripleWashed });
+    setWasteDescription(''); setWasteQty(''); setWasteTripleWashed(true);
   };
-
-  // RAIN HANDLERS
-  const handleAddRain = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(!rainMm) return;
-      onAddRain({
-          date: rainDate,
-          millimeters: parseFloat(rainMm)
-      });
-      setRainMm('');
-  };
-
-  // RAIN CHART DATA LOGIC
-  const rainChartData = useMemo(() => {
-      const data = rainLogs.slice().sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-10);
-      if (data.length === 0) return null;
-      
-      const maxMm = Math.max(...data.map(d => d.millimeters), 10);
-      const height = 100;
-      const barWidth = 10;
-      const gap = 20;
-      const totalWidth = data.length * (barWidth + gap);
-
-      return { data, maxMm, height, barWidth, gap, totalWidth };
-  }, [rainLogs]);
-
-  // MACHINE HANDLERS
-  const handleCreateMachine = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(!machineName) return;
-      onAddMachine({ name: machineName });
-      setMachineName('');
-  };
-
-  const handleCreateMaintenance = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(!selectedMachineId || !maintCost) return;
-      onAddMaintenance({
-          machineId: selectedMachineId,
-          date: new Date().toISOString().split('T')[0],
-          type: maintType,
-          cost: parseFloat(maintCost),
-          description: maintDesc,
-          usageAmount: maintUsage ? parseFloat(maintUsage) : undefined
-      });
-      setMaintCost(''); setMaintDesc(''); setMaintUsage('');
+  
+  const handleSaveCalibration = () => {
+      const machine = machines.find(m => m.id === toolMachineId);
+      if (!machine) return;
+      const updatedMachine = { ...machine, dischargeRateLitersPerMin: parseFloat(toolDischarge), avgSpeedKmh: parseFloat(toolSpeed) };
+      onUpdateMachine(updatedMachine);
+      alert("Calibración guardada!");
   };
 
   return (
-    <div className="space-y-6 pb-20">
-        
-        {/* SUB-TABS NAVIGATION */}
-        <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
-            <button 
-                onClick={() => setSubTab('agenda')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${subTab === 'agenda' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500'}`}
-            >
-                <Calendar className="w-4 h-4" /> Agenda
-            </button>
-            <button 
-                onClick={() => setSubTab('machinery')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${subTab === 'machinery' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-slate-500'}`}
-            >
-                <Settings className="w-4 h-4" /> Maquinaria
-            </button>
-            <button 
-                onClick={() => setSubTab('rain')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${subTab === 'rain' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500'}`}
-            >
-                <Droplets className="w-4 h-4" /> Lluvias
-            </button>
+    <div className="space-y-6 pb-20 animate-fade-in">
+        <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto scrollbar-hide gap-1 sticky top-[120px] z-30 shadow-md">
+            <button onClick={() => setSubTab('audit')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'audit' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500'}`}><ShieldCheck className="w-3 h-3" /> Radar BPA</button>
+            <button onClick={() => setSubTab('assets')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'assets' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}><Briefcase className="w-3 h-3" /> Activos</button>
+            <button onClick={() => setSubTab('agronomy')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'agronomy' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}><Leaf className="w-3 h-3" /> Agronomía</button>
+            <button onClick={() => setSubTab('sst')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'sst' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500'}`}><Signature className="w-3 h-3" /> SST/Ambiental</button>
+            <button onClick={() => setSubTab('tools')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'tools' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500'}`}><Wrench className="w-3 h-3" /> Herramientas</button>
         </div>
 
-        {/* --- AGENDA VIEW --- */}
-        {subTab === 'agenda' && (
-            <div className="space-y-4 animate-fade-in">
-                
-                {/* Advanced Task Planner */}
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                    <h3 className="text-indigo-600 dark:text-indigo-400 font-bold mb-3 text-sm uppercase flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Programar Labor
-                    </h3>
-                    <form onSubmit={handleAddEvent} className="space-y-3">
-                        <div className="flex gap-3">
-                            <input 
-                                type="date" 
-                                value={eventDate}
-                                onChange={e => setEventDate(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none w-1/3 font-bold"
-                            />
-                            <select 
-                                value={eventPersonId}
-                                onChange={e => setEventPersonId(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none flex-1"
-                            >
-                                <option value="">- Quién (Personal) -</option>
-                                {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <select 
-                                value={eventActivityId}
-                                onChange={e => setEventActivityId(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none flex-1"
-                            >
-                                <option value="">- Qué (Actividad) -</option>
-                                {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
-                            <select 
-                                value={eventLotId}
-                                onChange={e => setEventLotId(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none flex-1"
-                            >
-                                <option value="">- Dónde (Lote) -</option>
-                                {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </div>
-
-                        {/* Machine Link */}
-                        <div className="flex gap-3">
-                            <select 
-                                value={eventMachineId}
-                                onChange={e => setEventMachineId(e.target.value)}
-                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-xs outline-none"
-                            >
-                                <option value="">- Maquinaria (Opcional) -</option>
-                                {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="flex gap-3 items-center">
-                            <input 
-                                type="text" 
-                                value={eventDesc}
-                                onChange={e => setEventDesc(e.target.value)}
-                                placeholder="Descripción / Detalles adicionales..."
-                                className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-800 dark:text-white text-sm outline-none"
-                            />
-                            <div className="w-24 relative">
-                                <span className="absolute left-2 top-2 text-slate-400 text-xs">$</span>
-                                <input 
-                                    type="number"
-                                    value={eventCost}
-                                    onChange={e => setEventCost(e.target.value)}
-                                    placeholder="Est. Costo"
-                                    className="w-full pl-4 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg py-2 text-slate-800 dark:text-white text-xs outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition-colors shadow-sm">
-                            Agendar Tarea
-                        </button>
-                    </form>
+        {subTab === 'audit' && (
+            <div className="space-y-6 animate-fade-in">
+                <div className={`p-8 rounded-[3rem] text-center border-2 transition-all ${bpaSummary.criticalFail ? 'bg-red-950/20 border-red-500/50' : 'bg-emerald-950/20 border-emerald-500/50'}`}>
+                    <h3 className="font-black text-xl flex items-center justify-center gap-2 uppercase tracking-tighter mb-4"><Globe className={`w-6 h-6 ${bpaSummary.criticalFail ? 'text-red-500' : 'text-emerald-500'}`} /> Radar Certificación BPA</h3>
+                    <div className="relative w-32 h-32 mx-auto mb-4">
+                        <svg className="w-full h-full transform -rotate-90"><circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" /><circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={364} strokeDashoffset={364 - (364 * bpaSummary.percent / 100)} className={bpaSummary.criticalFail ? 'text-red-500' : 'text-emerald-500'} /></svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-3xl font-black text-white">{bpaSummary.percent.toFixed(0)}%</span></div>
+                    </div>
+                    {bpaSummary.criticalFail && (<div className="bg-red-500 text-white text-[10px] font-black px-4 py-2 rounded-full inline-flex items-center gap-2 animate-bounce"><AlertTriangle className="w-4 h-4" /> REQUERIMIENTOS MAYORES INCUMPLIDOS</div>)}
+                    <p className="text-[10px] text-slate-400 mt-4 uppercase font-bold">Res. ICA 082394 de 2020</p>
                 </div>
-
-                <div className="space-y-2 pb-10">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase ml-1">Próximas Labores</h4>
-                    {agenda.length === 0 ? (
-                        <p className="text-center text-slate-400 py-8 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-                            No hay tareas pendientes.
-                        </p>
-                    ) : (
-                        agenda.slice().sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(ev => {
-                            const isExecutionMode = completingTaskId === ev.id;
-                            const isSmartTask = ev.personnelId && ev.activityId && ev.costCenterId; // Can be auto-converted
-
-                            return (
-                                <div key={ev.id} className={`flex flex-col p-3 rounded-xl border transition-all ${ev.completed ? 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
-                                    
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className={`text-sm font-bold ${ev.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}`}>
-                                                    {ev.title}
-                                                </span>
-                                                {ev.estimatedCost && !ev.completed && (
-                                                    <span className="text-[10px] bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700">
-                                                        Est: {formatCurrency(ev.estimatedCost)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            
-                                            <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(ev.date).toLocaleDateString()}</span>
-                                                {ev.personnelName && <span className="flex items-center gap-1"><User className="w-3 h-3 text-blue-400" /> {ev.personnelName}</span>}
-                                                {ev.costCenterName && <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-purple-400" /> {ev.costCenterName}</span>}
-                                                {ev.machineName && <span className="flex items-center gap-1"><Tractor className="w-3 h-3 text-orange-400" /> {ev.machineName}</span>}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            {/* EXECUTE / COMPLETE BUTTON */}
-                                            {!ev.completed && (
-                                                <button 
-                                                    onClick={() => isSmartTask ? handleExecuteTask(ev) : onToggleEvent(ev.id)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        isExecutionMode 
-                                                        ? 'bg-amber-100 text-amber-600' 
-                                                        : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
-                                                    }`}
-                                                    title={isSmartTask ? "Ejecutar y crear Jornal" : "Marcar como hecha"}
-                                                >
-                                                    {isSmartTask ? <Pickaxe className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
-                                                </button>
-                                            )}
-                                            
-                                            {/* DELETE */}
-                                            <button onClick={() => onDeleteEvent(ev.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* CONFIRMATION DRAWER FOR SMART TASKS */}
-                                    {isExecutionMode && (
-                                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 animate-fade-in bg-slate-50 dark:bg-slate-900/30 p-2 rounded-lg">
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">Confirmar Ejecución</p>
-                                            
-                                            <div className="flex flex-col gap-2 mb-2">
-                                                <div>
-                                                    <label className="text-[10px] text-slate-400 block">Pago Mano de Obra ($)</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={actualTaskCost}
-                                                        onChange={(e) => setActualTaskCost(e.target.value)}
-                                                        className="w-full bg-white dark:bg-slate-900 border border-emerald-500 rounded-lg px-2 py-1.5 text-sm font-bold text-emerald-600 outline-none"
-                                                        autoFocus
-                                                        placeholder="Valor Jornal"
-                                                    />
-                                                </div>
-                                                
-                                                {/* CONDITIONAL MACHINE COST INPUT */}
-                                                {ev.machineId && (
-                                                    <div>
-                                                        <label className="text-[10px] text-slate-400 block">Gasto Maquinaria (Gasolina/Uso) ($)</label>
-                                                        <input 
-                                                            type="number" 
-                                                            value={actualMachineCost}
-                                                            onChange={(e) => setActualMachineCost(e.target.value)}
-                                                            className="w-full bg-white dark:bg-slate-900 border border-orange-500 rounded-lg px-2 py-1.5 text-sm font-bold text-orange-600 outline-none"
-                                                            placeholder="Opcional"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <button 
-                                                onClick={() => handleExecuteTask(ev)}
-                                                disabled={!actualTaskCost}
-                                                className="w-full bg-emerald-600 text-white px-3 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors disabled:opacity-50"
-                                            >
-                                                Confirmar y Guardar <ArrowRight className="w-3 h-3" />
-                                            </button>
-                                            
-                                            <p className="text-[9px] text-slate-400 mt-2 text-center">
-                                                Se creará: 1 Jornal {ev.machineId ? '+ 1 Registro Mantenimiento' : ''}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                </div>
-                            );
-                        })
-                    )}
+                <div className="space-y-3">
+                    {bpaSummary.criteria.map(c => (<div key={c.code} onClick={() => onToggleBpa(c.code)} className={`p-5 rounded-[2rem] border transition-all cursor-pointer flex items-center justify-between group ${c.compliant ? 'bg-emerald-900/10 border-emerald-500/30 shadow-emerald-900/20' : 'bg-slate-900 border-slate-700'}`}><div className="flex gap-4 items-center"><div className={`p-3 rounded-2xl ${c.compliant ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'}`}>{c.compliant ? <CheckCircle2 className="w-5 h-5" /> : <div className="w-5 h-5 border-2 border-current rounded-full" />}</div><div><div className="flex items-center gap-2"><span className="text-[9px] font-black text-slate-500">{c.code}</span>{c.isCritical && <span className="text-[8px] bg-red-500 text-white px-1.5 rounded uppercase font-black">Fundamental</span>}</div><p className={`text-sm font-bold ${c.compliant ? 'text-white' : 'text-slate-400'}`}>{c.label}</p></div></div><ArrowRight className={`w-4 h-4 transition-transform ${c.compliant ? 'text-emerald-500' : 'text-slate-600 group-hover:translate-x-1'}`} /></div>))}
                 </div>
             </div>
         )}
 
-        {/* --- MACHINERY VIEW --- */}
-        {subTab === 'machinery' && (
+        {subTab === 'assets' && (
             <div className="space-y-6 animate-fade-in">
+                { /* Asset Management and Maintenance Forms */ }
+                <form onSubmit={handleAddAssetSubmit} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                  <h4 className="text-indigo-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Activo Fijo</h4>
+                  <input value={assetName} onChange={e => setAssetName(e.target.value)} placeholder="Nombre (Ej: Despulpadora)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                  <div className="grid grid-cols-2 gap-3">
+                      <input type="number" value={assetPrice} onChange={e => setAssetPrice(e.target.value)} placeholder="Costo Adquisición" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                      <select value={assetLife} onChange={e => setAssetLife(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"><option value="5">5 Años</option><option value="10">10 Años</option><option value="20">20 Años</option></select>
+                  </div>
+                  <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Activo</button>
+                </form>
                 
-                {/* 1. Create Machine */}
-                <div className="bg-orange-900/20 p-4 rounded-xl border border-orange-500/30 flex gap-2 items-center">
-                     <Settings className="w-5 h-5 text-orange-500" />
-                     <input 
-                        type="text" 
-                        value={machineName} 
-                        onChange={e => setMachineName(e.target.value)}
-                        placeholder="Nombre Nueva Máquina (Ej: Guadaña 1)"
-                        className="flex-1 bg-transparent border-b border-orange-500/50 text-white text-sm outline-none placeholder-slate-500"
-                     />
-                     <button onClick={handleCreateMachine} className="text-orange-500 font-bold text-xs uppercase">Crear</button>
-                </div>
-
-                {/* 2. Add Maintenance */}
-                {machines.length > 0 && (
-                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                        <h3 className="text-slate-300 font-bold mb-3 text-xs uppercase flex items-center gap-2">
-                            <Wrench className="w-4 h-4" /> Registrar Mantenimiento / Gasto
-                        </h3>
-                        <div className="space-y-3">
-                            <select 
-                                value={selectedMachineId} 
-                                onChange={e => setSelectedMachineId(e.target.value)}
-                                className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-sm"
-                            >
-                                <option value="">Seleccionar Máquina...</option>
-                                {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                            </select>
-                            <div className="flex gap-2">
-                                <select 
-                                    value={maintType} 
-                                    onChange={e => setMaintType(e.target.value as any)}
-                                    className="bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-sm w-1/3"
-                                >
-                                    <option>Correctivo</option>
-                                    <option>Preventivo</option>
-                                    <option>Combustible</option>
-                                </select>
-                                <input 
-                                    type="number" 
-                                    value={maintCost}
-                                    onChange={e => setMaintCost(e.target.value)}
-                                    placeholder="Costo Total ($)"
-                                    className="bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-sm flex-1"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <div className="flex-1 relative">
-                                    <Gauge className="absolute left-2 top-2.5 w-4 h-4 text-slate-500" />
-                                    <input 
-                                        type="number"
-                                        value={maintUsage}
-                                        onChange={e => setMaintUsage(e.target.value)}
-                                        placeholder="Horas / Km (Uso Actual)" 
-                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-8 pr-2 text-white text-sm"
-                                    />
-                                </div>
-                            </div>
-                            <input 
-                                type="text"
-                                value={maintDesc}
-                                onChange={e => setMaintDesc(e.target.value)}
-                                placeholder="Descripción (Ej: Cambio de aceite, Tanqueada)" 
-                                className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white text-sm"
-                            />
-                            <button onClick={handleCreateMaintenance} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 rounded-lg text-sm">
-                                Guardar Gasto
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* 3. List Machines & Logs */}
-                <div className="space-y-4">
-                    {machines.map(m => {
-                        const logs = maintenanceLogs.filter(l => l.machineId === m.id);
-                        const totalMaint = logs.reduce((acc, l) => acc + l.cost, 0);
-                        
-                        // Calculate usage stats if available
-                        const usageLogs = logs.filter(l => l.usageAmount !== undefined).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                        const lastUsage = usageLogs.length > 0 ? usageLogs[usageLogs.length - 1].usageAmount : 0;
-
-                        return (
-                            <div key={m.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                                <div className="p-4 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-                                    <div>
-                                        <h4 className="font-bold text-slate-800 dark:text-white">{m.name}</h4>
-                                        <div className="flex gap-3 text-xs mt-1">
-                                            <span className="text-orange-600 dark:text-orange-400 font-bold">Gasto Total: {formatCurrency(totalMaint)}</span>
-                                            {lastUsage ? <span className="text-slate-500 font-mono bg-slate-200 dark:bg-slate-800 px-1.5 rounded">{lastUsage} Hrs/Km</span> : null}
-                                        </div>
-                                    </div>
-                                    <button onClick={() => onDeleteMachine(m.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                </div>
-                                <div className="p-2 space-y-1">
-                                    {logs.length === 0 ? <p className="text-[10px] text-slate-500 text-center py-2">Sin mantenimientos</p> : 
-                                        logs.map(l => (
-                                            <div key={l.id} className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-300 p-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0">
-                                                <div>
-                                                    <span className="block font-bold">{l.type} - {new Date(l.date).toLocaleDateString()}</span>
-                                                    <span className="text-[10px] text-slate-400">{l.description} {l.usageAmount ? `(${l.usageAmount} h)` : ''}</span>
-                                                </div>
-                                                <span className="font-mono font-bold">{formatCurrency(l.cost)}</span>
-                                            </div>
-                                        ))
-                                    }
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                <form onSubmit={handleAddMaintenance} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                   <h4 className="text-amber-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Mantenimiento</h4>
+                   <select value={maintMachineId} onChange={e=>setMaintMachineId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"><option value="">Seleccionar Máquina</option>{machines.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
+                   <input value={maintDesc} onChange={e=>setMaintDesc(e.target.value)} placeholder="Descripción (Ej: Cambio de aceite)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                   <div className="grid grid-cols-3 gap-3">
+                       <input type="number" value={maintCost} onChange={e=>setMaintCost(e.target.value)} placeholder="Costo $" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                       <input type="number" value={maintHours} onChange={e=>setMaintHours(e.target.value)} placeholder="Horas Uso" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                       <input type="number" value={maintFuel} onChange={e=>setMaintFuel(e.target.value)} placeholder="Combustible (L)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                   </div>
+                   <button type="submit" className="w-full bg-amber-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Guardar Mantenimiento</button>
+                </form>
             </div>
         )}
 
-        {/* --- RAIN VIEW --- */}
-        {subTab === 'rain' && (
+        {subTab === 'agronomy' && (
             <div className="space-y-6 animate-fade-in">
-                
-                {/* Reports Header (NEW) */}
-                <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
-                        <Download className="w-4 h-4" /> Reportes Lluvia
-                    </h4>
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => generateRainPDF(rainLogs, "Bodega Principal")}
-                            className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2 rounded-lg hover:scale-105 transition-transform"
-                            title="Descargar PDF"
-                        >
-                            <FileText className="w-4 h-4" />
-                        </button>
-                        <button 
-                            onClick={() => generateRainExcel(rainLogs)}
-                            className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 p-2 rounded-lg hover:scale-105 transition-transform"
-                            title="Descargar Excel"
-                        >
-                            <FileSpreadsheet className="w-4 h-4" />
-                        </button>
+                 {/* Quick Entry Forms */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <form onSubmit={handleAddRain} className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700"><h4 className="text-blue-400 text-xs uppercase font-black flex items-center gap-2 mb-2"><Droplets className="w-4 h-4"/> Pluviometría</h4><div className="flex gap-2"><input type="number" value={rainMm} onChange={e=>setRainMm(e.target.value)} placeholder="mm de Lluvia" className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2 text-sm text-white" required /><button type="submit" className="bg-blue-600 text-white p-2 rounded-xl"><Plus/></button></div></form>
+                    <form onSubmit={handleAddPheno} className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700"><h4 className="text-emerald-400 text-xs uppercase font-black flex items-center gap-2 mb-2"><Leaf className="w-4 h-4"/> Fenología</h4><div className="flex gap-2"><select value={phenoLotId} onChange={e=>setPhenoLotId(e.target.value)} className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white"><option value="">Lote...</option>{costCenters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><button type="submit" className="bg-emerald-600 text-white p-2 rounded-xl"><Plus/></button></div></form>
+                </div>
+                 <form onSubmit={handleAddPest} className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 space-y-2"><h4 className="text-red-400 text-xs uppercase font-black flex items-center gap-2"><Bug className="w-4 h-4"/> Monitoreo Plagas</h4><div className="flex gap-2"><select value={pestLotId} onChange={e=>setPestLotId(e.target.value)} className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white"><option value="">Lote...</option>{costCenters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><input type="text" value={pestName} onChange={e=>setPestName(e.target.value)} placeholder="Plaga/Enfermedad" className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2 text-sm text-white" required /><button type="submit" className="bg-red-600 text-white p-2 rounded-xl"><Plus/></button></div></form>
+            </div>
+        )}
+
+        {subTab === 'sst' && (
+            <div className="space-y-6 animate-fade-in">
+                <form onSubmit={handleAddPPEsubmit} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                    <h4 className="text-red-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Signature className="w-4 h-4" /> Registro de EPP</h4>
+                    <select value={ppePersonnelId} onChange={e => setPpePersonnelId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"><option value="">Seleccionar Trabajador</option>{personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                    <input type="text" value={ppeItems} onChange={e => setPpeItems(e.target.value)} placeholder="Items (Ej: Guantes, Careta, Overol)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                    <button type="submit" className="w-full bg-red-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Registrar Entrega</button>
+                </form>
+
+                <form onSubmit={handleAddWasteSubmit} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                    <h4 className="text-emerald-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Recycle className="w-4 h-4" /> Trazabilidad de Residuos</h4>
+                    <input type="text" value={wasteDescription} onChange={e => setWasteDescription(e.target.value)} placeholder="Descripción (Ej: Envases Amistar 1L)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                    <input type="number" value={wasteQty} onChange={e => setWasteQty(e.target.value)} placeholder="Cantidad" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                    <label className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={wasteTripleWashed} onChange={e => setWasteTripleWashed(e.target.checked)} className="h-5 w-5 rounded text-emerald-500 bg-slate-800 border-slate-600 focus:ring-emerald-500"/>
+                        <span className="text-sm font-bold text-white flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500"/> ¿Triple Lavado y Perforado?</span>
+                    </label>
+                    <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Registrar Disposición</button>
+                </form>
+
+                 <div className="space-y-3">
+                    {wasteLogs.slice().reverse().map(log => <div key={log.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center text-xs"><p className="text-slate-300">{log.quantity} x {log.itemDescription}</p><span className="text-emerald-400 font-bold">{log.tripleWashed && "TRIPLE LAVADO"}</span></div>)}
+                    {ppeLogs.slice().reverse().map(log => <div key={log.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center text-xs"><p className="text-slate-300">{log.personnelName}</p><span className="text-slate-400">{log.items.join(', ')}</span></div>)}
+                 </div>
+            </div>
+        )}
+        
+        {subTab === 'tools' && (
+            <div className="space-y-6 animate-fade-in">
+                 <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                    <h4 className="text-amber-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Tractor className="w-4 h-4" /> Calibración y Dosificación</h4>
+                     
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
+                        <h5 className="text-[10px] font-black uppercase text-slate-400 mb-2">1. Calibración del Equipo</h5>
+                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <input value={toolDischarge} onChange={e=>setToolDischarge(e.target.value)} placeholder="L/min Boquilla" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                            <input value={toolWidth} onChange={e=>setToolWidth(e.target.value)} placeholder="Ancho Faja (m)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                            <input value={toolSpeed} onChange={e=>setToolSpeed(e.target.value)} placeholder="Velocidad (Km/h)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                         </div>
+                         <div className="mt-4 p-4 rounded-2xl bg-amber-950/50 border border-amber-500/20 text-center">
+                            <p className="text-[10px] uppercase font-black text-amber-500">Gasto de Agua (L/Ha)</p>
+                            <p className="text-2xl font-mono font-black text-white">{toolCalculations.LHa.toFixed(1)}</p>
+                         </div>
                     </div>
-                </div>
 
-                {/* Add Rain Form */}
-                <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                    <h3 className="text-blue-400 font-bold mb-2 text-sm uppercase flex items-center gap-2">
-                        <Droplets className="w-4 h-4" /> Registrar Lluvia
-                    </h3>
-                    <form onSubmit={handleAddRain} className="flex gap-2 items-center">
-                        <input 
-                            type="date" 
-                            value={rainDate}
-                            onChange={e => setRainDate(e.target.value)}
-                            className="bg-slate-900 border border-slate-600 rounded-lg px-2 py-2 text-white text-xs outline-none"
-                        />
-                        <div className="flex-1 relative">
-                             <input 
-                                type="number" 
-                                value={rainMm}
-                                onChange={e => setRainMm(e.target.value)}
-                                placeholder="0"
-                                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm outline-none text-center font-bold font-mono text-lg"
-                             />
-                             <span className="absolute right-3 top-2.5 text-xs text-slate-500 font-bold">mm</span>
-                        </div>
-                        <button type="submit" className="bg-blue-600 text-white p-2.5 rounded-lg">
-                            <Plus className="w-5 h-5" />
-                        </button>
-                    </form>
-                </div>
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
+                        <h5 className="text-[10px] font-black uppercase text-slate-400 mb-2">2. Mezcla de Tanque</h5>
+                         <div className="grid grid-cols-2 gap-3">
+                            <input value={toolTank} onChange={e=>setToolTank(e.target.value)} placeholder="Tanque (L)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                            <input value={toolDose} onChange={e=>setToolDose(e.target.value)} placeholder="Dosis (L o Kg / Ha)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                         </div>
+                          <div className="mt-4 p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/20 text-center">
+                            <p className="text-[10px] uppercase font-black text-emerald-500">Producto por Tanque (L o Kg)</p>
+                            <p className="text-2xl font-mono font-black text-white">{toolCalculations.productPerTank.toFixed(2)}</p>
+                         </div>
+                    </div>
 
-                {/* REAL SVG Rain Chart (Improved) */}
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <h4 className="text-xs text-slate-500 uppercase font-bold mb-4">Gráfico Real (Últimos 10 registros)</h4>
-                    
-                    {rainChartData ? (
-                        <div className="w-full overflow-x-auto pb-2">
-                            <div className="min-w-[300px]">
-                                <svg 
-                                    viewBox={`0 0 ${rainChartData.totalWidth + 20} ${rainChartData.height + 30}`} 
-                                    className="w-full h-32 overflow-visible"
-                                >
-                                    {/* Y Axis Line */}
-                                    <line x1="0" y1="0" x2="0" y2={rainChartData.height} stroke="#64748b" strokeWidth="1" />
-                                    
-                                    {/* Bars */}
-                                    {rainChartData.data.map((d, i) => {
-                                        const barHeight = (d.millimeters / rainChartData.maxMm) * rainChartData.height;
-                                        const x = i * (rainChartData.barWidth + rainChartData.gap) + 10;
-                                        const y = rainChartData.height - barHeight;
-                                        
-                                        return (
-                                            <g key={i}>
-                                                {/* Tooltip hint / Value top */}
-                                                <text 
-                                                    x={x + rainChartData.barWidth/2} 
-                                                    y={y - 5} 
-                                                    textAnchor="middle" 
-                                                    fill="#3b82f6" 
-                                                    fontSize="10" 
-                                                    fontWeight="bold"
-                                                >
-                                                    {d.millimeters}
-                                                </text>
-                                                
-                                                {/* Bar */}
-                                                <rect 
-                                                    x={x} 
-                                                    y={y} 
-                                                    width={rainChartData.barWidth} 
-                                                    height={barHeight} 
-                                                    fill="url(#rainGradient)" 
-                                                    rx="2"
-                                                />
-                                                
-                                                {/* Date Label */}
-                                                <text 
-                                                    x={x + rainChartData.barWidth/2} 
-                                                    y={rainChartData.height + 15} 
-                                                    textAnchor="middle" 
-                                                    fill="#94a3b8" 
-                                                    fontSize="8"
-                                                    transform={`rotate(0, ${x + rainChartData.barWidth/2}, ${rainChartData.height + 15})`}
-                                                >
-                                                    {new Date(d.date).getDate()}/{new Date(d.date).getMonth()+1}
-                                                </text>
-                                            </g>
-                                        );
-                                    })}
-                                    
-                                    {/* Gradient Definition */}
-                                    <defs>
-                                        <linearGradient id="rainGradient" x1="0" x2="0" y1="0" y2="1">
-                                            <stop offset="0%" stopColor="#3b82f6" />
-                                            <stop offset="100%" stopColor="#1d4ed8" />
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="h-32 flex items-center justify-center text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                            Sin datos suficientes para graficar
-                        </div>
-                    )}
-                </div>
-
-                {/* Rain List */}
-                <div className="space-y-1">
-                    {rainLogs.slice().reverse().map(r => (
-                        <div key={r.id} className="flex justify-between items-center bg-slate-100 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <span className="text-sm text-slate-600 dark:text-slate-300 font-mono">
-                                {new Date(r.date).toLocaleDateString()}
-                            </span>
-                            <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">
-                                {r.millimeters} mm
-                            </span>
-                            <button onClick={() => onDeleteRain(r.id)} className="text-slate-400 hover:text-red-500">
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-
+                 </div>
             </div>
         )}
 

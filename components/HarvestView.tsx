@@ -1,179 +1,210 @@
 
 import React, { useState, useMemo } from 'react';
-import { HarvestLog, CostCenter, Movement, LaborLog } from '../types';
+import { HarvestLog, CostCenter, Movement } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { Sprout, Plus, MapPin, DollarSign, Calendar, TrendingUp, AlertCircle, Info, Save } from 'lucide-react';
-import { HeaderCard, EmptyState, Modal, InfoRow } from './UIElements';
+import { Sprout, Plus, Target, AlertTriangle, ShieldX, Clock, ShieldCheck, Info } from 'lucide-react';
+import { HeaderCard, EmptyState, Modal } from './UIElements';
 
 interface HarvestViewProps {
   harvests: HarvestLog[];
   costCenters: CostCenter[];
-  onAddHarvest: (h: Omit<HarvestLog, 'id'>) => void;
+  onAddHarvest: (h: Omit<HarvestLog, 'id' | 'warehouseId'>) => void;
   onDeleteHarvest: (id: string) => void;
   isAdmin: boolean;
   allMovements?: Movement[];
-  allLaborLogs?: LaborLog[];
 }
 
 export const HarvestView: React.FC<HarvestViewProps> = ({ 
-    harvests, costCenters, onAddHarvest, onDeleteHarvest, isAdmin, allMovements = [], allLaborLogs = []
+    harvests, costCenters, onAddHarvest, onDeleteHarvest, isAdmin, allMovements = []
 }) => {
   const [showForm, setShowForm] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [costCenterId, setCostCenterId] = useState('');
-  const [cropName, setCropName] = useState('');
-  const [quantity, setQuantity] = useState('');
+  const [cropName, setCropName] = useState('Café Pergamino Seco');
   const [unit, setUnit] = useState('Kg');
   const [totalValue, setTotalValue] = useState('');
   const [notes, setNotes] = useState('');
+  const [yieldFactor, setYieldFactor] = useState('');
+
+  const [qty1, setQty1] = useState(''); 
+  const [qty2, setQty2] = useState(''); 
+  const [qty3, setQty3] = useState(''); 
+
+  // --- ESCÁNER DE SEGURIDAD ALIMENTARIA (BLINDAJE BPA) ---
+  const safetyRadar = useMemo(() => {
+      if (!costCenterId) return null;
+      
+      const lotMovements = allMovements.filter(m => m.costCenterId === costCenterId && m.type === 'OUT');
+      
+      const violations = lotMovements.filter(m => m.phiApplied && m.phiApplied > 0).map(m => {
+          const appDate = new Date(m.date);
+          const safeDate = new Date(appDate);
+          safeDate.setDate(safeDate.getDate() + (m.phiApplied || 0));
+          
+          const harvestDateRequested = new Date(date);
+          const timeDiff = safeDate.getTime() - harvestDateRequested.getTime();
+          const daysToWait = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+          
+          return {
+              product: m.itemName,
+              applied: m.date.split('T')[0],
+              phi: m.phiApplied,
+              safeDate: safeDate.toISOString().split('T')[0],
+              daysToWait,
+              isViolated: daysToWait > 0
+          };
+      }).filter(v => v.isViolated);
+
+      return violations;
+  }, [costCenterId, allMovements, date]);
 
   const selectedLot = useMemo(() => costCenters.find(c => c.id === costCenterId), [costCenterId, costCenters]);
-  const isLevante = selectedLot?.stage === 'Levante';
-
-  const selectedLotInvestment = useMemo(() => {
-      if (!costCenterId) return null;
-      const inputCost = allMovements.filter(m => m.costCenterId === costCenterId && m.type === 'OUT').reduce((sum, m) => sum + m.calculatedCost, 0);
-      const laborCost = allLaborLogs.filter(l => l.costCenterId === costCenterId).reduce((sum, l) => sum + l.value, 0);
-      const previousIncome = harvests.filter(h => h.costCenterId === costCenterId).reduce((sum, h) => sum + h.totalValue, 0);
-      return { totalSpent: inputCost + laborCost, inputCost, laborCost, previousIncome };
-  }, [costCenterId, allMovements, allLaborLogs, harvests]);
-
-  const totalRevenue = harvests.reduce((acc, h) => acc + h.totalValue, 0);
+  const totalQty = (parseFloat(qty1) || 0) + (parseFloat(qty2) || 0) + (parseFloat(qty3) || 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLot) return;
-    onAddHarvest({ date, costCenterId, costCenterName: selectedLot.name, cropName, quantity: parseFloat(quantity), unit, totalValue: parseFloat(totalValue), notes: notes.trim() });
+    if (!selectedLot || totalQty <= 0) return;
+    
+    if (safetyRadar && safetyRadar.length > 0) {
+        if (!confirm(`⚠️ BLOQUEO SANITARIO CRÍTICO ⚠️\n\nEl lote "${selectedLot.name}" tiene periodos de carencia activos. Cosechar ahora viola la Res. ICA 082394 y pone en riesgo la salud del consumidor.\n\n¿Desea registrar esta cosecha bajo su responsabilidad legal?`)) {
+            return;
+        }
+    }
+    
+    onAddHarvest({ 
+        date, costCenterId, costCenterName: selectedLot.name, cropName, 
+        quantity: totalQty, unit, totalValue: parseFloat(totalValue), notes: notes.trim(),
+        quality1Qty: parseFloat(qty1) || undefined, 
+        quality2Qty: parseFloat(qty2) || undefined, 
+        wasteQty: parseFloat(qty3) || undefined,
+        yieldFactor: parseFloat(yieldFactor) || undefined
+    });
     setShowForm(false);
-    setQuantity(''); setTotalValue(''); setNotes(''); setCostCenterId('');
   };
 
   return (
     <div className="space-y-6 pb-20">
         <HeaderCard 
-            title="Producción"
-            subtitle="Registro de Cosechas e Ingresos"
-            valueLabel="Ingreso Total"
-            value={isAdmin ? formatCurrency(totalRevenue) : "$ 0.000.000"}
-            gradientClass="bg-gradient-to-r from-yellow-500 to-amber-500 shadow-yellow-900/20"
-            icon={Sprout}
-            onAction={() => isAdmin ? setShowForm(true) : alert('Requiere acceso administrativo')}
-            actionLabel="Registrar Cosecha"
+            title="Producción y Calidad"
+            subtitle="Trazabilidad Cosecha"
+            valueLabel="Ventas Totales"
+            value={isAdmin ? formatCurrency(harvests.reduce((a,b)=>a+b.totalValue, 0)) : "$ 0.000.000"}
+            gradientClass="bg-gradient-to-r from-emerald-600 to-teal-700"
+            icon={Target}
+            onAction={() => setShowForm(true)}
+            actionLabel="Registrar Venta"
             actionIcon={Plus}
-            actionColorClass="text-yellow-700"
         />
 
         <div className="space-y-4">
-            <h3 className="text-slate-800 dark:text-white font-bold flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-yellow-500" />
-                Historial de Recolección
-            </h3>
-            
             {harvests.length === 0 ? (
-                <EmptyState icon={Sprout} message="No hay cosechas registradas." />
+                <EmptyState icon={Sprout} message="No hay registros de cosecha." />
             ) : (
                 harvests.slice().reverse().map(h => (
-                    <div key={h.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-2 hover:shadow-md transition-all">
-                        <div className="flex justify-between items-start">
-                            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(h.date).toLocaleDateString()}
-                            </div>
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded text-sm border border-emerald-500/20">
-                                + {formatCurrency(h.totalValue)}
-                            </span>
+                    <div key={h.id} className="bg-white dark:bg-slate-800 p-5 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm flex justify-between items-center">
+                        <div>
+                            <h4 className="font-black text-slate-800 dark:text-white text-base">{h.cropName}</h4>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">{h.costCenterName} • {h.date}</p>
                         </div>
-                        <div className="flex justify-between items-center">
-                             <div>
-                                <h4 className="font-bold text-slate-800 dark:text-white text-lg">{h.cropName}</h4>
-                                <InfoRow icon={MapPin} text={h.costCenterName} iconColor="text-purple-500" />
-                             </div>
-                             <div className="text-right">
-                                 <span className="block font-bold text-slate-700 dark:text-slate-300 text-lg">
-                                     {h.quantity} <span className="text-xs font-normal opacity-70">{h.unit}</span>
-                                 </span>
-                             </div>
+                        <div className="text-right">
+                            <p className="text-emerald-600 font-black text-sm">{formatCurrency(h.totalValue)}</p>
+                            <p className="text-[10px] text-slate-400 font-bold">{h.quantity} {h.unit}</p>
                         </div>
-                        {isAdmin && (
-                            <div className="border-t border-slate-100 dark:border-slate-700 pt-2 mt-1 text-right">
-                                <button onClick={() => confirm('¿Eliminar cosecha?') && onDeleteHarvest(h.id)} className="text-xs text-red-400 underline decoration-dotted">Eliminar</button>
-                            </div>
-                        )}
                     </div>
                 ))
             )}
         </div>
 
-        <Modal 
-            isOpen={showForm} 
-            onClose={() => setShowForm(false)} 
-            title="Nueva Cosecha"
-            icon={Sprout}
-            iconColorClass="text-yellow-500"
-            headerColorClass="bg-yellow-600/20"
-        >
+        <Modal isOpen={showForm} onClose={() => setShowForm(false)} title="Nueva Cosecha" icon={Target}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Lote / Origen</label>
-                    <select 
-                        value={costCenterId}
-                        onChange={e => setCostCenterId(e.target.value)}
-                        className={`w-full bg-slate-900 border rounded-lg p-3 text-white outline-none transition-colors ${isLevante ? 'border-amber-500 focus:border-amber-400' : 'border-slate-600 focus:border-yellow-500'}`}
-                        required
-                    >
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Lote Origen</label>
+                    <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white text-xs font-bold" required>
                         <option value="">Seleccionar Lote...</option>
-                        {costCenters.map(c => (
-                            <option key={c.id} value={c.id} className={c.stage === 'Levante' ? 'text-amber-500 font-bold' : ''}>
-                                {c.name} {c.stage === 'Levante' ? '⚠️ (EN LEVANTE)' : ''}
-                            </option>
-                        ))}
+                        {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
 
-                {isLevante && (
-                    <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-500/50 animate-pulse flex gap-3 items-center">
-                        <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0" />
-                        <div className="text-[10px] text-amber-200 leading-tight">
-                            <p className="font-bold text-amber-400 uppercase">Aviso: Lote en Levante</p>
-                            <p>Las ventas se restarán del costo de inversión.</p>
+                {safetyRadar && safetyRadar.length > 0 && (
+                    <div className="bg-red-950/40 border-2 border-red-500 p-5 rounded-[2.5rem] space-y-3 animate-shake">
+                        <div className="flex items-center gap-2 text-red-500">
+                            <ShieldX className="w-6 h-6 shrink-0" />
+                            <div>
+                                <h5 className="font-black text-xs uppercase tracking-tight">Periodo de Carencia Activo</h5>
+                                <p className="text-[8px] text-red-300 font-bold uppercase">Riesgo de Trazas Químicas</p>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            {safetyRadar.map(v => (
+                                <div key={v.product} className="flex justify-between items-center bg-red-900/40 p-3 rounded-xl border border-red-500/20">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-white font-black uppercase">{v.product}</span>
+                                        <span className="text-[8px] text-red-400 font-bold">Aplicación: {v.applied}</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-sm font-black text-white">{v.daysToWait} días</span>
+                                        <p className="text-[8px] text-red-400 font-bold uppercase">Faltantes</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex items-start gap-2 p-2 bg-red-600/10 rounded-lg">
+                            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                            <p className="text-[9px] text-slate-300 leading-tight italic">
+                                La normativa exige respetar el PC para garantizar la inocuidad. Esta acción generará una bandera roja en su auditoría BPA.
+                            </p>
                         </div>
                     </div>
                 )}
 
-                {selectedLotInvestment && (
-                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 space-y-2">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-700 pb-1">
-                            <Info className="w-3 h-3" /> Estado Financiero del Lote
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div><p className="text-slate-500 text-[10px]">Inversión</p><p className="text-red-400 font-mono font-bold">{formatCurrency(selectedLotInvestment.totalSpent)}</p></div>
-                            <div className="text-right"><p className="text-slate-500 text-[10px]">Ventas</p><p className="text-emerald-400 font-mono font-bold">{formatCurrency(selectedLotInvestment.previousIncome)}</p></div>
-                        </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Fecha de Recolección</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white text-xs font-bold" required />
                     </div>
-                )}
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Producto</label>
+                        <input type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder="Ej: Café Pergamino Seco" className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white text-xs font-bold" required />
+                    </div>
+                </div>
 
-                <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Cultivo / Producto</label>
-                    <input type="text" value={cropName} onChange={e => setCropName(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500" placeholder="Ej: Café Pergamino" required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Cantidad</label>
-                        <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-yellow-500" placeholder="0" required />
+                <div className="bg-slate-900/50 p-5 rounded-[2.5rem] border border-slate-700 space-y-4">
+                    <h5 className="text-[10px] font-black text-slate-500 uppercase text-center tracking-widest flex items-center justify-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-500" /> Trazabilidad y Calidad ({unit})
+                    </h5>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-[8px] text-emerald-500 font-black uppercase text-center block">Pergamino (Exportación)</label>
+                            <input type="number" value={qty1} onChange={e => setQty1(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[8px] text-amber-500 font-black uppercase text-center block">Consumo (Nacional)</label>
+                            <input type="number" value={qty2} onChange={e => setQty2(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[8px] text-red-500 font-black uppercase text-center block">Pasilla (Subproducto)</label>
+                            <input type="number" value={qty3} onChange={e => setQty3(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm" />
+                        </div>
                     </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Unidad</label>
-                        <select value={unit} onChange={e => setUnit(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white outline-none">
-                            <option>Kg</option><option>Arrobas</option><option>Toneladas</option><option>Bultos</option><option>Canastillas</option>
-                        </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-emerald-500 uppercase ml-2">Precio Total Venta</label>
+                        <input type="number" value={totalValue} onChange={e => setTotalValue(e.target.value)} placeholder="$ 0" className="w-full bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 text-emerald-500 font-mono font-black text-lg" required />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Factor Rendimiento</label>
+                        <input type="number" step="0.1" value={yieldFactor} onChange={e => setYieldFactor(e.target.value)} placeholder="Ej: 94" className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-mono font-black text-lg" />
+                        <p className="text-[9px] text-slate-500 px-2">Porcentaje de almendra sana.</p>
                     </div>
                 </div>
-                <div>
-                    <label className="text-xs font-bold text-emerald-400 uppercase mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3" /> Valor Total Venta (COP)</label>
-                    <input type="number" value={totalValue} onChange={e => setTotalValue(e.target.value)} className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg p-3 text-white outline-none font-mono text-lg focus:ring-1 focus:ring-emerald-500" placeholder="0" required />
-                </div>
-                <button type="submit" className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 mt-2 shadow-lg active:scale-95 transition-all">
-                    <Save className="w-5 h-5" /> Guardar
+
+                <button 
+                    type="submit" 
+                    className={`w-full py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 ${safetyRadar && safetyRadar.length > 0 ? 'bg-red-600 text-white animate-pulse' : 'bg-emerald-600 text-white'}`}
+                >
+                    {safetyRadar && safetyRadar.length > 0 ? 'COSECHAR CON RIESGO SANITARIO' : 'CONFIRMAR COSECHA SEGURA'}
                 </button>
             </form>
         </Modal>

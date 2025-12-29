@@ -133,7 +133,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
           </div>
 
-          {/* STORAGE MONITOR - POINT 2 */}
           <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                   <HardDrive className={`w-3 h-3 ${storage.percent > 80 ? 'text-red-400 animate-pulse' : 'text-slate-500'}`} />
@@ -147,24 +146,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
           </div>
       </div>
-
-      {/* ALERTS */}
-      {(alerts.expired.length > 0 || alerts.lowStock.length > 0) && (
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {alerts.expired.length > 0 && (
-                <div className="min-w-[140px] bg-red-500/10 border border-red-500/30 p-3 rounded-2xl flex items-center gap-3">
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                    <span className="text-[10px] font-black text-red-500 uppercase">{alerts.expired.length} Vencidos</span>
-                </div>
-            )}
-            {alerts.lowStock.length > 0 && (
-                <div className="min-w-[140px] bg-orange-500/10 border border-orange-500/30 p-3 rounded-2xl flex items-center gap-3">
-                    <Package className="w-4 h-4 text-orange-500" />
-                    <span className="text-[10px] font-black text-orange-500 uppercase">{alerts.lowStock.length} Stock Bajo</span>
-                </div>
-            )}
-        </div>
-      )}
 
       {/* INVENTORY LIST */}
       <div className="space-y-4">
@@ -185,28 +166,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const isLowStock = item.minStock && item.currentQuantity <= item.minStock;
                 const totalVal = item.currentQuantity * getCostPerGramOrMl(item);
                 return (
-                    <div key={item.id} className={`bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border transition-all hover:shadow-xl ${isLowStock ? 'border-orange-500/30' : 'border-slate-200 dark:border-slate-700'}`}>
+                    <div key={item.id} className={`bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border transition-all hover:shadow-xl relative group ${isLowStock ? 'border-orange-500/30' : 'border-slate-200 dark:border-slate-700'}`}>
+                        {isAdmin && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} 
+                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2"
+                                title="Eliminar Ítem"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
                         <div className="flex gap-4">
-                            <div onClick={() => onViewHistory(item)} className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-900 flex-shrink-0 overflow-hidden cursor-pointer border dark:border-slate-700">
+                            <div onClick={() => onViewHistory(item)} className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-900 flex-shrink-0 overflow-hidden cursor-pointer border dark:border-slate-700 transition-transform active:scale-90">
                                 {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon className="w-8 h-8" /></div>}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-black text-slate-800 dark:text-white truncate">{item.name}</h3>
+                                <h3 className="font-black text-slate-800 dark:text-white truncate pr-6">{item.name}</h3>
                                 <div className="flex items-end justify-between mt-2">
                                     <div>
-                                        <p className="text-[8px] text-slate-400 uppercase font-black">Stock</p>
+                                        <p className="text-[8px] text-slate-400 uppercase font-black">Stock Actual</p>
                                         <p className={`text-sm font-black ${isLowStock ? 'text-orange-500' : 'text-slate-800 dark:text-white'}`}>{formatBaseQuantity(item.currentQuantity, item.baseUnit)}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[8px] text-slate-400 uppercase font-black">Valor</p>
+                                        <p className="text-[8px] text-slate-400 uppercase font-black">Valoración</p>
                                         <p className="text-sm font-mono font-black text-emerald-600">{formatCurrency(totalVal)}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t dark:border-slate-700 flex gap-2">
-                            <button onClick={() => onAddMovement(item, 'IN')} className="flex-1 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 font-black text-[10px] uppercase">Entrada</button>
-                            <button onClick={() => onAddMovement(item, 'OUT')} className="flex-1 p-2 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 font-black text-[10px] uppercase">Salida</button>
+                            <button onClick={() => onAddMovement(item, 'IN')} className="flex-1 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 font-black text-[10px] uppercase transition-colors hover:bg-emerald-100">Entrada</button>
+                            <button onClick={() => onAddMovement(item, 'OUT')} className="flex-1 p-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 font-black text-[10px] uppercase transition-colors hover:bg-red-100">Salida</button>
                         </div>
                     </div>
                 );

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Personnel, CostCenter, Activity, LaborLog } from '../types';
 import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle } from 'lucide-react';
@@ -6,7 +7,8 @@ interface LaborFormProps {
   personnel: Personnel[];
   costCenters: CostCenter[];
   activities: Activity[];
-  onSave: (log: Omit<LaborLog, 'id'>) => void;
+  // Fix: Omit warehouseId and paid as they are handled by the parent component (App.tsx)
+  onSave: (log: Omit<LaborLog, 'id' | 'warehouseId' | 'paid'>) => void;
   onCancel: () => void;
   onOpenSettings: () => void; // To redirect user if lists are empty
 }
