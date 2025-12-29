@@ -72,7 +72,7 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                 </div>
                 <div>
                     <h3 className="text-white font-black text-xl">Gestión de Nómina</h3>
-                    <p className="text-emerald-200/70 text-xs font-bold uppercase tracking-widest">Liquidación Consolidada AgroSuite</p>
+                    <p className="text-emerald-200/70 text-xs font-bold uppercase tracking-widest">Liquidación Consolidada DatosFinca Viva</p>
                 </div>
             </div>
             <button onClick={onClose} className="p-3 hover:bg-emerald-800 rounded-full text-emerald-200 transition-colors">

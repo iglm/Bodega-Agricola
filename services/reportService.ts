@@ -26,7 +26,7 @@ const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouse: strin
     doc.setFontSize(10);
     doc.text(`${subtitle} | Sede: ${warehouse}`, 105, 30, { align: 'center' });
     doc.setFontSize(8);
-    doc.text(`AgroSuite 360 - Dossier Técnico v2.5`, 105, 38, { align: 'center' });
+    doc.text(`DatosFinca Viva - Documento Técnico v2.5`, 105, 38, { align: 'center' });
     return 50;
 };
 
@@ -36,16 +36,17 @@ const addFooter = (doc: jsPDF) => {
     doc.setTextColor(150);
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.text(`Página ${i} de ${pageCount} | Generado por AgroSuite 360 © 2025`, 105, 290, { align: 'center' });
+        doc.text(`Página ${i} de ${pageCount} | Generado por DatosFinca Viva © 2025`, 105, 290, { align: 'center' });
     }
 };
 
 // --- MOTOR DE INGENIERÍA DE DATOS SQL RELACIONAL ---
 
-export const generateSQLDump = (data: AppState) => {
-    const fileName = `AgroSuite360_MasterBackup_${new Date().toISOString().split('T')[0]}.sql`;
+// Fix: Explicitly declare the return type as 'void'
+export const generateSQLDump = (data: AppState): void => {
+    const fileName = `DatosFinca_Viva_MasterBackup_${new Date().toISOString().split('T')[0]}.sql`;
     let sql = `-- =============================================================================\n`;
-    sql += `-- AGROSUITE 360 - RELATIONAL DATABASE EXPORT (SQLITE COMPATIBLE)\n`;
+    sql += `-- DATOSFINCA VIVA - RELATIONAL DATABASE EXPORT (SQLITE COMPATIBLE)\n`;
     sql += `-- Exportado por: ${AUTHOR}\n`;
     sql += `-- Factor Prestacional Aplicado: ${data.laborFactor}\n`;
     sql += `-- =============================================================================\n\n`;
@@ -111,7 +112,8 @@ export const generateSQLDump = (data: AppState) => {
     link.click();
 };
 
-export const generateExecutiveReport = (data: AppState) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateExecutiveReport = (data: AppState): void => {
     const doc = new jsPDF();
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
     addHeader(doc, "DOSSIER ESTRATÉGICO", "Reporte de Gestión Gerencial", activeW?.name || "");
@@ -120,7 +122,8 @@ export const generateExecutiveReport = (data: AppState) => {
     doc.save(`Reporte_Gerencial_${activeW?.name}.pdf`);
 };
 
-export const generatePDF = (data: AppState) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generatePDF = (data: AppState): void => {
     const doc = new jsPDF();
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
     let y = addHeader(doc, "INVENTARIO BODEGA", "Cierre de Existencias y Valoración", activeW?.name || "");
@@ -140,10 +143,11 @@ export const generatePDF = (data: AppState) => {
     });
     
     addFooter(doc);
-    doc.save("Inventario_AgroSuite.pdf");
+    doc.save("Inventario_DatosFinca.pdf");
 };
 
-export const generateLaborReport = (data: AppState) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateLaborReport = (data: AppState): void => {
     const doc = new jsPDF();
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
     let y = addHeader(doc, "REPORTE DE NÓMINA", "Costeo Detallado de Mano de Obra", activeW?.name || "", BRAND_COLORS.amber);
@@ -167,7 +171,8 @@ export const generateLaborReport = (data: AppState) => {
     doc.save(`Reporte_Nomina_${activeW?.name}.pdf`);
 };
 
-export const generateHarvestReport = (data: AppState) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateHarvestReport = (data: AppState): void => {
     const doc = new jsPDF();
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
     let y = addHeader(doc, "REPORTE DE COSECHA", "Producción y Ventas por Lote", activeW?.name || "");
@@ -187,7 +192,8 @@ export const generateHarvestReport = (data: AppState) => {
     doc.save(`Reporte_Cosechas_${activeW?.name}.pdf`);
 };
 
-export const generateFinancialReport = (data: AppState) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateFinancialReport = (data: AppState): void => {
     const doc = new jsPDF();
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
     let y = addHeader(doc, "ESTADO DE RESULTADOS (P&G)", "Análisis de Rentabilidad Operativa", activeW?.name || "", [71, 85, 105]); // Indigo color
@@ -221,8 +227,8 @@ export const generateFinancialReport = (data: AppState) => {
     doc.save(`Reporte_Financiero_${activeW?.name}.pdf`);
 };
 
-
-export const generateExcel = (data: AppState) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateExcel = (data: AppState): void => {
     const wb = XLSX.utils.book_new();
     const activeId = data.activeWarehouseId;
     const warehouseName = data.warehouses.find(w => w.id === activeId)?.name || 'Activa';
@@ -255,7 +261,8 @@ export const generateExcel = (data: AppState) => {
     XLSX.writeFile(wb, `Reporte_Integral_${warehouseName}_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
-export const generateManualPDF = () => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateManualPDF = (): void => {
     const doc = new jsPDF();
     const margin = 15;
     const pageWidth = doc.internal.pageSize.width;
@@ -307,9 +314,9 @@ export const generateManualPDF = () => {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(36);
-    doc.text("AGROSUITE 360", pageWidth / 2, 100, { align: 'center' });
+    doc.text("DATOSFINCA VIVA", pageWidth / 2, 100, { align: 'center' });
     doc.setFontSize(14);
-    doc.text("Dossier Técnico-Comercial", pageWidth / 2, 115, { align: 'center' });
+    doc.text("Descripción del Programa", pageWidth / 2, 115, { align: 'center' });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text("La Revolución Digital del Agro Colombiano", pageWidth / 2, 125, { align: 'center' });
@@ -320,7 +327,7 @@ export const generateManualPDF = () => {
 
     // --- PAGE 1: EXECUTIVE SUMMARY ---
     y = addTitle("1. Resumen Ejecutivo: La Finca como Empresa", y);
-    y = addParagraph("AgroSuite 360 es un Sistema de Planificación de Recursos Empresariales (ERP) diseñado para el sector agrícola, que opera bajo una filosofía de 'Dato-Decisión'. Su propósito es empoderar al productor para que transcienda la gestión operativa y adopte un rol de gerente estratégico, fundamentando cada acción en un análisis financiero robusto y en tiempo real.", y + 5);
+    y = addParagraph("DatosFinca Viva es un Sistema de Planificación de Recursos Empresariales (ERP) diseñado para el sector agrícola, que opera bajo una filosofía de 'Dato-Decisión'. Su propósito es empoderar al productor para que trascienda la gestión operativa y adopte un rol de gerente estratégico, fundamentando cada acción en un análisis financiero robusto y en tiempo real.", y + 5);
     y = addParagraph("El sistema se distingue por su arquitectura de seguridad 'Local-First', garantizando que los datos sensibles del negocio (costos, nómina, rentabilidad) residan exclusivamente en el dispositivo del usuario. Este enfoque no solo asegura la máxima confidencialidad, sino que también otorga al productor la soberanía total sobre su información, en cumplimiento con la Ley 1581 de Habeas Data.", y + 5);
     y = addParagraph("La propuesta de valor se centra en tres pilares: Rigor Financiero, Inteligencia de Negocios y Cumplimiento Normativo, convirtiendo la recolección de datos de campo en una ventaja competitiva tangible.", y + 5);
     doc.addPage();
@@ -329,7 +336,7 @@ export const generateManualPDF = () => {
     // --- PAGE 2: CORE FINANCIAL ENGINE ---
     y = addTitle("2. El Motor Financiero: Precisión Contable", y);
     y = addTitle("2.1 Costo Promedio Ponderado (CPP)", y + 5, 12, BRAND_COLORS.slate);
-    y = addParagraph("A diferencia de los sistemas de registro tradicionales, AgroSuite 360 implementa el CPP, el método contable estándar para la valoración de inventarios. Cuando se ingresa una nueva compra de un insumo a un precio diferente, el sistema recalcula automáticamente el costo real de cada unidad en bodega. Esto asegura que el costo asignado a cada lote en una aplicación sea financieramente exacto, eliminando distorsiones en el cálculo de la rentabilidad.", y + 5);
+    y = addParagraph("A diferencia de los sistemas de registro tradicionales, DatosFinca Viva implementa el CPP, el método contable estándar para la valoración de inventarios. Cuando se ingresa una nueva compra de un insumo a un precio diferente, el sistema recalcula automáticamente el costo real de cada unidad en bodega. Esto asegura que el costo asignado a cada lote en una aplicación sea financieramente exacto, eliminando distorsiones en el cálculo de la rentabilidad.", y + 5);
     y = addTitle("2.2 Costeo Dual de Mano de Obra (Factor Laboral)", y + 10, 12, BRAND_COLORS.slate);
     y = addParagraph("Reconociendo las diversas realidades contractuales del campo, la app ofrece un sistema de costeo dual:", y + 5);
     y = addListItem("Factor 1.0 (Costo Directo): Registra el valor exacto pagado al trabajador, ideal para modelos de jornal informal.", y + 8);
@@ -348,7 +355,7 @@ export const generateManualPDF = () => {
     y = addTitle("4. Módulo de Personal: Trazabilidad y Legalidad", y, 16, BRAND_COLORS.amber);
     y = addParagraph("Gestiona el recurso humano, el costo más significativo de la operación agrícola.", y+5);
     y = addListItem("Registro de Jornales: Asocia cada pago a un trabajador, una labor y un lote, permitiendo un análisis granular de la eficiencia.", y+8);
-    y = addListItem("Liquidación de Nómina: Consolida los jornales pendientes por trabajador y genera un Recibo de Pago en PDF con un clic. Este documento es un soporte legal ante posibles reclamaciones y requerimientos de la UGPP.", y+5);
+    y = addListItem("Liquidación de Nómina: Consolida los jornales pendientes por trabajador y genera un Recibo de Pago en PDF con un clic. Este documento es un soporte legal ante posibles reclamaciones y requerimientos de la UGPP.", y + 5);
     doc.addPage(); y = 20;
 
     y = addTitle("5. Módulo de Ventas: De la Cosecha al Ingreso", y);
@@ -393,17 +400,18 @@ export const generateManualPDF = () => {
 
     // --- PAGE 10: LEGAL & COMPLIANCE ---
     y = addTitle("10. Cumplimiento Normativo: Marco Colombia", y);
-    y = addParagraph("AgroSuite 360 ha sido desarrollado con un profundo conocimiento del marco legal colombiano para ofrecer seguridad jurídica al productor:", y+5);
+    y = addParagraph("DatosFinca Viva ha sido desarrollado con un profundo conocimiento del marco legal colombiano para ofrecer seguridad jurídica al productor:", y+5);
     y = addListItem("Ley 1581 de 2012 (Habeas Data): La arquitectura 'Local-First' es la máxima garantía de cumplimiento, ya que no existe una transferencia de datos personales a servidores de terceros.", y+8);
     y = addListItem("Ley 23 de 1982 (Derechos de Autor): El software está protegido y su uso se rige por una licencia personal e intransferible.", y+5);
     y = addListItem("Ley 1480 de 2011 (Estatuto del Consumidor): Se garantizan los derechos de retracto y reversión de pago en las suscripciones a través de las plataformas oficiales (Google Play Store).", y+5);
     y = addListItem("Normativa ICA y UGPP: Las funcionalidades de la app, como el registro de PHI y la generación de recibos de pago, están diseñadas para generar los soportes documentales exigidos por estas entidades de control.", y+5);
 
     addFooter(doc);
-    doc.save("Dossier_Tecnico_AgroSuite360.pdf");
+    doc.save("Descripcion_Programa_DatosFinca_Viva.pdf");
 };
 
-export const generatePaymentReceipt = (name: string, logs: LaborLog[], warehouseName: string) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generatePaymentReceipt = (name: string, logs: LaborLog[], warehouseName: string): void => {
     const doc = new jsPDF();
     let y = addHeader(doc, "RECIBO DE PAGO", `Liquidación para ${name}`, warehouseName, BRAND_COLORS.amber);
     
@@ -440,8 +448,10 @@ export const generatePaymentReceipt = (name: string, logs: LaborLog[], warehouse
     doc.save(`Recibo_Pago_${name.replace(/\s/g, '_')}.pdf`);
 };
 
-export const generateGlobalReport = (data: AppState) => generateExecutiveReport(data);
-export const generateFieldTemplates = (data: AppState, b: boolean) => {
+// Fix: Explicitly declare the return type as 'void'
+export const generateGlobalReport = (data: AppState): void => generateExecutiveReport(data);
+// Fix: Explicitly declare the return type as 'void'
+export const generateFieldTemplates = (data: AppState, b: boolean): void => {
     const doc = new jsPDF();
     addHeader(doc, "PLANILLAS DE CAMPO", "Registro Manual de Labores", "BPA ICA");
     // TODO: Add printable forms
@@ -466,147 +476,3 @@ export const getDemoData = (): AppState => {
     { id: 'lote_caturra_2', warehouseId: WAREHOUSE_ID, name: 'Lote 2: Caturra', area: 2.5, stage: 'Produccion', cropType: 'Café', plantCount: 16250 }, // 6500 p/ha
     { id: 'lote_geisha_3', warehouseId: WAREHOUSE_ID, name: 'Lote 3: Geisha', area: 2, stage: 'Produccion', cropType: 'Café', plantCount: 12000 }, // 6000 p/ha
     { id: 'lote_levante_4', warehouseId: WAREHOUSE_ID, name: 'Lote 4: Renovación', area: 2.5, stage: 'Levante', cropType: 'Café', plantCount: 20000 }, // 8000 p/ha
-  ];
-
-  const personnel: Personnel[] = [
-    { id: 'p_gerente', warehouseId: WAREHOUSE_ID, name: 'Carlos Gerente', role: 'Administrador' },
-    { id: 'p_op_1', warehouseId: WAREHOUSE_ID, name: 'Juan Valdéz', role: 'Operario' },
-    { id: 'p_op_2', warehouseId: WAREHOUSE_ID, name: 'María Cosechadora', role: 'Operario' }
-  ];
-
-  const activities: Activity[] = [
-    { id: 'act_recol', warehouseId: WAREHOUSE_ID, name: 'Recolección de Café', costClassification: 'COFFEE' },
-    { id: 'act_beneficio', warehouseId: WAREHOUSE_ID, name: 'Beneficio y Secado', costClassification: 'COFFEE' },
-    { id: 'act_fert_eda', warehouseId: WAREHOUSE_ID, name: 'Fertilización Edafica', costClassification: 'COFFEE' },
-    { id: 'act_fert_fol', warehouseId: WAREHOUSE_ID, name: 'Fertilización Foliar', costClassification: 'COFFEE' },
-    { id: 'act_ctrl_broca', warehouseId: WAREHOUSE_ID, name: 'Control de Broca', costClassification: 'COFFEE' },
-    { id: 'act_ctrl_roya', warehouseId: WAREHOUSE_ID, name: 'Control de Roya', costClassification: 'COFFEE' },
-    { id: 'act_plateo', warehouseId: WAREHOUSE_ID, name: 'Plateo Manual', costClassification: 'COFFEE' },
-    { id: 'act_machete', warehouseId: WAREHOUSE_ID, name: 'Control Arvenses (Machete)', costClassification: 'COFFEE' },
-    { id: 'act_guadana', warehouseId: WAREHOUSE_ID, name: 'Control Arvenses (Guadaña)', costClassification: 'COFFEE' },
-    { id: 'act_siembra', warehouseId: WAREHOUSE_ID, name: 'Siembra / Resiembra', costClassification: 'COFFEE' },
-    { id: 'act_deschuponada', warehouseId: WAREHOUSE_ID, name: 'Deschuponada', costClassification: 'COFFEE' },
-    { id: 'act_admin', warehouseId: WAREHOUSE_ID, name: 'Administración General', costClassification: 'JOINT' }
-  ];
-  
-  const suppliers = [{id: 'sup_agro_regional', warehouseId: WAREHOUSE_ID, name: 'Agroinsumos del Centro'}];
-  
-  // --- ESTADO INICIAL DEL INVENTARIO ---
-  let inventory: InventoryItem[] = [
-    { id: 'inv_fert_prod', warehouseId: WAREHOUSE_ID, name: 'Fertilizante Producción 25-4-24', category: Category.FERTILIZANTE, currentQuantity: 0, baseUnit: 'g', averageCost: 0, lastPurchasePrice: 175000, lastPurchaseUnit: Unit.BULTO_50KG, safetyIntervalDays: 0 },
-    { id: 'inv_fungicida', warehouseId: WAREHOUSE_ID, name: 'Fungicida Amistar Top', category: Category.FUNGICIDA, currentQuantity: 0, baseUnit: 'ml', averageCost: 0, lastPurchasePrice: 120000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 15 },
-    { id: 'inv_herbicida', warehouseId: WAREHOUSE_ID, name: 'Herbicida Glifosato', category: Category.HERBICIDA, currentQuantity: 0, baseUnit: 'ml', averageCost: 0, lastPurchasePrice: 45000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 30 }
-  ];
-  let movements: Movement[] = [];
-
-  // --- LÓGICA DE GENERACIÓN DE DATOS PARA 1 AÑO ---
-  const laborLogs: LaborLog[] = [];
-  const harvests: HarvestLog[] = [];
-  
-  const today = new Date();
-  
-  for (let i = 365; i > 0; i--) {
-      const currentDate = new Date(today);
-      currentDate.setDate(today.getDate() - i);
-      const dayOfYear = Math.floor((currentDate.getTime() - new Date(currentDate.getFullYear(), 0, 0).getTime()) / 86400000);
-      
-      const productionLots = costCenters.filter(c => c.stage === 'Produccion');
-
-      // 1. FERTILIZACIÓN (Cada 90 días)
-      if (dayOfYear % 90 === 1) {
-          const fert = inventory.find(inv => inv.id === 'inv_fert_prod')!;
-          const bultosNeeded = Math.ceil((KG_FERTILIZER_PER_HA_YEAR * FARM_SIZE_HA / 4) / 50);
-          const { updatedInventory, movementCost } = processInventoryMovement(inventory, { itemId: fert.id, itemName: fert.name, type: 'IN', quantity: bultosNeeded, unit: Unit.BULTO_50KG, calculatedCost: 0, notes: "Compra trimestral." }, fert.lastPurchasePrice);
-          inventory = updatedInventory;
-          movements.push({ id: generateId(), warehouseId: WAREHOUSE_ID, date: currentDate.toISOString(), itemId: fert.id, itemName: fert.name, type: 'IN', quantity: bultosNeeded, unit: Unit.BULTO_50KG, calculatedCost: movementCost, notes: "Compra trimestral." });
-          
-          productionLots.forEach(lot => {
-              const bultosPerLot = (KG_FERTILIZER_PER_HA_YEAR * lot.area / 4) / 50;
-              const { updatedInventory: invPostApp, movementCost: costApp } = processInventoryMovement(inventory, { itemId: fert.id, itemName: fert.name, type: 'OUT', quantity: bultosPerLot, unit: Unit.BULTO_50KG, calculatedCost: 0, costCenterId: lot.id });
-              inventory = invPostApp;
-              movements.push({ id: generateId(), warehouseId: WAREHOUSE_ID, date: currentDate.toISOString(), itemId: fert.id, itemName: fert.name, type: 'OUT', quantity: bultosPerLot, unit: Unit.BULTO_50KG, calculatedCost: costApp, costCenterId: lot.id, costCenterName: lot.name });
-              
-              const jornales = lot.area * 1.5; // ITEC: 1.5 jornales/ha
-              laborLogs.push({ id: generateId(), warehouseId: WAREHOUSE_ID, date: currentDate.toISOString(), personnelId: 'p_op_1', personnelName: 'Juan Valdéz', activityId: 'act_fert_eda', activityName: 'Fertilización Edafica', costCenterId: lot.id, costCenterName: lot.name, value: jornales * JORNAL_VALUE, paid: false });
-          });
-      }
-
-      // 2. CONTROL DE ARVENSES (Cada 60 días)
-      if (dayOfYear % 60 === 1) {
-          productionLots.forEach(lot => {
-              const jornales = lot.area * 6.5; // ITEC: 6.5 jornales/ha/vez
-              laborLogs.push({ id: generateId(), warehouseId: WAREHOUSE_ID, date: currentDate.toISOString(), personnelId: 'p_op_2', personnelName: 'María Cosechadora', activityId: 'act_machete', activityName: 'Control Arvenses (Machete)', costCenterId: lot.id, costCenterName: lot.name, value: jornales * JORNAL_VALUE, paid: false });
-          });
-      }
-      
-      // 3. DESCHUPONADA (Cada 120 días)
-      if (dayOfYear % 120 === 5) {
-        productionLots.forEach(lot => {
-            const jornales = lot.area * 3.5; // ITEC: 3.5 jornales/ha/vez
-            laborLogs.push({ id: generateId(), warehouseId: WAREHOUSE_ID, date: currentDate.toISOString(), personnelId: 'p_op_1', personnelName: 'Juan Valdéz', activityId: 'act_deschuponada', activityName: 'Deschuponada', costCenterId: lot.id, costCenterName: lot.name, value: jornales * JORNAL_VALUE, paid: false });
-        });
-      }
-      
-      // 4. COSECHA (Picos en Abril-Mayo y Oct-Nov)
-      const month = currentDate.getMonth();
-      const isMainHarvest = (month >= 9 && month <= 10);
-      const isMitaHarvest = (month >= 3 && month <= 4);
-      if (isMainHarvest || isMitaHarvest) {
-          productionLots.forEach(lot => {
-              if (Math.random() > 0.4) return;
-              
-              const dailyYieldKgHa = isMainHarvest ? (13.6 * 125 * 0.7) / 60 : (13.6 * 125 * 0.3) / 60;
-              const kgCherry = dailyYieldKgHa * lot.area * (0.8 + Math.random() * 0.4);
-              
-              const kgCps = (kgCherry / 5.1);
-              const cargasCps = kgCps / 125;
-              const ventaTotal = cargasCps * SALE_PRICE_PER_CARGA_CPS;
-
-              const qty1 = kgCps * 0.95;
-              const qty2 = kgCps * 0.03;
-              const qty3 = kgCps * 0.02;
-              const totalKg = qty1 + qty2 + qty3;
-              const yieldFactor = 88 + Math.random() * 6;
-
-              harvests.push({ 
-                  id: generateId(), warehouseId: WAREHOUSE_ID, costCenterId: lot.id, costCenterName: lot.name, 
-                  date: currentDate.toISOString(), cropName: 'Café Pergamino Seco', 
-                  quantity: totalKg, unit: 'kg', totalValue: ventaTotal, 
-                  quality1Qty: qty1, quality2Qty: qty2, wasteQty: qty3,
-                  yieldFactor: parseFloat(yieldFactor.toFixed(1))
-              });
-
-              const recoleccionCost = kgCherry * HARVEST_COST_PER_KG_CHERRY;
-              laborLogs.push({ id: generateId(), warehouseId: WAREHOUSE_ID, date: currentDate.toISOString(), personnelId: 'p_op_2', personnelName: 'María Cosechadora', activityId: 'act_recol', activityName: 'Recolección de Café', costCenterId: lot.id, costCenterName: lot.name, value: recoleccionCost, paid: false });
-          });
-      }
-  }
-
-  return {
-    warehouses: [warehouse],
-    activeWarehouseId: WAREHOUSE_ID,
-    inventory,
-    movements,
-    suppliers,
-    costCenters,
-    personnel,
-    activities,
-    laborLogs,
-    harvests,
-    machines: [],
-    maintenanceLogs: [],
-    rainLogs: [],
-    financeLogs: [],
-    soilAnalyses: [],
-    ppeLogs: [],
-    wasteLogs: [],
-    agenda: [{id: generateId(), warehouseId: WAREHOUSE_ID, date: new Date().toISOString(), title: 'Revisar datos de demostración', completed: false}],
-    phenologyLogs: [],
-    pestLogs: [],
-    laborFactor: 1.52,
-    swot: { f: 'Finca tecnificada con datos reales.', o: 'Optimizar costos con análisis de rentabilidad.', d: 'Curva de aprendizaje de la App.', a: 'Volatilidad de precios del café.' },
-    bpaChecklist: {},
-    assets: [],
-    adminPin: '1234'
-  };
-};

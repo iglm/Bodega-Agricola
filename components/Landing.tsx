@@ -23,8 +23,8 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
     setTimeout(() => {
       const mockUser: UserType = {
         id: 'user_android_360',
-        name: 'Productor AgroSuite',
-        email: 'gestor@agrosuite.com',
+        name: 'Productor DatosFinca',
+        email: 'gestor@datosfinca.com',
         avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroSuite'
       };
       onEnter(mockUser);
@@ -49,7 +49,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
                   <Globe className="w-6 h-6 text-white" />
               </div>
               <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight leading-none">AgroSuite <span className="text-emerald-400">360</span></h1>
+                  <h1 className="text-2xl font-black text-white tracking-tight leading-none">DatosFinca <span className="text-emerald-400">Viva</span></h1>
                   <p className="text-[9px] text-emerald-300 font-bold uppercase tracking-widest mt-1 italic">Intelligence by Lucas Mateo Tabares Franco</p>
               </div>
           </div>
@@ -82,7 +82,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
                   </h3>
                   <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-[2rem] space-y-4">
                       <p className="text-[11px] text-slate-300 leading-relaxed text-justify">
-                        AgroSuite 360 opera bajo el marco jurídico colombiano. El usuario es responsable del uso de la información para fines fiscales y legales.
+                        DatosFinca Viva opera bajo el marco jurídico colombiano. El usuario es responsable del uso de la información para fines fiscales y legales.
                       </p>
                       <ul className="space-y-3">
                           <li className="flex gap-3 text-[10px] text-slate-400 font-medium">
@@ -124,7 +124,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
               {isLoggingIn ? (
                   <div className="h-6 w-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                  <><LogIn className="w-6 h-6" /> ENTRAR A AGROSUITE 360</>
+                  <><LogIn className="w-6 h-6" /> ENTRAR A DATOSFINCA VIVA</>
               )}
           </button>
           <button 

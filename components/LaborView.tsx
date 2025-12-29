@@ -25,7 +25,7 @@ export const LaborView: React.FC<LaborViewProps> = ({
   const pendingCost = laborLogs.filter(l => !l.paid).reduce((acc, log) => acc + log.value, 0);
 
   const generateContractDraft = (person: Personnel) => {
-      const text = `CONTRATO DE OBRA O LABOR - AGROSUITE 360\n\nEMPLEADOR: [Nombre Finca]\nTRABAJADOR: ${person.name}\nID: ${person.documentId || '[Pendiente]'}\n\nOBJETO: Realización de labores agrícolas en el lote asignado.\nREMUNERACIÓN: A convenir por jornal o tarea.\n\nEste documento sirve como borrador inicial según normativa vigente.`;
+      const text = `CONTRATO DE OBRA O LABOR - DATOSFINCA VIVA\n\nEMPLEADOR: [Nombre Finca]\nTRABAJADOR: ${person.name}\nID: ${person.documentId || '[Pendiente]'}\n\nOBJETO: Realización de labores agrícolas en el lote asignado.\nREMUNERACIÓN: A convenir por jornal o tarea.\n\nEste documento sirve como borrador inicial según normativa vigente.`;
       const blob = new Blob([text], {type: 'text/plain'});
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -66,7 +66,7 @@ export const LaborView: React.FC<LaborViewProps> = ({
 
        <div className="space-y-4">
           <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-2 px-2">
-             <Pickaxe className="w-5 h-5 text-amber-500" /> Registros de Campo
+             <Pickaxe className="w-5 h-5" /> Registros de Campo
           </h3>
 
           {laborLogs.length === 0 ? (

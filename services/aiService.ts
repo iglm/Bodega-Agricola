@@ -23,7 +23,7 @@ export const parseFarmCommand = async (prompt: string, catalogs: any): Promise<P
     contents: `Instrucción: "${prompt}". Contexto de catálogos: ${JSON.stringify(catalogs)}`,
     config: {
       responseMimeType: "application/json",
-      systemInstruction: "Eres un intérprete de comandos para AgroSuite 360. Identifica la acción (INVENTORY_IN, INVENTORY_OUT, LABOR, HARVEST) y extrae los parámetros (itemName, quantity, personnelName, etc.). Usa los catálogos provistos para normalizar los nombres.",
+      systemInstruction: "Eres un intérprete de comandos para DatosFinca Viva. Identifica la acción (INVENTORY_IN, INVENTORY_OUT, LABOR, HARVEST) y extrae los parámetros (itemName, quantity, personnelName, etc.). Usa los catálogos provistos para normalizar los nombres.",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -50,7 +50,7 @@ export const getFarmAnalysis = async (data: AppState, prompt: string) => {
     model: 'gemini-3-flash-preview',
     contents: `Datos Actuales del ERP:\n- Lotes: ${data.costCenters.length}\n- Insumos: ${data.inventory.length}\n- Factor Laboral: ${data.laborFactor}\n\nConsulta del Usuario: ${prompt}`,
     config: { 
-      systemInstruction: "Eres el Director Técnico de AgroSuite 360. Analiza los datos proporcionados para optimizar la rentabilidad por lote y el cumplimiento de BPA ICA. Tus respuestas deben ser cortas, técnicas y accionables." 
+      systemInstruction: "Eres el Director Técnico de DatosFinca Viva. Analiza los datos proporcionados para optimizar la rentabilidad por lote y el cumplimiento de BPA ICA. Tus respuestas deben ser cortas, técnicas y accionables." 
     }
   });
   return response.text;
@@ -85,7 +85,7 @@ export const processInvoiceVision = async (base64: string, mimeType: string): Pr
     },
     config: {
       responseMimeType: "application/json",
-      systemInstruction: "Analiza la factura y devuelve un JSON para cargar en AgroSuite 360. Debe incluir action='INVENTORY_IN', explanation, y data (itemName, quantity, unit, unitPrice).",
+      systemInstruction: "Analiza la factura y devuelve un JSON para cargar en DatosFinca Viva. Debe incluir action='INVENTORY_IN', explanation, y data (itemName, quantity, unit, unitPrice).",
       responseSchema: {
         type: Type.OBJECT,
         properties: {

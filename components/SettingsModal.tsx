@@ -321,7 +321,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="bg-blue-900/10 p-4 rounded-2xl border border-blue-500/30 flex gap-3 items-start mt-4">
                           <Info className="w-5 h-5 text-blue-400 shrink-0" />
                           <p className="text-[9px] text-slate-400 leading-tight italic">
-                              AgroSuite 360 se adhiere estrictamente a la Ley 1581 de 2012. Tus datos de finca son privados y se almacenan exclusivamente de forma local.
+                              DatosFinca Viva se adhiere estrictamente a la Ley 1581 de 2012. Tus datos de finca son privados y se almacenan exclusivamente de forma local.
                           </p>
                       </div>
                   </div>

@@ -17,7 +17,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, 
     setTimeout(() => {
       onUpgrade();
       setLoading(false);
-      alert("¡BIENVENIDO A PRO! 🚀 Tu suscripción mensual de AgroSuite 360 ha sido activada.");
+      alert("¡BIENVENIDO A PRO! 🚀 Tu suscripción mensual de DatosFinca Viva ha sido activada.");
       onClose();
     }, 2000);
   };
@@ -107,7 +107,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, 
               
               {!isSupporter && (
                   <p className="text-[9px] text-center text-slate-500 font-medium px-6 leading-tight italic">
-                      Al presionar "Suscribirme", aceptas los términos de servicio y la política de privacidad de AgroSuite 360. El cobro es recurrente cada 30 días.
+                      Al presionar "Suscribirme", aceptas los términos de servicio y la política de privacidad de DatosFinca Viva. El cobro es recurrente cada 30 días.
                   </p>
               )}
           </div>

@@ -30,7 +30,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
 
             <div className="bg-slate-800 p-6 rounded-[2.5rem] border border-slate-700">
                 <h5 className="font-black text-white flex items-center gap-2 mb-4 uppercase text-xs tracking-widest">
-                  <Gauge className="w-5 h-5 text-indigo-400" /> Propósito de AgroSuite
+                  <Gauge className="w-5 h-5 text-indigo-400" /> Propósito de DatosFinca Viva
                 </h5>
                 <p className="text-sm text-slate-300 leading-relaxed text-justify mb-4 font-medium">
                     Esta no es una simple libreta de registros. Es un **ERP Agrícola** diseñado para que el productor deje de ser solo un agricultor y se convierta en un **Gerente de Negocios**. Cada dato registrado alimenta un motor financiero que le dirá si su finca es realmente rentable.
@@ -175,7 +175,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
         <div className="w-full md:w-64 bg-slate-950 border-r border-slate-800 flex flex-col flex-shrink-0">
             <div className="p-6 border-b border-slate-800 flex items-center gap-3">
                 <div className="p-2 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/20"><BookOpen className="w-6 h-6 text-white" /></div>
-                <span className="font-black text-white text-sm uppercase tracking-tighter">Manual Agro 360</span>
+                <span className="font-black text-white text-sm uppercase tracking-tighter">Manual DatosFinca Viva</span>
             </div>
             
             <div className="flex-1 overflow-x-auto md:overflow-y-auto py-4 space-y-1 flex md:flex-col scrollbar-hide">
@@ -217,7 +217,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
         <div className="flex-1 flex flex-col h-full bg-slate-900/50">
              <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950">
                  <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                    <Info className="w-4 h-4 text-emerald-500" /> Documentación AgroSuite 360
+                    <Info className="w-4 h-4 text-emerald-500" /> Documentación DatosFinca Viva
                  </h3>
                  <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors">
                     <X className="w-5 h-5" />

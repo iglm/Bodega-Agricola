@@ -55,7 +55,7 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                             <Lock className="w-5 h-5 text-blue-500" /> Política de Tratamiento de Datos (Leyes 1581 y 2157)
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>1. Identificación del Responsable:</strong> AgroSuite 360, operada localmente por el usuario en su dispositivo móvil. No existe una base de datos centralizada de terceros.</p>
+                            <p><strong>1. Identificación del Responsable:</strong> DatosFinca Viva, operada localmente por el usuario en su dispositivo móvil. No existe una base de datos centralizada de terceros.</p>
                             <p><strong>2. Finalidad:</strong> Los datos recolectados (Inventarios, Nómina, Ubicación de Lotes) tienen como finalidad exclusiva la gestión administrativa de la unidad productiva y el entrenamiento local de asistentes de IA.</p>
                             <p><strong>3. Derechos del Titular:</strong> Usted, como usuario, tiene derecho a conocer, actualizar y rectificar sus datos. Dado que la App es 100% local, el ejercicio de estos derechos se realiza mediante la edición directa en la interfaz o la eliminación del caché de la aplicación.</p>
                             <p><strong>4. Autorización para IA:</strong> Al usar las funciones de visión artificial (OCR) y análisis de datos, usted autoriza el procesamiento temporal de sus datos por los modelos de Google Gemini bajo los estándares de privacidad empresarial de Google Cloud.</p>
@@ -71,7 +71,7 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                             <Book className="w-5 h-5 text-purple-500" /> Propiedad Intelectual (Ley 23 de 1982)
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>Titularidad:</strong> AgroSuite 360 es una obra protegida. Lucas Mateo Tabares Franco es el autor y titular exclusivo de los derechos morales y patrimoniales sobre el código fuente, la arquitectura de base de datos y los diseños de interfaz.</p>
+                            <p><strong>Titularidad:</strong> DatosFinca Viva es una obra protegida. Lucas Mateo Tabares Franco es el autor y titular exclusivo de los derechos morales y patrimoniales sobre el código fuente, la arquitectura de base de datos y los diseños de interfaz.</p>
                             <p><strong>Licencia de Uso:</strong> Se concede al usuario una licencia no exclusiva, personal e intransferible para el uso de la herramienta con fines agrícolas. Se prohíbe estrictamente la ingeniería inversa o la creación de obras derivadas.</p>
                             <p><strong>Protección Tecnológica:</strong> La App incorpora medidas tecnológicas de protección (TPM) para evitar el acceso no autorizado a su lógica de negocio, amparadas por la Ley 1915 de 2018.</p>
                         </div>
@@ -86,10 +86,10 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                             <AlertCircle className="w-5 h-5 text-amber-500" /> Términos y Condiciones de Uso
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>Responsabilidad del Usuario:</strong> AgroSuite 360 es una herramienta de apoyo a la decisión. El usuario es el único responsable de la veracidad de los datos ingresados y de las acciones tomadas basadas en los análisis de la IA.</p>
+                            <p><strong>Responsabilidad del Usuario:</strong> DatosFinca Viva es una herramienta de apoyo a la decisión. El usuario es el único responsable de la veracidad de los datos ingresados y de las acciones tomadas basadas en los análisis de la IA.</p>
                             <p><strong>Seguridad de Datos:</strong> Al ser una App "Local-First", la pérdida del dispositivo sin un backup previo conlleva la pérdida irrecuperable de la información. El desarrollador no se hace responsable por fallas de hardware del usuario.</p>
                             <p><strong>Validez de Mensajes de Datos:</strong> El uso continuado de la App constituye una aceptación tácita de que los registros digitales generados tienen la validez de un mensaje de datos, en concordancia con la Ley 527 de 1999.</p>
-                            <p><strong>Uso de IA:</strong> Los consejos de la IA no sustituyen la visita de un Ingeniero Agrónomo colegiado. AgroSuite 360 declina responsabilidad por diagnósticos erróneos basados en fotos de baja calidad.</p>
+                            <p><strong>Uso de IA:</strong> Los consejos de la IA no sustituyen la visita de un Ingeniero Agrónomo colegiado. DatosFinca Viva declina responsabilidad por diagnósticos erróneos basados en fotos de baja calidad.</p>
                         </div>
                     </section>
                 </div>
@@ -104,7 +104,7 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
                             <p><strong>Derecho al Retracto:</strong> En compras de suscripciones digitales (PRO), el usuario tiene 5 días hábiles para solicitar la devolución de su dinero a través de la plataforma de pagos de Google Play.</p>
                             <p><strong>Reversión del Pago:</strong> Aplica en casos de fraude o producto no solicitado, según el Artículo 51 de la Ley 1480.</p>
-                            <p><strong>Soporte y Garantía:</strong> AgroSuite 360 garantiza la funcionalidad del software. En caso de errores técnicos, el canal de soporte es: support@agrosuite.com.</p>
+                            <p><strong>Soporte y Garantía:</strong> DatosFinca Viva garantiza la funcionalidad del software. En caso de errores técnicos, el canal de soporte es: support@datosfinca.com.</p>
                         </div>
                     </section>
                 </div>

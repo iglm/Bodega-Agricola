@@ -1,7 +1,7 @@
 
 import { InventoryItem, Movement, Unit, AppState, SWOT } from '../types';
 
-const STORAGE_KEY = 'agrosuite_360_v1_expert';
+const STORAGE_KEY = 'datosfinca_viva_v1';
 
 export const generateId = () => Math.random().toString(36).substring(2, 15);
 

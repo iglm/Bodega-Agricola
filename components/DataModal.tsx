@@ -40,7 +40,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Backup_AgroSuite360_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `Backup_DatosFincaViva_${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(link);
         link.click();
         setTimeout(() => {
@@ -156,7 +156,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
             <div className="flex gap-4 items-start p-6 bg-slate-950 rounded-[2rem] border border-slate-800">
                 <Info className="w-6 h-6 text-slate-600 shrink-0" />
                 <p className="text-[10px] text-slate-500 leading-relaxed font-medium italic">
-                    <span className="text-orange-500 font-black">SEGURIDAD LOCAL:</span> AgroSuite 360 no almacena datos en la nube. Usted es responsable de descargar sus respaldos. Use JSON para mover datos entre dispositivos y SQL para análisis profesional.
+                    <span className="text-orange-500 font-black">SEGURIDAD LOCAL:</span> DatosFinca Viva no almacena datos en la nube. Usted es responsable de descargar sus respaldos. Use JSON para mover datos entre dispositivos y SQL para análisis profesional.
                 </p>
             </div>
 
