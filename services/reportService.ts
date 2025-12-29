@@ -1,4 +1,3 @@
-
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
@@ -450,6 +449,7 @@ export const generatePaymentReceipt = (name: string, logs: LaborLog[], warehouse
 
 // Fix: Explicitly declare the return type as 'void'
 export const generateGlobalReport = (data: AppState): void => generateExecutiveReport(data);
+
 // Fix: Explicitly declare the return type as 'void'
 export const generateFieldTemplates = (data: AppState, b: boolean): void => {
     const doc = new jsPDF();
@@ -462,17 +462,82 @@ export const generateFieldTemplates = (data: AppState, b: boolean): void => {
 export const getDemoData = (): AppState => {
   // --- CONFIGURACIÓN DE LA FINCA DEMO ---
   const WAREHOUSE_ID = 'demo_finca_los_naranjos_v2';
-  const FARM_SIZE_HA = 10;
-  const JORNAL_VALUE = 60000;
-  const HARVEST_COST_PER_KG_CHERRY = 1100; // Basado en FNC 2024
-  const SALE_PRICE_PER_CARGA_CPS = 1950000;
-  const KG_FERTILIZER_PER_HA_YEAR = 830; // Basado en FNC 2024
   
   // --- ENTIDADES MAESTRAS ---
   const warehouse = { id: WAREHOUSE_ID, name: "Finca Demo 'Los Naranjos'", created: new Date().toISOString() };
   
   const costCenters: CostCenter[] = [
-    { id: 'lote_castillo_1', warehouseId: WAREHOUSE_ID, name: 'Lote 1: Castillo', area: 3, stage: 'Produccion', cropType: 'Café', plantCount: 21000 }, // 7000 p/ha
-    { id: 'lote_caturra_2', warehouseId: WAREHOUSE_ID, name: 'Lote 2: Caturra', area: 2.5, stage: 'Produccion', cropType: 'Café', plantCount: 16250 }, // 6500 p/ha
-    { id: 'lote_geisha_3', warehouseId: WAREHOUSE_ID, name: 'Lote 3: Geisha', area: 2, stage: 'Produccion', cropType: 'Café', plantCount: 12000 }, // 6000 p/ha
-    { id: 'lote_levante_4', warehouseId: WAREHOUSE_ID, name: 'Lote 4: Renovación', area: 2.5, stage: 'Levante', cropType: 'Café', plantCount: 20000 }, // 8000 p/ha
+    { id: 'lote_castillo_1', warehouseId: WAREHOUSE_ID, name: 'Lote 1: Castillo', area: 3, stage: 'Produccion', cropType: 'Café', plantCount: 21000 }, 
+    { id: 'lote_caturra_2', warehouseId: WAREHOUSE_ID, name: 'Lote 2: Caturra', area: 2.5, stage: 'Produccion', cropType: 'Café', plantCount: 16250 },
+    { id: 'lote_geisha_3', warehouseId: WAREHOUSE_ID, name: 'Lote 3: Geisha', area: 2, stage: 'Produccion', cropType: 'Café', plantCount: 12000 }, 
+    { id: 'lote_levante_4', warehouseId: WAREHOUSE_ID, name: 'Lote 4: Renovación', area: 2.5, stage: 'Levante', cropType: 'Café', plantCount: 20000 },
+  ];
+
+  const suppliers = [
+      { id: 'sup_1', warehouseId: WAREHOUSE_ID, name: 'AgroInsumos del Café', phone: '3101234567', email: 'ventas@agroinsumos.com' },
+      { id: 'sup_2', warehouseId: WAREHOUSE_ID, name: 'Cooperativa de Caficultores', phone: '018000123456', address: 'Km 5 Vía Principal' }
+  ];
+
+  const personnel: Personnel[] = [
+      { id: 'per_1', warehouseId: WAREHOUSE_ID, name: 'Juan Pérez', role: 'Mayordomo', documentId: '10123456', phone: '3119876543' },
+      { id: 'per_2', warehouseId: WAREHOUSE_ID, name: 'Carlos Díaz', role: 'Recolector', documentId: '10987654' },
+      { id: 'per_3', warehouseId: WAREHOUSE_ID, name: 'María Gómez', role: 'Alimentadora' }
+  ];
+
+  const activities: Activity[] = [
+      { id: 'act_1', warehouseId: WAREHOUSE_ID, name: 'Recolección', costClassification: 'COFFEE' },
+      { id: 'act_2', warehouseId: WAREHOUSE_ID, name: 'Fertilización', costClassification: 'JOINT' },
+      { id: 'act_3', warehouseId: WAREHOUSE_ID, name: 'Desyerba', costClassification: 'JOINT' },
+      { id: 'act_4', warehouseId: WAREHOUSE_ID, name: 'Poda', costClassification: 'COFFEE' }
+  ];
+
+  const inventory: InventoryItem[] = [
+      { 
+          id: 'inv_1', warehouseId: WAREHOUSE_ID, name: 'Urea', category: Category.FERTILIZANTE, 
+          currentQuantity: 300000, baseUnit: 'g', averageCost: 2.8, lastPurchasePrice: 140000, 
+          lastPurchaseUnit: Unit.BULTO_50KG, description: 'Fertilizante Nitrogenado' 
+      },
+      { 
+          id: 'inv_2', warehouseId: WAREHOUSE_ID, name: 'Dap', category: Category.FERTILIZANTE, 
+          currentQuantity: 200000, baseUnit: 'g', averageCost: 3.2, lastPurchasePrice: 160000, 
+          lastPurchaseUnit: Unit.BULTO_50KG, description: 'Fosfato Diamónico' 
+      },
+      { 
+          id: 'inv_3', warehouseId: WAREHOUSE_ID, name: 'BrocaFin', category: Category.INSECTICIDA, 
+          currentQuantity: 5000, baseUnit: 'ml', averageCost: 45, lastPurchasePrice: 45000, 
+          lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 15, description: 'Control de Broca' 
+      }
+  ];
+
+  return {
+      warehouses: [warehouse],
+      activeWarehouseId: WAREHOUSE_ID,
+      inventory,
+      movements: [],
+      suppliers,
+      costCenters,
+      personnel,
+      activities,
+      laborLogs: [],
+      harvests: [],
+      machines: [],
+      maintenanceLogs: [],
+      rainLogs: [],
+      financeLogs: [],
+      soilAnalyses: [],
+      ppeLogs: [],
+      wasteLogs: [],
+      agenda: [],
+      phenologyLogs: [],
+      pestLogs: [],
+      swot: { 
+          f: 'Suelos volcánicos ricos. Alta experiencia técnica.', 
+          o: 'Precios internacionales en alza. Mercado de especiales.', 
+          d: 'Vías de acceso en mal estado. Mano de obra escasa.', 
+          a: 'Fenómeno del Niño. Plagas resistentes.' 
+      },
+      bpaChecklist: {},
+      assets: [],
+      laborFactor: 1.52
+  };
+};
