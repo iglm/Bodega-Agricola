@@ -100,6 +100,26 @@ export interface PlannedLabor {
   notes?: string;
 }
 
+// --- NEW BUDGET INTERFACES ---
+export interface BudgetItem {
+  id: string;
+  conceptId: string; // ID of Activity or InventoryItem
+  conceptName: string;
+  type: 'LABOR' | 'SUPPLY';
+  unitCost: number;
+  quantityPerHa: number; // The technical density (e.g., 4 jornales/Ha or 2 Liters/Ha)
+  months: number[]; // Array of months (0-11) where this expense occurs
+}
+
+export interface BudgetPlan {
+  id: string;
+  warehouseId: string;
+  year: number;
+  costCenterId: string;
+  items: BudgetItem[];
+}
+// -----------------------------
+
 export interface AppState {
   warehouses: Warehouse[];
   activeWarehouseId: string;
@@ -121,12 +141,13 @@ export interface AppState {
   agenda: AgendaEvent[];
   phenologyLogs: PhenologyLog[];
   pestLogs: PestLog[];
-  plannedLabors: PlannedLabor[]; // Nuevo campo para el programador
+  plannedLabors: PlannedLabor[]; 
+  budgets: BudgetPlan[]; // Nuevo campo para presupuestos
   swot?: SWOT;
   bpaChecklist: Record<string, boolean>;
   assets: Asset[];
-  laborFactor: number; // Nueva propiedad: 1.0 para informal, 1.52 para legal
-  adminPin?: string; // PIN de seguridad para acciones gerenciales
+  laborFactor: number; 
+  adminPin?: string; 
 }
 
 export interface Warehouse { 

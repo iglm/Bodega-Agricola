@@ -16,7 +16,8 @@ import { HarvestView } from './components/HarvestView';
 import { ManagementView } from './components/ManagementView'; 
 import { AgendaView } from './components/AgendaView';
 import { StrategicView } from './components/StrategicView';
-import { BiologicalAssetsView } from './components/BiologicalAssetsView'; // NEW IMPORT
+import { BiologicalAssetsView } from './components/BiologicalAssetsView';
+import { BudgetView } from './components/BudgetView'; // NEW IMPORT
 import { HistoryModal } from './components/HistoryModal';
 import { DeleteModal } from './components/DeleteModal';
 import { PayrollModal } from './components/PayrollModal';
@@ -24,11 +25,11 @@ import { SecurityModal } from './components/SecurityModal';
 import { Notification } from './components/Notification';
 import { SupportModal } from './components/SupportModal';
 import { LaborSchedulerView } from './components/LaborSchedulerView';
-import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClassification, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine, PlannedLabor, CostCenter } from './types';
+import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClassification, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine, PlannedLabor, CostCenter, BudgetPlan } from './types';
 import { processInventoryMovement, generateId, getBaseUnitType, convertToBase, loadDataFromLocalStorage, saveDataToLocalStorage } from './services/inventoryService';
 import { dbService } from './services/db'; 
-import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport } from './services/reportService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Loader2, AlertTriangle, ShieldCheck, Sprout } from 'lucide-react';
+import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport, generateBudgetReport } from './services/reportService';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Loader2, AlertTriangle, ShieldCheck, Sprout, Calculator } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState<User | null>(null);
@@ -206,6 +207,21 @@ function App() {
       showNotification('Lote actualizado exitosamente', 'success');
   };
 
+  // --- BUDGET HANDLERS ---
+  const handleSaveBudget = (budget: BudgetPlan) => {
+      // Check if budget exists to update or add
+      const exists = data.budgets?.find(b => b.id === budget.id);
+      let newBudgets = data.budgets || [];
+      
+      if (exists) {
+          newBudgets = newBudgets.map(b => b.id === budget.id ? budget : b);
+      } else {
+          newBudgets = [...newBudgets, budget];
+      }
+
+      setData(prev => ({ ...prev, budgets: newBudgets }));
+  };
+
   const handleSaveNewItem = (
     item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>,
     initialQuantity: number,
@@ -315,7 +331,8 @@ function App() {
                         { id: 'scheduler', label: 'Programar', icon: CalendarRange }, 
                         { id: 'harvest', label: 'Ventas', icon: Target },
                         { id: 'management', label: 'Campo', icon: Tractor },
-                        { id: 'assets', label: 'Activos Bio', icon: Sprout }, // NEW TAB
+                        { id: 'assets', label: 'Activos Bio', icon: Sprout },
+                        { id: 'budget', label: 'Presupuesto', icon: Calculator }, // NEW TAB
                         { id: 'agenda', label: 'Agenda', icon: Calendar },
                         { id: 'strategic', label: 'Estrategia', icon: TrendingUp },
                         { id: 'stats', label: 'KPIs', icon: Database }
@@ -332,11 +349,23 @@ function App() {
             {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} onAddPlannedLabor={handleAddPlannedLabor} onDeletePlannedLabor={handleDeletePlannedLabor} onToggleComplete={handleTogglePlannedLabor} />}
             {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} isAdmin={true} allMovements={data.movements} />}
             {currentTab === 'management' && <ManagementView machines={data.machines.filter(m=>m.warehouseId===activeId)} onUpdateMachine={handleUpdateMachine} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} soilAnalyses={data.soilAnalyses.filter(s=>s.warehouseId===activeId)} ppeLogs={data.ppeLogs.filter(p=>p.warehouseId===activeId)} wasteLogs={data.wasteLogs.filter(w=>w.warehouseId===activeId)} assets={data.assets.filter(a=>a.warehouseId===activeId)} bpaChecklist={data.bpaChecklist} onAddMachine={(m)=>setData(prev=>({...prev, machines:[...prev.machines,{...m, id:generateId(), warehouseId:activeId}]}))} onAddMaintenance={handleAddMaintenance} onDeleteMachine={(id)=>setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r)=>setData(prev=>({...prev, rainLogs:[...prev.rainLogs,{...r, id:generateId(), warehouseId:activeId}]}))} onDeleteRain={(id)=>setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s)=>setData(prev=>({...prev, soilAnalyses:[...prev.soilAnalyses,{...s, id:generateId(), warehouseId:activeId}]}))} onDeleteSoilAnalysis={(id)=>setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p)=>setData(prev=>({...prev, ppeLogs:[...prev.ppeLogs,{...p, id:generateId(), warehouseId:activeId}]}))} onDeletePPE={(id)=>setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w)=>setData(prev=>({...prev, wasteLogs:[...prev.wasteLogs,{...w, id:generateId(), warehouseId:activeId}]}))} onDeleteWaste={(id)=>setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={handleAddAsset} onDeleteAsset={handleDeleteAsset} onToggleBpa={handleToggleBpa} isAdmin={true} phenologyLogs={data.phenologyLogs.filter(p=>p.warehouseId===activeId)} onAddPhenologyLog={handleAddPhenologyLog} onDeletePhenologyLog={handleDeletePhenologyLog} pestLogs={data.pestLogs.filter(p=>p.warehouseId===activeId)} onAddPestLog={handleAddPestLog} onDeletePestLog={handleDeletePestLog} />}
-            {/* NEW TAB RENDER */}
             {currentTab === 'assets' && <BiologicalAssetsView costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} onUpdateLot={handleUpdateCostCenter} />}
+            {/* NEW TAB RENDER WITH REAL DATA FOR CONTROL */}
+            {currentTab === 'budget' && <BudgetView 
+                budgets={data.budgets || []} 
+                costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} 
+                activities={data.activities.filter(a=>a.warehouseId === activeId)} 
+                inventory={data.inventory.filter(i=>i.warehouseId === activeId)} 
+                warehouseId={activeId} 
+                onSaveBudget={handleSaveBudget} 
+                // Passing real data for comparisons
+                laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)}
+                movements={data.movements.filter(m=>m.warehouseId === activeId)}
+                laborFactor={data.laborFactor}
+            />}
             {currentTab === 'agenda' && <AgendaView agenda={data.agenda.filter(a => a.warehouseId === activeId)} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
             {currentTab === 'strategic' && <StrategicView data={data} onUpdateSWOT={handleUpdateSWOT} />}
-            {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={data.movements.filter(m=>m.warehouseId===activeId)} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId===activeId)} harvests={data.harvests.filter(h=>h.warehouseId===activeId)} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} />}
+            {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={data.movements.filter(m=>m.warehouseId===activeId)} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId===activeId)} harvests={data.harvests.filter(h=>h.warehouseId===activeId)} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} budgets={data.budgets || []} />}
             
             <div className="fixed bottom-6 left-6 flex gap-2 z-30">
                 <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border border-slate-700 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>

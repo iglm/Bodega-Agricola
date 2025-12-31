@@ -1,9 +1,8 @@
 
-
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck, Calculator } from 'lucide-react';
 import { AppState } from '../types';
-import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport } from '../services/reportService';
+import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateBudgetReport } from '../services/reportService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -105,10 +104,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Informe Global</span>
                     </button>
 
-                    <button onClick={() => handleProAction(() => generateExecutiveReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden col-span-2">
+                    <button onClick={() => handleProAction(() => generateBudgetReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
+                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
+                        <Calculator className={`w-5 h-5 ${isSupporter ? 'text-indigo-400' : 'text-slate-500'}`} />
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Control Presupuesto</span>
+                    </button>
+
+                    <button onClick={() => handleProAction(() => generateExecutiveReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
                         {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
                         <ShieldCheck className={`w-5 h-5 ${isSupporter ? 'text-blue-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Informe de Auditoría Técnica (Dossier)</span>
+                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Dossier Técnico</span>
                     </button>
                 </div>
 

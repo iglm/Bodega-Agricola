@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
@@ -226,6 +227,73 @@ export const generateFinancialReport = (data: AppState): void => {
     doc.save(`Reporte_Financiero_${activeW?.name}.pdf`);
 };
 
+// NEW: Budget Execution Report
+export const generateBudgetReport = (data: AppState): void => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "CONTROL PRESUPUESTAL", "Ejecución vs. Planeación", activeW?.name || "", [79, 70, 229]); // Indigo
+    const currentYear = new Date().getFullYear();
+
+    const activeBudgets = data.budgets?.filter(b => b.year === currentYear) || [];
+    
+    if (activeBudgets.length === 0) {
+        doc.text("No hay presupuestos activos para el año actual.", 14, y + 10);
+        doc.save(`Reporte_Presupuesto_${activeW?.name}.pdf`);
+        return;
+    }
+
+    const rows = data.costCenters.map(lot => {
+        const lotBudget = activeBudgets.find(b => b.costCenterId === lot.id);
+        if (!lotBudget) return null;
+
+        // Calculated Planned
+        let planned = 0;
+        lotBudget.items.forEach(i => {
+            planned += i.unitCost * i.quantityPerHa * lot.area * i.months.length;
+        });
+
+        // Calculate Real
+        const realLabor = data.laborLogs
+            .filter(l => l.costCenterId === lot.id && new Date(l.date).getFullYear() === currentYear)
+            .reduce((sum, l) => sum + (l.value * data.laborFactor), 0);
+        
+        const realSupplies = data.movements
+            .filter(m => m.costCenterId === lot.id && m.type === 'OUT' && new Date(m.date).getFullYear() === currentYear)
+            .reduce((sum, m) => sum + m.calculatedCost, 0);
+        
+        const totalReal = realLabor + realSupplies;
+        const diff = planned - totalReal;
+        const percent = planned > 0 ? (totalReal / planned) * 100 : 0;
+
+        return [
+            lot.name,
+            formatCurrency(planned),
+            formatCurrency(totalReal),
+            formatCurrency(diff),
+            `${percent.toFixed(1)}%`
+        ];
+    }).filter(row => row !== null);
+
+    autoTable(doc, {
+        startY: y,
+        head: [['Lote / Centro de Costo', 'Presupuestado', 'Ejecutado Real', 'Diferencia (Saldo)', '% Ejecución']],
+        body: rows as any[], // Typing cast for simplicity
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229] },
+        didParseCell: (data) => {
+            // Highlight over budget rows
+            if (data.section === 'body' && data.column.index === 4) {
+                const val = parseFloat(data.cell.raw.toString().replace('%',''));
+                if (val > 100) data.cell.styles.textColor = [220, 38, 38]; // Red
+                else data.cell.styles.textColor = [5, 150, 105]; // Green
+            }
+        }
+    });
+
+    addFooter(doc);
+    doc.save(`Reporte_Presupuesto_${activeW?.name}.pdf`);
+};
+
 // Fix: Explicitly declare the return type as 'void'
 export const generateExcel = (data: AppState): void => {
     const wb = XLSX.utils.book_new();
@@ -256,6 +324,16 @@ export const generateExcel = (data: AppState): void => {
     addSheet(data.personnel.filter(p => p.warehouseId === activeId), "6. Personal");
     addSheet(data.assets.filter(a => a.warehouseId === activeId), "7. Activos Fijos");
     addSheet(data.maintenanceLogs.filter(m => m.warehouseId === activeId), "8. Mantenimientos");
+    
+    // Add Budget Sheet
+    const budgetItemsFlat = data.budgets?.flatMap(b => b.items.map(i => ({
+        ...i, 
+        planId: b.id, 
+        year: b.year, 
+        costCenterId: b.costCenterId,
+        months: i.months.join(',')
+    }))) || [];
+    addSheet(budgetItemsFlat, "9. Detalle Presupuesto");
 
     XLSX.writeFile(wb, `Reporte_Integral_${warehouseName}_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
@@ -611,6 +689,7 @@ export const getDemoData = (): AppState => {
       phenologyLogs,
       pestLogs,
       plannedLabors,
+      budgets: [], // Adding budgets property
       swot: {
           f: 'Finca tecnificada con datos reales.',
           o: 'Optimizar costos con análisis de rentabilidad.',

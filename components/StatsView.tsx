@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState } from 'react';
-import { Movement, Supplier, CostCenter, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog, Machine } from '../types';
+import { Movement, Supplier, CostCenter, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog, Machine, BudgetPlan } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark, MousePointer2, Scale, AlertCircle, AlertTriangle, Leaf, Info, HelpCircle, Gauge, Timer, Globe, Tractor, ZapOff, CheckCircle } from 'lucide-react';
+import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark, MousePointer2, Scale, AlertCircle, AlertTriangle, Leaf, Info, HelpCircle, Gauge, Timer, Globe, Tractor, ZapOff, CheckCircle, Calculator, ChevronRight } from 'lucide-react';
 
 interface StatsViewProps {
   laborFactor: number;
@@ -15,6 +15,7 @@ interface StatsViewProps {
   rainLogs?: RainLog[];
   financeLogs?: FinanceLog[]; 
   machines?: Machine[];
+  budgets?: BudgetPlan[]; // Added budgets prop
 }
 
 export const StatsView: React.FC<StatsViewProps> = ({ 
@@ -27,16 +28,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
     maintenanceLogs = [],
     rainLogs = [],
     financeLogs = [],
-    machines = []
+    machines = [],
+    budgets = []
 }) => {
   const today = new Date();
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+  const currentYear = today.getFullYear();
 
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth);
   const [useDateFilter, setUseDateFilter] = useState(true);
-  const [reportMode, setReportMode] = useState<'global' | 'benchmarking'>('global');
+  const [reportMode, setReportMode] = useState<'global' | 'benchmarking' | 'budget'>('global');
 
   const filterByDate = (dateString: string) => {
       if (!useDateFilter) return true;
@@ -70,6 +73,52 @@ export const StatsView: React.FC<StatsViewProps> = ({
      return { inventoryExpense, laborExpenseReal, totalIncome: harvestIncome, profit, totalExpenses };
   }, [filteredMovements, filteredLabor, filteredHarvests, laborFactor]);
 
+  // --- BUDGET EXECUTION LOGIC ---
+  const budgetExecution = useMemo(() => {
+      // 1. Get budgets for the current year (or selected logic)
+      // For simplicity, we aggregate ALL active budgets for the current year
+      const activeBudgets = budgets.filter(b => b.year === currentYear);
+      
+      const stats = costCenters.map(lot => {
+          const lotBudget = activeBudgets.find(b => b.costCenterId === lot.id);
+          
+          // Calculate PLANNED
+          let plannedLabor = 0;
+          let plannedSupplies = 0;
+          
+          if (lotBudget) {
+              lotBudget.items.forEach(item => {
+                  const totalItemCost = item.unitCost * item.quantityPerHa * lot.area * item.months.length;
+                  if (item.type === 'LABOR') plannedLabor += totalItemCost;
+                  else plannedSupplies += totalItemCost;
+              });
+          }
+
+          // Calculate EXECUTED (REAL) - Always cumulative for the year to compare with budget
+          const realLabor = laborLogs
+            .filter(l => l.costCenterId === lot.id && new Date(l.date).getFullYear() === currentYear)
+            .reduce((sum, l) => sum + (l.value * laborFactor), 0);
+            
+          const realSupplies = movements
+            .filter(m => m.costCenterId === lot.id && m.type === 'OUT' && new Date(m.date).getFullYear() === currentYear)
+            .reduce((sum, m) => sum + m.calculatedCost, 0);
+
+          return {
+              lotName: lot.name,
+              plannedLabor,
+              realLabor,
+              plannedSupplies,
+              realSupplies,
+              totalPlanned: plannedLabor + plannedSupplies,
+              totalReal: realLabor + realSupplies
+          };
+      });
+
+      // Filter out lots with 0 budget to clean up view
+      return stats.filter(s => s.totalPlanned > 0);
+  }, [budgets, costCenters, laborLogs, movements, currentYear, laborFactor]);
+
+
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
        <div className="bg-slate-900 p-8 rounded-[3.5rem] border border-slate-700 text-center shadow-2xl">
@@ -97,12 +146,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
        </div>
 
-       <div className="flex p-1.5 bg-slate-200 dark:bg-slate-900 rounded-2xl gap-1">
-           <button onClick={() => setReportMode('global')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'global' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Balance Real</button>
-           <button onClick={() => setReportMode('benchmarking')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'benchmarking' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Monitor Insumos</button>
+       <div className="flex p-1.5 bg-slate-200 dark:bg-slate-900 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
+           <button onClick={() => setReportMode('global')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'global' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Balance Real</button>
+           <button onClick={() => setReportMode('benchmarking')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'benchmarking' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Insumos</button>
+           <button onClick={() => setReportMode('budget')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'budget' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Presupuesto</button>
        </div>
 
-       {reportMode === 'global' ? (
+       {reportMode === 'global' && (
            <div className="bg-white dark:bg-slate-800 rounded-[3rem] border border-slate-200 dark:border-slate-700 p-8 shadow-xl space-y-6">
                 <div className="flex justify-between items-center">
                     <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest"><Scale className="w-4 h-4" /> Utilidad Operativa</h3>
@@ -129,7 +179,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </div>
                 </div>
            </div>
-       ) : (
+       )}
+
+       {reportMode === 'benchmarking' && (
            <div className="space-y-4">
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-700 shadow-xl space-y-6">
                     <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-[0.2em]"><Zap className="w-4 h-4 text-amber-500"/> Eficiencia de Insumos</h4>
@@ -151,6 +203,72 @@ export const StatsView: React.FC<StatsViewProps> = ({
                          </div>
                     </div>
                 </div>
+           </div>
+       )}
+
+       {reportMode === 'budget' && (
+           <div className="space-y-6 animate-slide-up">
+               {budgetExecution.length === 0 ? (
+                   <div className="bg-slate-900/50 p-8 rounded-3xl border border-dashed border-slate-700 text-center">
+                       <Calculator className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+                       <p className="text-sm text-slate-400 font-bold">No hay presupuestos activos para {currentYear}.</p>
+                       <p className="text-xs text-slate-500 mt-1">Crea uno en la pestaña "Presupuesto" para ver el análisis.</p>
+                   </div>
+               ) : (
+                   budgetExecution.map((stat, idx) => {
+                       const progress = (stat.totalReal / stat.totalPlanned) * 100;
+                       const isOverBudget = progress > 100;
+                       
+                       return (
+                           <div key={idx} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl relative overflow-hidden">
+                               <div className="flex justify-between items-start mb-4">
+                                   <div>
+                                       <h4 className="font-black text-slate-800 dark:text-white text-base">{stat.lotName}</h4>
+                                       <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Ejecución Anual {currentYear}</p>
+                                   </div>
+                                   <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${isOverBudget ? 'bg-red-100 text-red-600 border-red-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+                                       {progress.toFixed(1)}% Ejecutado
+                                   </div>
+                               </div>
+
+                               <div className="space-y-4">
+                                   {/* Main Progress Bar */}
+                                   <div className="w-full h-4 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
+                                       <div 
+                                           className={`h-full transition-all duration-1000 ${isOverBudget ? 'bg-red-500' : 'bg-indigo-500'}`} 
+                                           style={{ width: `${Math.min(progress, 100)}%` }}
+                                       ></div>
+                                   </div>
+
+                                   <div className="grid grid-cols-2 gap-4 pt-2">
+                                       <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl">
+                                           <p className="text-[9px] text-slate-400 font-black uppercase mb-1">Presupuestado</p>
+                                           <p className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">{formatCurrency(stat.totalPlanned)}</p>
+                                       </div>
+                                       <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-transparent hover:border-slate-300 dark:hover:border-slate-600 transition-all">
+                                           <p className="text-[9px] text-slate-400 font-black uppercase mb-1">Ejecutado Real</p>
+                                           <p className={`text-sm font-mono font-black ${isOverBudget ? 'text-red-500' : 'text-emerald-500'}`}>
+                                               {formatCurrency(stat.totalReal)}
+                                           </p>
+                                       </div>
+                                   </div>
+
+                                   {/* Detailed Breakdown */}
+                                   <div className="pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                                       <div className="flex justify-between items-center text-[10px] mb-1">
+                                           <span className="text-slate-500">Mano de Obra</span>
+                                           <span className="font-mono text-slate-400">{formatCurrency(stat.realLabor)} <span className="text-slate-600">/ {formatCurrency(stat.plannedLabor)}</span></span>
+                                       </div>
+                                       <div className="flex justify-between items-center text-[10px]">
+                                           <span className="text-slate-500">Insumos</span>
+                                           <span className="font-mono text-slate-400">{formatCurrency(stat.realSupplies)} <span className="text-slate-600">/ {formatCurrency(stat.plannedSupplies)}</span></span>
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
+                       );
+                   })
+               )}
            </div>
        )}
     </div>
