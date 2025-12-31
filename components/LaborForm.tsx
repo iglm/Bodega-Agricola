@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Personnel, CostCenter, Activity, LaborLog } from '../types';
-import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle, Users, CheckSquare, Square } from 'lucide-react';
+import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle, Users, CheckSquare, Square, Gauge } from 'lucide-react';
 
 interface LaborFormProps {
   personnel: Personnel[];
@@ -17,7 +17,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
   costCenters, 
   activities, 
   onSave, 
-  onCancel,
+  onCancel, 
   onOpenSettings
 }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -25,6 +25,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
   const [costCenterId, setCostCenterId] = useState('');
   const [activityId, setActivityId] = useState('');
   const [value, setValue] = useState('');
+  const [technicalYield, setTechnicalYield] = useState('');
   const [notes, setNotes] = useState('');
 
   const togglePerson = (id: string) => {
@@ -63,6 +64,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                 activityId,
                 activityName: selectedActivity.name,
                 value: parseFloat(value),
+                technicalYield: technicalYield ? parseFloat(technicalYield) : undefined,
                 notes: notes.trim()
             });
         }
@@ -187,11 +189,24 @@ export const LaborForm: React.FC<LaborFormProps> = ({
              </div>
           </div>
 
-          {/* Value & Notes */}
-          <div className="space-y-3">
+          {/* Value & Performance Group */}
+          <div className="grid grid-cols-2 gap-3">
+             <div>
+                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
+                    <Gauge className="w-3 h-3 text-slate-400" /> Rendimiento (Ha/J)
+                </label>
+                <input 
+                    type="number"
+                    step="0.01"
+                    value={technicalYield}
+                    onChange={e => setTechnicalYield(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white outline-none text-sm font-bold transition-colors"
+                    placeholder="Ej: 0.15"
+                />
+             </div>
              <div>
                 <label className="block text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" /> Costo Unitario (Por Persona)
+                    <DollarSign className="w-3 h-3" /> Costo Unitario
                 </label>
                 <input 
                     type="number" 
@@ -202,19 +217,19 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                     required
                 />
              </div>
+          </div>
 
-             <div>
-                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1">
-                    Notas (Opcional)
-                </label>
-                <textarea 
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white outline-none text-xs font-medium resize-none"
-                    placeholder="Detalles adicionales..."
-                    rows={2}
-                />
-             </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1">
+                Notas (Opcional)
+            </label>
+            <textarea 
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white outline-none text-xs font-medium resize-none"
+                placeholder="Detalles adicionales..."
+                rows={2}
+            />
           </div>
 
         </form>

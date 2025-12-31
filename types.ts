@@ -209,6 +209,7 @@ export interface LaborLog {
   value: number; 
   paid: boolean;
   notes?: string;
+  technicalYield?: number; // Nuevo campo: Rendimiento Técnico (Ha/Jornal)
 }
 
 export interface HarvestLog { 
