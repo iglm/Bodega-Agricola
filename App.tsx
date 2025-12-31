@@ -1,463 +1,798 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AppState, InventoryItem, Movement, Unit, User, Category, PlannedLabor, BudgetPlan, CostCenter } from './types';
+import { dbService } from './services/db';
+import { loadDataFromLocalStorage, processInventoryMovement, generateId, saveDataToLocalStorage } from './services/inventoryService';
+import { getDemoData } from './services/reportService';
+
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
-import { StatsView } from './components/StatsView';
 import { InventoryForm } from './components/InventoryForm';
 import { MovementModal } from './components/MovementModal';
-import { ExportModal } from './components/ExportModal';
-import { ManualModal } from './components/ManualModal';
-import { WarehouseModal } from './components/WarehouseModal';
-import { SettingsModal } from './components/SettingsModal';
-import { DataModal } from './components/DataModal';
-import { LaborView } from './components/LaborView'; 
-import { LaborForm } from './components/LaborForm'; 
-import { HarvestView } from './components/HarvestView'; 
-import { ManagementView } from './components/ManagementView'; 
-import { AgendaView } from './components/AgendaView';
-import { StrategicView } from './components/StrategicView';
-import { BiologicalAssetsView } from './components/BiologicalAssetsView';
-import { BudgetView } from './components/BudgetView'; 
-import { SimulatorView } from './components/SimulatorView'; // NEW IMPORT
 import { HistoryModal } from './components/HistoryModal';
-import { DeleteModal } from './components/DeleteModal';
-import { PayrollModal } from './components/PayrollModal';
-import { SecurityModal } from './components/SecurityModal';
-import { Notification } from './components/Notification';
+import { SettingsModal } from './components/SettingsModal';
+import { WarehouseModal } from './components/WarehouseModal';
+import { ExportModal } from './components/ExportModal';
 import { SupportModal } from './components/SupportModal';
+import { DeleteModal } from './components/DeleteModal';
+import { AuditModal } from './components/AuditModal';
+import { ManualModal } from './components/ManualModal';
+import { Notification } from './components/Notification';
+import { LaborView } from './components/LaborView';
+import { LaborForm } from './components/LaborForm';
+import { PayrollModal } from './components/PayrollModal';
+import { HarvestView } from './components/HarvestView';
+import { FinanceView } from './components/FinanceView';
+import { ManagementView } from './components/ManagementView';
+import { StrategicView } from './components/StrategicView';
+import { AgendaView } from './components/AgendaView';
+import { DataModal } from './components/DataModal';
+import { SecurityModal } from './components/SecurityModal';
+import { StatsView } from './components/StatsView';
 import { LaborSchedulerView } from './components/LaborSchedulerView';
-import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClassification, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine, PlannedLabor, CostCenter, BudgetPlan } from './types';
-import { processInventoryMovement, generateId, getBaseUnitType, convertToBase, loadDataFromLocalStorage, saveDataToLocalStorage } from './services/inventoryService';
-import { dbService } from './services/db'; 
-import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport, generateBudgetReport } from './services/reportService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Loader2, AlertTriangle, ShieldCheck, Sprout, Calculator, Lightbulb } from 'lucide-react'; // Added Lightbulb icon
+import { BudgetView } from './components/BudgetView';
+import { BiologicalAssetsView } from './components/BiologicalAssetsView';
 
-function App() {
-  const [session, setSession] = useState<User | null>(null);
-  const [view, setView] = useState<'landing' | 'app'>('landing');
-  const [currentTab, setCurrentTab] = useState('inventory');
+import { 
+  Menu, BarChart3, Package, Users, Sprout, DollarSign, Settings, 
+  LogOut, ClipboardList, Target, ShieldCheck, Database, Lock, CalendarRange, Calculator, TreePine,
+  Wallet, Warehouse, FileText
+} from 'lucide-react';
+
+const App: React.FC = () => {
+  const [data, setData] = useState<AppState | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNotification, setShowNotification] = useState<{msg: string, type: 'success'|'error'} | null>(null);
   
-  // --- INICIALIZACIÓN SINCRÓNICA (MODO SEGURO) ---
-  // Cargamos los datos inmediatamente para evitar la pantalla azul.
-  const [data, setData] = useState<AppState>(() => {
-      try {
-          return loadDataFromLocalStorage();
-      } catch (error) {
-          console.error("Error crítico inicializando:", error);
-          return getDemoData(); // Fallback final
-      }
-  });
-  
-  // Ya no usamos isLoading true por defecto, la app carga instantáneamente
-  const [isLoading, setIsLoading] = useState(false); 
-
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-
-  // Security State
-  const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
-
-  // --- ESTRATEGIA DE GUARDADO HÍBRIDO (DOBLE RESPALDO) ---
-  useEffect(() => {
-    if (!data) return;
-
-    const handler = setTimeout(() => {
-      // 1. Guardado Sincrónico (Rápido y Seguro)
-      saveDataToLocalStorage(data);
-      
-      // 2. Guardado Asincrónico (Robusto - Segundo Plano)
-      dbService.saveState(data).catch(err => console.warn("Fallo guardado IDB (No crítico):", err));
-    }, 500); // 500ms debounce delay
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [data]);
-
-  // --- ESTRATEGIA DE BACKUP AUTOMÁTICO (SOLICITADO) ---
-  useEffect(() => {
-    if (!data) return;
-
-    // 1. Backup Periódico (Cada Hora)
-    const backupInterval = setInterval(() => {
-      console.log('Ejecutando Backup Automático (Hora)...');
-      saveDataToLocalStorage(data, 'datosfinca_viva_backup_hourly');
-    }, 3600000); // 1 Hora en ms
-
-    // 2. Backup al Cerrar (Unload)
-    const handleUnload = () => {
-      // Guardado sincrónico crítico al cerrar
-      saveDataToLocalStorage(data, 'datosfinca_viva_backup_exit');
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-
-    return () => {
-      clearInterval(backupInterval);
-      window.removeEventListener('beforeunload', handleUnload);
-    };
-  }, [data]);
-
-  useEffect(() => {
-    document.documentElement.className = theme;
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-  
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-      setNotification({ message, type });
-  };
-
-  // Modales Visibility
-  const [showAddForm, setShowAddForm] = useState(false);
+  // Modals
+  const [showInventoryForm, setShowInventoryForm] = useState(false);
+  const [showMovementModal, setShowMovementModal] = useState<{ item: InventoryItem, type: 'IN' | 'OUT' } | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState<InventoryItem | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<{ id: string, name: string } | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
   const [showLaborForm, setShowLaborForm] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [showWarehouses, setShowWarehouses] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showData, setShowData] = useState(false);
-  const [showManual, setShowManual] = useState(false);
-  const [showPayroll, setShowPayroll] = useState(false);
-  const [showSupport, setShowSupport] = useState(false);
-  
-  const [movementModal, setMovementModal] = useState<{item: InventoryItem, type: 'IN' | 'OUT'} | null>(null);
-  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
-  const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
+  const [showPayrollModal, setShowPayrollModal] = useState(false);
+  const [showDataModal, setShowDataModal] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSupporter, setIsSupporter] = useState(false); // Mock subscription status
 
-  // Guard clause simplified
-  if (!data) return null;
-
-  const activeId = data.activeWarehouseId;
-  const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
-
-  const requestSecureAction = (action: () => void) => {
-    setSecureAction(() => action);
-  };
-  
-  const handlePinSuccess = (pin: string) => {
-    if (!data.adminPin) {
-      setData(prev => ({ ...prev, adminPin: pin }));
-    }
-    if (secureAction) {
-      secureAction();
-    }
-    setSecureAction(null);
-  };
-
-  const handleDeleteItem = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      inventory: prev.inventory.filter(i => i.id !== id),
-      movements: prev.movements.filter(m => m.itemId !== id)
-    }));
-    setDeleteItem(null);
-  };
-
-  const handleUpdateSWOT = (swot: SWOT) => {
-    setData(prev => ({ ...prev, swot }));
-  };
-
-  const handleToggleBpa = (code: string) => {
-    setData(prev => ({
-      ...prev,
-      bpaChecklist: { ...prev.bpaChecklist, [code]: !prev.bpaChecklist[code] }
-    }));
-  };
-
-  const handleAddAsset = (asset: Omit<Asset, 'id' | 'warehouseId'>) => {
-    setData(prev => ({
-      ...prev,
-      assets: [...(prev.assets || []), { ...asset, id: generateId(), warehouseId: activeId }]
-    }));
-  };
-  
-  const handleUpdateMachine = (machine: Machine) => {
-      setData(prev => ({ ...prev, machines: prev.machines.map(m => m.id === machine.id ? machine : m) }));
-  };
-
-  const handleDeleteAsset = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      assets: prev.assets.filter(a => a.id !== id)
-    }));
-  };
-
-  const handleLoadDemoData = () => {
-    const demoData = getDemoData();
-    setData(demoData);
-    setSession({
-      id: 'user_demo_datosfinca',
-      name: 'Usuario Demo',
-      email: 'demo@datosfinca.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DatosFincaVivaDemo'
-    });
-    setView('app');
-    showNotification('Datos de demostración cargados. ¡Explora el potencial!', 'success');
-  };
-
-  // --- NEW AGRONOMY HANDLERS ---
-  const handleAddPhenologyLog = (log: Omit<PhenologyLog, 'id'|'warehouseId'>) => setData(prev => ({ ...prev, phenologyLogs: [...prev.phenologyLogs, { ...log, id: generateId(), warehouseId: activeId }] }));
-  const handleDeletePhenologyLog = (id: string) => setData(prev => ({ ...prev, phenologyLogs: prev.phenologyLogs.filter(p => p.id !== id) }));
-  const handleAddPestLog = (log: Omit<PestLog, 'id'|'warehouseId'>) => setData(prev => ({ ...prev, pestLogs: [...prev.pestLogs, { ...log, id: generateId(), warehouseId: activeId }] }));
-  const handleDeletePestLog = (id: string) => setData(prev => ({ ...prev, pestLogs: prev.pestLogs.filter(p => p.id !== id) }));
-  const handleAddMaintenance = (log: Omit<MaintenanceLog, 'id'|'warehouseId'>) => setData(prev => ({...prev, maintenanceLogs: [...prev.maintenanceLogs, {...log, id: generateId(), warehouseId: activeId}]}));
-
-  // --- NEW SCHEDULER HANDLERS ---
-  const handleAddPlannedLabor = (labor: Omit<PlannedLabor, 'id' | 'warehouseId' | 'completed'>) => {
-      setData(prev => ({
-          ...prev,
-          plannedLabors: [...(prev.plannedLabors || []), { ...labor, id: generateId(), warehouseId: activeId, completed: false }]
-      }));
-      showNotification('Labor programada exitosamente', 'success');
-  };
-
-  const handleDeletePlannedLabor = (id: string) => {
-      setData(prev => ({
-          ...prev,
-          plannedLabors: prev.plannedLabors.filter(l => l.id !== id)
-      }));
-  };
-
-  const handleTogglePlannedLabor = (id: string) => {
-      setData(prev => ({
-          ...prev,
-          plannedLabors: prev.plannedLabors.map(l => l.id === id ? { ...l, completed: !l.completed } : l)
-      }));
-  };
-
-  // --- COST CENTER / LOT UPDATES ---
-  const handleUpdateCostCenter = (updatedLot: CostCenter) => {
-      setData(prev => ({
-          ...prev,
-          costCenters: prev.costCenters.map(c => c.id === updatedLot.id ? updatedLot : c)
-      }));
-      showNotification('Lote actualizado exitosamente', 'success');
-  };
-
-  // --- BUDGET HANDLERS ---
-  const handleSaveBudget = (budget: BudgetPlan) => {
-      // Check if budget exists to update or add
-      const exists = data.budgets?.find(b => b.id === budget.id);
-      let newBudgets = data.budgets || [];
-      
-      if (exists) {
-          newBudgets = newBudgets.map(b => b.id === budget.id ? budget : b);
-      } else {
-          newBudgets = [...newBudgets, budget];
+  // --- INITIALIZATION ---
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const stored = await dbService.loadState();
+        setData(stored);
+        
+        // Simple auth persistence mock
+        const savedUser = localStorage.getItem('df_user');
+        if (savedUser) {
+            setCurrentUser(JSON.parse(savedUser));
+            // Check for security pin
+            if (stored.adminPin) {
+                setShowSecurityModal(true);
+            } else {
+                setIsAuthenticated(true);
+            }
+        }
+      } catch (e) {
+        console.error("Failed to load", e);
+      } finally {
+        setIsLoading(false);
       }
+    };
+    init();
+  }, []);
 
-      setData(prev => ({ ...prev, budgets: newBudgets }));
+  // --- SAVE STATE ---
+  const saveData = useCallback(async (newData: AppState) => {
+    setData(newData);
+    await dbService.saveState(newData);
+  }, []);
+
+  const notify = (msg: string, type: 'success'|'error' = 'success') => {
+      setShowNotification({ msg, type });
   };
 
-  const handleSaveNewItem = (
-    item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>,
-    initialQuantity: number,
-    initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string },
-    initialUnit?: Unit
-  ) => {
-      const baseUnit = getBaseUnitType(item.lastPurchaseUnit);
-      
+  // --- HANDLERS ---
+
+  const handleLogin = (user: User) => {
+      setCurrentUser(user);
+      localStorage.setItem('df_user', JSON.stringify(user));
+      if (data?.adminPin) {
+          setShowSecurityModal(true);
+      } else {
+          setIsAuthenticated(true);
+      }
+  };
+
+  const handleLogout = () => {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      localStorage.removeItem('df_user');
+      setCurrentTab('dashboard');
+  };
+
+  const handleSecuritySuccess = (pin: string) => {
+      if (!data) return;
+      if (!data.adminPin) {
+          saveData({ ...data, adminPin: pin });
+          notify('PIN de seguridad configurado.', 'success');
+      }
+      setIsAuthenticated(true);
+      setShowSecurityModal(false);
+  };
+
+  // Inventory Logic
+  const handleAddItem = (itemData: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQty: number, details?: any, initialUnit?: Unit) => {
+      if (!data) return;
       const newItem: InventoryItem = {
-          ...item,
+          ...itemData,
           id: generateId(),
-          warehouseId: activeId,
-          baseUnit: baseUnit,
+          warehouseId: data.activeWarehouseId,
+          baseUnit: 'g', // Logic will adjust based on category in real app, simplified here
           currentQuantity: 0,
           averageCost: 0
       };
-  
+      
+      // Initial Movement
       let updatedInventory = [...data.inventory, newItem];
       let newMovements = [...data.movements];
-  
-      if (initialQuantity > 0 && initialUnit) {
-          const initialMovement: Omit<Movement, 'id' | 'date' | 'warehouseId'> = {
+
+      if (initialQty > 0 && initialUnit) {
+          const mov: Movement = {
+              id: generateId(),
+              warehouseId: data.activeWarehouseId,
               itemId: newItem.id,
               itemName: newItem.name,
               type: 'IN',
-              quantity: initialQuantity,
+              quantity: initialQty,
               unit: initialUnit,
-              calculatedCost: 0, // Recalculated by processInventoryMovement
-              supplierId: initialMovementDetails?.supplierId,
-              supplierName: data.suppliers.find(s => s.id === initialMovementDetails?.supplierId)?.name,
-              invoiceNumber: initialMovementDetails?.invoiceNumber,
-              invoiceImage: initialMovementDetails?.invoiceImage,
-              notes: 'Saldo inicial'
-          };
-  
-          const { updatedInventory: invWithMovement, movementCost } = processInventoryMovement(
-              updatedInventory, 
-              initialMovement, 
-              item.lastPurchasePrice,
-              item.expirationDate
-          );
-          
-          updatedInventory = invWithMovement;
-          const completeMovement: Movement = {
-              ...initialMovement,
-              id: generateId(),
-              warehouseId: activeId,
+              calculatedCost: initialQty * newItem.lastPurchasePrice,
               date: new Date().toISOString(),
-              calculatedCost: movementCost
+              supplierId: details?.supplierId,
+              invoiceNumber: details?.invoiceNumber,
+              invoiceImage: details?.invoiceImage
           };
-          newMovements = [completeMovement, ...newMovements];
+          const res = processInventoryMovement(updatedInventory, mov, newItem.lastPurchasePrice);
+          updatedInventory = res.updatedInventory;
+          newMovements.push(mov);
       }
-  
-      setData(prev => ({
-          ...prev,
-          inventory: updatedInventory,
-          movements: newMovements
-      }));
-  
-      setShowAddForm(false);
+
+      saveData({ ...data, inventory: updatedInventory, movements: newMovements });
+      setShowInventoryForm(false);
+      notify('Producto creado correctamente.');
   };
 
-  return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+  const handleAddMovement = (movData: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newPrice?: number, newExp?: string) => {
+      if (!data) return;
+      const movement: Movement = {
+          ...movData,
+          id: generateId(),
+          date: new Date().toISOString(),
+          warehouseId: data.activeWarehouseId
+      };
       
-      {notification && (
-          <Notification 
-              message={notification.message} 
-              type={notification.type} 
-              onClose={() => setNotification(null)} 
-          />
-      )}
+      const res = processInventoryMovement(data.inventory, movement, newPrice, newExp);
+      
+      saveData({
+          ...data,
+          inventory: res.updatedInventory,
+          movements: [...data.movements, movement]
+      });
+      setShowMovementModal(null);
+      notify('Movimiento registrado.');
+  };
 
-      {/* PANTALLA DE INICIO */}
-      {view === 'landing' && (
+  const handleDeleteItem = () => {
+      if (!data || !showDeleteModal) return;
+      const updatedInventory = data.inventory.filter(i => i.id !== showDeleteModal.id);
+      saveData({ ...data, inventory: updatedInventory });
+      setShowDeleteModal(null);
+      notify('Producto eliminado.');
+  };
+
+  // Labor Logic
+  const handleAddLabor = (logData: Omit<typeof data.laborLogs[0], 'id' | 'warehouseId' | 'paid'>) => {
+      if (!data) return;
+      const newLog = {
+          ...logData,
+          id: generateId(),
+          warehouseId: data.activeWarehouseId,
+          paid: false
+      };
+      saveData({ ...data, laborLogs: [...data.laborLogs, newLog] });
+      setShowLaborForm(false);
+      notify('Jornal registrado.');
+  };
+
+  const handleMarkPaid = (ids: string[]) => {
+      if (!data) return;
+      const updatedLogs = data.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l);
+      saveData({ ...data, laborLogs: updatedLogs });
+      setShowPayrollModal(false);
+      notify('Pago registrado correctamente.');
+  };
+
+  // Generic Handlers
+  const activeId = data?.activeWarehouseId || '';
+  
+  if (isLoading) return <div className="h-screen w-screen bg-slate-950 flex items-center justify-center text-emerald-500 font-black animate-pulse">CARGANDO SISTEMA...</div>;
+
+  if (!isAuthenticated || !currentUser) {
+      return (
         <Landing 
-            onEnter={(u) => { setSession(u); setView('app'); }} 
-            onShowManual={() => setShowManual(true)} 
-            onRestoreBackup={() => requestSecureAction(() => setShowData(true))}
-            onLoadDemoData={handleLoadDemoData}
+            onEnter={handleLogin} 
+            onShowManual={() => setShowManualModal(true)} 
+            onRestoreBackup={() => { /* Handled in DataModal usually, but for landing we can show a prompt or simplified modal */ 
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e: any) => {
+                    const file = e.target.files[0];
+                    if(file){
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            try {
+                                const parsed = JSON.parse(ev.target?.result as string);
+                                saveData(parsed);
+                                setIsAuthenticated(true);
+                                setCurrentUser({ id: 'restored', name: 'Usuario Restaurado', email: 'backup@local' });
+                            } catch(err) { alert("Archivo corrupto"); }
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            }}
+            onLoadDemoData={() => {
+                const demo = getDemoData();
+                saveData(demo);
+                setCurrentUser({ id: 'demo', name: 'Usuario Demo', email: 'demo@datosfinca.com' });
+                setIsAuthenticated(true);
+            }}
         />
-      )}
+      );
+  }
 
-      {/* APLICACIÓN PRINCIPAL */}
-      {view === 'app' && data && (
-        <>
-          <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-2 pt-10 sm:pt-2">
-            <div className="max-w-4xl mx-auto flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                    <button onClick={() => setShowWarehouses(true)} className="flex items-center gap-2 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-                        <div className="p-1.5 bg-emerald-600 rounded-lg shadow-lg"><Globe className="w-4 h-4 text-white" /></div>
-                        <div className="text-left"><h1 className="text-sm font-black flex items-center gap-1">DatosFinca Viva <ChevronDown className="w-3 h-3" /></h1><span className="text-[9px] text-slate-500 uppercase font-black">{currentW?.name}</span></div>
-                    </button>
-                    <div className="flex gap-1">
-                        <button onClick={() => setShowManual(true)} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors" title="Ayuda"><HelpCircle className="w-5 h-5" /></button>
-                        <button onClick={() => requestSecureAction(() => setShowData(true))} className="p-2 text-orange-500 hover:text-orange-400 transition-colors" title="Datos"><Database className="w-5 h-5" /></button>
-                        <button onClick={() => setShowSettings(true)} className="p-2 text-slate-500 hover:text-slate-400 transition-colors" title="Maestros y Configuración"><Settings className="w-5 h-5" /></button>
-                        <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} className="p-2 hover:scale-110 transition-transform">
-                            {theme === 'dark' ? '🌞' : '🌙'}
-                        </button>
-                    </div>
-                </div>
-                <div className="flex bg-slate-200 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
-                    {[
-                        { id: 'inventory', label: 'Bodega', icon: Package },
-                        { id: 'labor', label: 'Personal', icon: Pickaxe },
-                        { id: 'scheduler', label: 'Programar', icon: CalendarRange }, 
-                        { id: 'harvest', label: 'Ventas', icon: Target },
-                        { id: 'simulator', label: 'Simulador', icon: Lightbulb }, // NEW TAB ICON
-                        { id: 'management', label: 'Campo', icon: Tractor },
-                        { id: 'assets', label: 'Activos Bio', icon: Sprout },
-                        { id: 'budget', label: 'Presupuesto', icon: Calculator }, 
-                        { id: 'agenda', label: 'Agenda', icon: Calendar },
-                        { id: 'strategic', label: 'Estrategia', icon: TrendingUp },
-                        { id: 'stats', label: 'KPIs', icon: Database }
-                    ].map(tab => (
-                        <button key={tab.id} onClick={() => setCurrentTab(tab.id)} className={`flex-1 min-w-[72px] py-2 rounded-xl text-[9px] font-black uppercase flex flex-col items-center gap-1 transition-all ${currentTab === tab.id ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500'}`}><tab.icon className="w-4 h-4" />{tab.label}</button>
-                    ))}
-                </div>
-            </div>
-          </header>
+  if (!data) return null;
 
-          <main className="max-w-4xl mx-auto p-4 pb-40">
-            {currentTab === 'inventory' && <Dashboard inventory={data.inventory.filter(i=>i.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} harvests={data.harvests.filter(h=>h.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} onAddMovement={(i, t) => setMovementModal({item:i, type:t})} onDelete={(id) => requestSecureAction(() => { const item = data.inventory.find(i => i.id === id); if (item) setDeleteItem(item); })} onViewHistory={(item) => setHistoryItem(item)} isAdmin={true} />}
-            {currentTab === 'labor' && <LaborView laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} personnel={data.personnel.filter(p=>p.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} onAddLabor={()=>setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
-            {currentTab === 'scheduler' && <LaborSchedulerView 
-                plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} 
-                costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} 
-                activities={data.activities.filter(a=>a.warehouseId===activeId)} 
-                onAddPlannedLabor={handleAddPlannedLabor} 
-                onDeletePlannedLabor={handleDeletePlannedLabor} 
-                onToggleComplete={handleTogglePlannedLabor}
-                // PASSED FOR BUDGET CHECK
-                budgets={data.budgets || []}
-                laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)}
-                laborFactor={data.laborFactor}
-            />}
-            {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} isAdmin={true} allMovements={data.movements} />}
-            {currentTab === 'simulator' && <SimulatorView />} {/* NEW TAB RENDER */}
-            {currentTab === 'management' && <ManagementView machines={data.machines.filter(m=>m.warehouseId===activeId)} onUpdateMachine={handleUpdateMachine} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} soilAnalyses={data.soilAnalyses.filter(s=>s.warehouseId===activeId)} ppeLogs={data.ppeLogs.filter(p=>p.warehouseId===activeId)} wasteLogs={data.wasteLogs.filter(w=>w.warehouseId===activeId)} assets={data.assets.filter(a=>a.warehouseId===activeId)} bpaChecklist={data.bpaChecklist} onAddMachine={(m)=>setData(prev=>({...prev, machines:[...prev.machines,{...m, id:generateId(), warehouseId:activeId}]}))} onAddMaintenance={handleAddMaintenance} onDeleteMachine={(id)=>setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r)=>setData(prev=>({...prev, rainLogs:[...prev.rainLogs,{...r, id:generateId(), warehouseId:activeId}]}))} onDeleteRain={(id)=>setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s)=>setData(prev=>({...prev, soilAnalyses:[...prev.soilAnalyses,{...s, id:generateId(), warehouseId:activeId}]}))} onDeleteSoilAnalysis={(id)=>setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p)=>setData(prev=>({...prev, ppeLogs:[...prev.ppeLogs,{...p, id:generateId(), warehouseId:activeId}]}))} onDeletePPE={(id)=>setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w)=>setData(prev=>({...prev, wasteLogs:[...prev.wasteLogs,{...w, id:generateId(), warehouseId:activeId}]}))} onDeleteWaste={(id)=>setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={handleAddAsset} onDeleteAsset={handleDeleteAsset} onToggleBpa={handleToggleBpa} isAdmin={true} phenologyLogs={data.phenologyLogs.filter(p=>p.warehouseId===activeId)} onAddPhenologyLog={handleAddPhenologyLog} onDeletePhenologyLog={handleDeletePhenologyLog} pestLogs={data.pestLogs.filter(p=>p.warehouseId===activeId)} onAddPestLog={handleAddPestLog} onDeletePestLog={handleDeletePestLog} />}
-            {currentTab === 'assets' && <BiologicalAssetsView costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} onUpdateLot={handleUpdateCostCenter} />}
-            {currentTab === 'budget' && <BudgetView 
-                budgets={data.budgets || []} 
-                costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} 
-                activities={data.activities.filter(a=>a.warehouseId === activeId)} 
-                inventory={data.inventory.filter(i=>i.warehouseId === activeId)} 
-                warehouseId={activeId} 
-                onSaveBudget={handleSaveBudget} 
-                // Passing real data for comparisons
-                laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)}
-                movements={data.movements.filter(m=>m.warehouseId === activeId)}
-                laborFactor={data.laborFactor}
-            />}
-            {currentTab === 'agenda' && <AgendaView agenda={data.agenda.filter(a => a.warehouseId === activeId)} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
-            {currentTab === 'strategic' && <StrategicView data={data} onUpdateSWOT={handleUpdateSWOT} />}
-            {currentTab === 'stats' && <StatsView 
-                laborFactor={data.laborFactor} 
-                movements={data.movements.filter(m=>m.warehouseId===activeId)} 
-                suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} 
-                costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} 
-                laborLogs={data.laborLogs.filter(l=>l.warehouseId===activeId)} 
-                harvests={data.harvests.filter(h=>h.warehouseId===activeId)} 
-                maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} 
-                rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} 
-                machines={data.machines.filter(m=>m.warehouseId===activeId)} 
-                budgets={data.budgets || []} 
-            />}
-            
-            <div className="fixed bottom-6 left-6 flex gap-2 z-30">
-                <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border border-slate-700 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>
-            </div>
-            
-            {currentTab === 'inventory' && <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 text-white p-5 rounded-3xl shadow-2xl active:scale-95 transition-all z-30 mr-20 sm:mr-0"><Plus className="w-8 h-8" /></button>}
-          </main>
-        </>
-      )}
+  // Filtered Data for Active Warehouse
+  const activeInventory = data.inventory.filter(i => i.warehouseId === activeId);
+  const activeMovements = data.movements.filter(m => m.warehouseId === activeId);
+  const activeLabor = data.laborLogs.filter(l => l.warehouseId === activeId);
+  const activeHarvests = data.harvests.filter(h => h.warehouseId === activeId);
+  const activeFinance = data.financeLogs.filter(f => f.warehouseId === activeId);
+  const activeAgenda = data.agenda.filter(a => a.warehouseId === activeId);
+  
+  const activeSuppliers = data.suppliers.filter(s => s.warehouseId === activeId);
+  const activeCostCenters = data.costCenters.filter(c => c.warehouseId === activeId);
+  const activePersonnel = data.personnel.filter(p => p.warehouseId === activeId);
+  const activeActivities = data.activities.filter(a => a.warehouseId === activeId);
+  const activeMachines = data.machines.filter(m => m.warehouseId === activeId);
+  const activeBudgets = data.budgets?.filter(b => b.warehouseId === activeId) || [];
 
-      {/* MODALES GLOBALES (Renderizados siempre por encima de todo) */}
-      <div className="z-[100] relative">
-          {secureAction && <SecurityModal existingPin={data?.adminPin} onSuccess={handlePinSuccess} onClose={() => setSecureAction(null)} />}
-          {showManual && <ManualModal onClose={() => setShowManual(false)} />}
-          {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={showNotification} />}
-          {showSettings && data && <SettingsModal 
-              suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} 
-              costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} 
-              personnel={data.personnel.filter(p=>p.warehouseId===activeId)} 
-              activities={data.activities.filter(a=>a.warehouseId===activeId)} 
-              fullState={data} onUpdateState={(newState) => setData(newState)}
-              onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} 
-              onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} 
-              onAddCostCenter={(n,b,a,s,pc,ct,ac) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac}]}))} 
-              onDeleteCostCenter={(id) => setData(prev=>({...prev, costCenters: prev.costCenters.filter(c=>c.id!==id)}))} 
-              onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} 
-              onDeletePersonnel={(id) => setData(prev=>({...prev, personnel: prev.personnel.filter(p=>p.id!==id)}))} 
-              onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} 
-              onDeleteActivity={(id) => setData(prev=>({...prev, activities: prev.activities.filter(a=>a.id!==id)}))} 
-              onClose={() => setShowSettings(false)} 
-          />}
-          {showPayroll && data && <PayrollModal logs={data.laborLogs.filter(l => l.warehouseId === activeId)} personnel={data.personnel.filter(p => p.warehouseId === activeId)} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
-          {showAddForm && data && <InventoryForm suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} onSave={handleSaveNewItem} onCancel={() => setShowAddForm(false)} />}
-          {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} onSave={(mov, price, exp) => { const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); setData(prev => ({ ...prev, inventory: updatedInventory, movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] })); setMovementModal(null); }} onCancel={() => setMovementModal(null)} />}
-          {historyItem && data && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
-          {deleteItem && <DeleteModal itemName={deleteItem.name} onConfirm={() => handleDeleteItem(deleteItem.id)} onCancel={() => setDeleteItem(null)} />}
-          {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString()}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
-          {showExport && data && <ExportModal onExportPDF={() => generatePDF(data)} onExportExcel={() => generateExcel(data)} onGenerateOrder={() => {alert('Función PRO: No implementada.')}} onExportLaborPDF={() => generateLaborReport(data)} onExportLaborExcel={() => {alert('Función PRO: No implementada.')}} onExportHarvestPDF={() => generateHarvestReport(data)} onClose={() => setShowExport(false)} activeData={data} onShowSupport={() => setShowSupport(true)} isSupporter={true} />}
-          {showLaborForm && data && <LaborForm personnel={data.personnel.filter(p=>p.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} onSave={(l)=> { setData(prev=>({...prev, laborLogs: [...prev.laborLogs, {...l, id: generateId(), warehouseId: activeId, paid: false}]})); setShowLaborForm(false); }} onCancel={()=>setShowLaborForm(false)} onOpenSettings={()=>setShowSettings(true)} />}
-          {showSupport && <SupportModal onClose={() => setShowSupport(false)} onUpgrade={() => {}} isSupporter={false} />}
+  return (
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
+      
+      {/* Sidebar Desktop */}
+      <div className={`hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 transition-all z-20`}>
+          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+              <div className="bg-emerald-600 p-2 rounded-xl">
+                  <Sprout className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-white font-black text-lg tracking-tight">DatosFinca <span className="text-emerald-400">Viva</span></h1>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto py-4 space-y-1 custom-scrollbar">
+              {[
+                  { id: 'dashboard', icon: BarChart3, label: 'Resumen' },
+                  { id: 'inventory', icon: Package, label: 'Bodega' },
+                  { id: 'field', icon: Users, label: 'Campo & Nómina' },
+                  { id: 'scheduler', icon: CalendarRange, label: 'Planificador', badge: data.plannedLabors.filter(l => !l.completed && l.warehouseId === activeId).length },
+                  { id: 'harvest', icon: Target, label: 'Cosecha' },
+                  { id: 'strategic', icon: Calculator, label: 'Estrategia' },
+                  { id: 'budgets', icon: DollarSign, label: 'Presupuesto' },
+                  { id: 'management', icon: Settings, label: 'Gestión Técnica' },
+                  { id: 'bioassets', icon: TreePine, label: 'Activos Biológicos' },
+                  { id: 'finance', icon: Wallet, label: 'Finanzas Admin' },
+              ].map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentTab(item.id)}
+                    className={`w-full px-6 py-3 flex items-center justify-between text-sm font-bold transition-all border-r-4 ${currentTab === item.id ? 'bg-slate-800 text-emerald-400 border-emerald-500' : 'text-slate-400 border-transparent hover:text-white hover:bg-slate-800/50'}`}
+                  >
+                      <div className="flex items-center gap-3">
+                          <item.icon className="w-5 h-5" />
+                          {item.label}
+                      </div>
+                      {item.badge ? <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full">{item.badge}</span> : null}
+                  </button>
+              ))}
+          </div>
+
+          <div className="p-4 border-t border-slate-800 space-y-2">
+              <button onClick={() => setShowDataModal(true)} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors">
+                  <Database className="w-4 h-4" /> Datos & Backup
+              </button>
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-400 hover:text-red-300 rounded-xl hover:bg-red-900/20 transition-colors">
+                  <LogOut className="w-4 h-4" /> Cerrar Sesión
+              </button>
+          </div>
       </div>
 
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden">
+          
+          {/* Header Mobile/Desktop */}
+          <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center z-10 shadow-sm">
+              <div className="flex items-center gap-3">
+                  <button className="md:hidden p-2 text-slate-500" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+                      <Menu className="w-6 h-6" />
+                  </button>
+                  <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">
+                      {currentTab === 'dashboard' ? 'Tablero Principal' : 
+                       currentTab === 'inventory' ? 'Bodega de Insumos' : 
+                       currentTab === 'field' ? 'Gestión de Campo' : 
+                       currentTab === 'scheduler' ? 'Programación' :
+                       currentTab === 'harvest' ? 'Producción' :
+                       currentTab === 'strategic' ? 'Inteligencia' :
+                       currentTab === 'budgets' ? 'Presupuesto' :
+                       currentTab === 'bioassets' ? 'Activos Biológicos' :
+                       currentTab === 'management' ? 'Gestión Técnica' : 'Finanzas'}
+                  </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                  <button onClick={() => setShowWarehouseModal(true)} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-colors">
+                      <Warehouse className="w-4 h-4 text-emerald-500" />
+                      <span className="hidden sm:inline">{data.warehouses.find(w => w.id === activeId)?.name}</span>
+                  </button>
+                  <button onClick={() => setShowExportModal(true)} className="p-2 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-500 active:scale-95 transition-all">
+                      <FileText className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => setShowSettingsModal(true)} className="p-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-all">
+                      <Settings className="w-5 h-5" />
+                  </button>
+              </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50 dark:bg-slate-950 pb-24">
+              
+              {currentTab === 'dashboard' && (
+                  <div className="space-y-6">
+                      <StatsView 
+                          laborFactor={data.laborFactor}
+                          movements={activeMovements}
+                          suppliers={activeSuppliers}
+                          costCenters={activeCostCenters}
+                          laborLogs={activeLabor}
+                          harvests={activeHarvests}
+                          financeLogs={activeFinance}
+                          budgets={activeBudgets}
+                      />
+                      <Dashboard 
+                          inventory={activeInventory}
+                          harvests={activeHarvests}
+                          laborLogs={activeLabor}
+                          movements={activeMovements}
+                          financeLogs={activeFinance}
+                          onAddMovement={(item, type) => setShowMovementModal({ item, type })}
+                          onDelete={(id) => setShowDeleteModal({ id, name: 'Producto' })}
+                          onViewHistory={(item) => setShowHistoryModal(item)}
+                          isAdmin={true}
+                      />
+                  </div>
+              )}
+
+              {currentTab === 'inventory' && (
+                  <>
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-black text-slate-500 uppercase text-sm tracking-widest">Existencias</h3>
+                          <div className="flex gap-2">
+                              <button onClick={() => setShowAuditModal(true)} className="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2">
+                                  <ClipboardList className="w-4 h-4" /> Auditoría
+                              </button>
+                              <button onClick={() => setShowInventoryForm(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-900/20">
+                                  <Package className="w-4 h-4" /> Nuevo Insumo
+                              </button>
+                          </div>
+                      </div>
+                      <Dashboard 
+                          inventory={activeInventory} 
+                          harvests={[]} laborLogs={[]} movements={[]} financeLogs={[]}
+                          onAddMovement={(item, type) => setShowMovementModal({ item, type })}
+                          onDelete={(id) => { const item = activeInventory.find(i => i.id === id); if(item) setShowDeleteModal({id, name: item.name}); }}
+                          onViewHistory={(item) => setShowHistoryModal(item)}
+                          isAdmin={true}
+                      />
+                  </>
+              )}
+
+              {currentTab === 'field' && (
+                  <div className="space-y-6">
+                      <AgendaView 
+                          agenda={activeAgenda} 
+                          onAddEvent={(e) => saveData({...data, agenda: [...data.agenda, { id: generateId(), warehouseId: activeId, date: new Date().toISOString(), title: e.title, completed: false }]})}
+                          onToggleEvent={(id) => saveData({...data, agenda: data.agenda.map(a => a.id === id ? {...a, completed: !a.completed} : a)})}
+                          onDeleteEvent={(id) => saveData({...data, agenda: data.agenda.filter(a => a.id !== id)})}
+                      />
+                      <LaborView 
+                          laborLogs={activeLabor} 
+                          personnel={activePersonnel} 
+                          costCenters={activeCostCenters} 
+                          activities={activeActivities}
+                          onAddLabor={() => setShowLaborForm(true)}
+                          onDeleteLabor={(id) => saveData({...data, laborLogs: data.laborLogs.filter(l => l.id !== id)})}
+                          isAdmin={true}
+                          onOpenPayroll={() => setShowPayrollModal(true)}
+                      />
+                  </div>
+              )}
+
+              {currentTab === 'scheduler' && (
+                  <LaborSchedulerView 
+                      plannedLabors={data.plannedLabors.filter(l => l.warehouseId === activeId)}
+                      costCenters={activeCostCenters}
+                      activities={activeActivities}
+                      onAddPlannedLabor={(labor) => saveData({ ...data, plannedLabors: [...data.plannedLabors, { ...labor, id: generateId(), warehouseId: activeId, completed: false }] })}
+                      onDeletePlannedLabor={(id) => saveData({ ...data, plannedLabors: data.plannedLabors.filter(l => l.id !== id) })}
+                      onToggleComplete={(id) => saveData({ ...data, plannedLabors: data.plannedLabors.map(l => l.id === id ? { ...l, completed: !l.completed } : l) })}
+                      budgets={activeBudgets}
+                      laborLogs={activeLabor}
+                      personnel={activePersonnel}
+                      laborFactor={data.laborFactor}
+                  />
+              )}
+
+              {currentTab === 'harvest' && (
+                  <HarvestView 
+                      harvests={activeHarvests}
+                      costCenters={activeCostCenters}
+                      onAddHarvest={(h) => saveData({...data, harvests: [...data.harvests, { ...h, id: generateId(), warehouseId: activeId }]})}
+                      onDeleteHarvest={(id) => saveData({...data, harvests: data.harvests.filter(h => h.id !== id)})}
+                      isAdmin={true}
+                      allMovements={activeMovements}
+                  />
+              )}
+
+              {currentTab === 'finance' && (
+                  <FinanceView 
+                      financeLogs={activeFinance}
+                      onAddTransaction={(t) => saveData({...data, financeLogs: [...data.financeLogs, { ...t, id: generateId(), warehouseId: activeId }]})}
+                      onDeleteTransaction={(id) => saveData({...data, financeLogs: data.financeLogs.filter(f => f.id !== id)})}
+                  />
+              )}
+
+              {currentTab === 'management' && (
+                  <ManagementView 
+                      machines={activeMachines}
+                      maintenanceLogs={data.maintenanceLogs.filter(m => m.warehouseId === activeId)}
+                      rainLogs={data.rainLogs.filter(r => r.warehouseId === activeId)}
+                      costCenters={activeCostCenters}
+                      personnel={activePersonnel}
+                      activities={activeActivities}
+                      soilAnalyses={data.soilAnalyses.filter(s => s.warehouseId === activeId)}
+                      ppeLogs={data.ppeLogs.filter(p => p.warehouseId === activeId)}
+                      wasteLogs={data.wasteLogs.filter(w => w.warehouseId === activeId)}
+                      assets={data.assets.filter(a => a.warehouseId === activeId)}
+                      bpaChecklist={data.bpaChecklist || {}}
+                      phenologyLogs={data.phenologyLogs.filter(p => p.warehouseId === activeId)}
+                      pestLogs={data.pestLogs.filter(p => p.warehouseId === activeId)}
+                      onAddMachine={(m) => saveData({...data, machines: [...data.machines, { ...m, id: generateId(), warehouseId: activeId }]})}
+                      onUpdateMachine={(m) => saveData({...data, machines: data.machines.map(mac => mac.id === m.id ? m : mac)})}
+                      onDeleteMachine={(id) => saveData({...data, machines: data.machines.filter(m => m.id !== id)})}
+                      onAddMaintenance={(m) => saveData({...data, maintenanceLogs: [...data.maintenanceLogs, { ...m, id: generateId(), warehouseId: activeId }]})}
+                      onAddRain={(r) => saveData({...data, rainLogs: [...data.rainLogs, { ...r, id: generateId(), warehouseId: activeId }]})}
+                      onDeleteRain={(id) => saveData({...data, rainLogs: data.rainLogs.filter(r => r.id !== id)})}
+                      onAddSoilAnalysis={(s) => saveData({...data, soilAnalyses: [...data.soilAnalyses, { ...s, id: generateId(), warehouseId: activeId }]})}
+                      onDeleteSoilAnalysis={(id) => saveData({...data, soilAnalyses: data.soilAnalyses.filter(s => s.id !== id)})}
+                      onAddPPE={(p) => saveData({...data, ppeLogs: [...data.ppeLogs, { ...p, id: generateId(), warehouseId: activeId }]})}
+                      onDeletePPE={(id) => saveData({...data, ppeLogs: data.ppeLogs.filter(p => p.id !== id)})}
+                      onAddWaste={(w) => saveData({...data, wasteLogs: [...data.wasteLogs, { ...w, id: generateId(), warehouseId: activeId }]})}
+                      onDeleteWaste={(id) => saveData({...data, wasteLogs: data.wasteLogs.filter(w => w.id !== id)})}
+                      onAddAsset={(a) => saveData({...data, assets: [...data.assets, { ...a, id: generateId(), warehouseId: activeId }]})}
+                      onDeleteAsset={(id) => saveData({...data, assets: data.assets.filter(a => a.id !== id)})}
+                      onToggleBpa={(code) => saveData({...data, bpaChecklist: { ...data.bpaChecklist, [code]: !data.bpaChecklist[code] }})}
+                      onAddPhenologyLog={(log) => saveData({...data, phenologyLogs: [...data.phenologyLogs, { ...log, id: generateId(), warehouseId: activeId }]})}
+                      onDeletePhenologyLog={(id) => saveData({...data, phenologyLogs: data.phenologyLogs.filter(l => l.id !== id)})}
+                      onAddPestLog={(log) => saveData({...data, pestLogs: [...data.pestLogs, { ...log, id: generateId(), warehouseId: activeId }]})}
+                      onDeletePestLog={(id) => saveData({...data, pestLogs: data.pestLogs.filter(l => l.id !== id)})}
+                      isAdmin={true}
+                  />
+              )}
+
+              {currentTab === 'strategic' && (
+                  <StrategicView 
+                      data={data}
+                      onUpdateSWOT={(swot) => saveData({...data, swot})}
+                  />
+              )}
+
+              {currentTab === 'budgets' && (
+                  <BudgetView 
+                      budgets={data.budgets || []}
+                      costCenters={activeCostCenters}
+                      activities={activeActivities}
+                      inventory={activeInventory}
+                      warehouseId={activeId}
+                      onSaveBudget={(budget) => {
+                          const existing = data.budgets?.findIndex(b => b.id === budget.id);
+                          let newBudgets = data.budgets ? [...data.budgets] : [];
+                          if (existing !== undefined && existing !== -1) {
+                              newBudgets[existing] = budget;
+                          } else {
+                              newBudgets.push(budget);
+                          }
+                          saveData({ ...data, budgets: newBudgets });
+                      }}
+                      laborLogs={activeLabor}
+                      movements={activeMovements}
+                      laborFactor={data.laborFactor}
+                  />
+              )}
+
+              {currentTab === 'bioassets' && (
+                  <BiologicalAssetsView 
+                      costCenters={activeCostCenters}
+                      movements={activeMovements}
+                      laborLogs={activeLabor}
+                      laborFactor={data.laborFactor}
+                      onUpdateLot={(updatedLot) => {
+                          saveData({
+                              ...data,
+                              costCenters: data.costCenters.map(c => c.id === updatedLot.id ? updatedLot : c)
+                          });
+                      }}
+                  />
+              )}
+
+          </div>
+
+          {/* Mobile Bottom Nav */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex justify-around z-20">
+              <button onClick={() => setCurrentTab('dashboard')} className={`p-2 rounded-xl ${currentTab === 'dashboard' ? 'text-emerald-500' : 'text-slate-400'}`}><BarChart3 className="w-6 h-6"/></button>
+              <button onClick={() => setCurrentTab('inventory')} className={`p-2 rounded-xl ${currentTab === 'inventory' ? 'text-emerald-500' : 'text-slate-400'}`}><Package className="w-6 h-6"/></button>
+              <button onClick={() => setCurrentTab('field')} className={`p-2 rounded-xl ${currentTab === 'field' ? 'text-emerald-500' : 'text-slate-400'}`}><Users className="w-6 h-6"/></button>
+              <button onClick={() => setCurrentTab('harvest')} className={`p-2 rounded-xl ${currentTab === 'harvest' ? 'text-emerald-500' : 'text-slate-400'}`}><Target className="w-6 h-6"/></button>
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl text-slate-400"><Menu className="w-6 h-6"/></button>
+          </div>
+
+          {/* Mobile Sidebar */}
+          {isSidebarOpen && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}>
+                  <div className="absolute top-0 bottom-0 left-0 w-64 bg-slate-900 p-4" onClick={e => e.stopPropagation()}>
+                      <div className="mb-6 flex items-center gap-3">
+                          <Sprout className="w-8 h-8 text-emerald-500" />
+                          <h2 className="text-white font-black text-xl">Menú</h2>
+                      </div>
+                      <div className="space-y-2">
+                          {[
+                              { id: 'dashboard', icon: BarChart3, label: 'Resumen' },
+                              { id: 'inventory', icon: Package, label: 'Bodega' },
+                              { id: 'field', icon: Users, label: 'Campo' },
+                              { id: 'scheduler', icon: CalendarRange, label: 'Planificador' },
+                              { id: 'harvest', icon: Target, label: 'Cosecha' },
+                              { id: 'strategic', icon: Calculator, label: 'Estrategia' },
+                              { id: 'budgets', icon: DollarSign, label: 'Presupuesto' },
+                              { id: 'management', icon: Settings, label: 'Gestión' },
+                              { id: 'finance', icon: Wallet, label: 'Finanzas' },
+                          ].map(item => (
+                              <button 
+                                key={item.id}
+                                onClick={() => { setCurrentTab(item.id); setIsSidebarOpen(false); }}
+                                className="w-full flex items-center gap-3 text-slate-400 p-3 hover:text-white hover:bg-slate-800 rounded-xl"
+                              >
+                                  <item.icon className="w-5 h-5" /> {item.label}
+                              </button>
+                          ))}
+                          <div className="h-px bg-slate-800 my-2"></div>
+                          <button onClick={() => { setShowDataModal(true); setIsSidebarOpen(false); }} className="w-full flex items-center gap-3 text-slate-400 p-3 hover:text-white"><Database className="w-5 h-5"/> Datos</button>
+                          <button onClick={handleLogout} className="w-full flex items-center gap-3 text-red-400 p-3 hover:bg-red-900/20 rounded-xl"><LogOut className="w-5 h-5"/> Salir</button>
+                      </div>
+                  </div>
+              </div>
+          )}
+
+          {/* Modals */}
+          {showInventoryForm && (
+              <InventoryForm 
+                  suppliers={activeSuppliers}
+                  onSave={handleAddItem}
+                  onCancel={() => setShowInventoryForm(false)}
+              />
+          )}
+          
+          {showMovementModal && (
+              <MovementModal 
+                  item={showMovementModal.item}
+                  type={showMovementModal.type}
+                  suppliers={activeSuppliers}
+                  costCenters={activeCostCenters}
+                  personnel={activePersonnel}
+                  machines={activeMachines}
+                  movements={activeMovements}
+                  allSoilAnalyses={data.soilAnalyses}
+                  onSave={(m, p, e) => handleAddMovement(m, p, e)}
+                  onCancel={() => setShowMovementModal(null)}
+              />
+          )}
+
+          {showHistoryModal && (
+              <HistoryModal 
+                  item={showHistoryModal}
+                  movements={activeMovements.filter(m => m.itemId === showHistoryModal.id)}
+                  onClose={() => setShowHistoryModal(null)}
+              />
+          )}
+
+          {showWarehouseModal && (
+              <WarehouseModal 
+                  warehouses={data.warehouses}
+                  activeId={activeId}
+                  onSwitch={(id) => saveData({ ...data, activeWarehouseId: id })}
+                  onCreate={(name) => {
+                      const newId = generateId();
+                      saveData({ ...data, warehouses: [...data.warehouses, { id: newId, name, created: new Date().toISOString(), ownerId: currentUser.id }], activeWarehouseId: newId });
+                  }}
+                  onDelete={(id) => {
+                      // Cascading delete
+                      const newWarehouses = data.warehouses.filter(w => w.id !== id);
+                      saveData({
+                          ...data,
+                          warehouses: newWarehouses,
+                          activeWarehouseId: newWarehouses[0].id,
+                          inventory: data.inventory.filter(i => i.warehouseId !== id),
+                          movements: data.movements.filter(m => m.warehouseId !== id),
+                          laborLogs: data.laborLogs.filter(l => l.warehouseId !== id),
+                          harvests: data.harvests.filter(h => h.warehouseId !== id),
+                          costCenters: data.costCenters.filter(c => c.warehouseId !== id),
+                          personnel: data.personnel.filter(p => p.warehouseId !== id),
+                          // ... delete other related data
+                      });
+                  }}
+                  onClose={() => setShowWarehouseModal(false)}
+              />
+          )}
+
+          {showSettingsModal && (
+              <SettingsModal 
+                  suppliers={activeSuppliers}
+                  costCenters={activeCostCenters}
+                  personnel={activePersonnel}
+                  activities={activeActivities}
+                  fullState={data}
+                  onUpdateState={saveData}
+                  onAddSupplier={(name, phone, email, address) => saveData({ ...data, suppliers: [...data.suppliers, { id: generateId(), warehouseId: activeId, name, phone, email, address }] })}
+                  onDeleteSupplier={(id) => saveData({ ...data, suppliers: data.suppliers.filter(s => s.id !== id) })}
+                  onAddCostCenter={(name, budget, area, stage, plantCount, cropType, associatedCrop) => saveData({ ...data, costCenters: [...data.costCenters, { id: generateId(), warehouseId: activeId, name, budget, area: area || 0, stage: stage || 'Produccion', plantCount, cropType: cropType || 'Café', associatedCrop }] })}
+                  onDeleteCostCenter={(id) => saveData({ ...data, costCenters: data.costCenters.filter(c => c.id !== id) })}
+                  onAddPersonnel={(p) => saveData({ ...data, personnel: [...data.personnel, { ...p, id: generateId(), warehouseId: activeId }] })}
+                  onDeletePersonnel={(id) => saveData({ ...data, personnel: data.personnel.filter(p => p.id !== id) })}
+                  onAddActivity={(name, classification) => saveData({ ...data, activities: [...data.activities, { id: generateId(), warehouseId: activeId, name, costClassification: classification }] })}
+                  onDeleteActivity={(id) => saveData({ ...data, activities: data.activities.filter(a => a.id !== id) })}
+                  onClose={() => setShowSettingsModal(false)}
+              />
+          )}
+
+          {showExportModal && (
+              <ExportModal 
+                  onClose={() => setShowExportModal(false)}
+                  onExportPDF={() => { /* Logic integrated in modal or separate */ }}
+                  onExportExcel={() => { /* Logic */ }}
+                  onGenerateOrder={() => { /* Logic */ }}
+                  onExportLaborPDF={() => { /* Logic */ }}
+                  onExportLaborExcel={() => { /* Logic */ }}
+                  activeData={data}
+                  onShowSupport={() => setShowSupportModal(true)}
+                  isSupporter={isSupporter}
+              />
+          )}
+
+          {showSupportModal && (
+              <SupportModal 
+                  onClose={() => setShowSupportModal(false)}
+                  onUpgrade={() => { setIsSupporter(true); notify('¡Gracias por tu apoyo!', 'success'); }}
+                  isSupporter={isSupporter}
+              />
+          )}
+
+          {showDeleteModal && (
+              <DeleteModal 
+                  itemName={showDeleteModal.name}
+                  onConfirm={handleDeleteItem}
+                  onCancel={() => setShowDeleteModal(null)}
+              />
+          )}
+
+          {showAuditModal && (
+              <AuditModal 
+                  inventory={activeInventory}
+                  onAdjust={(item, realQty, notes) => {
+                      const diff = realQty - item.currentQuantity;
+                      if (diff !== 0) {
+                          const mov: Movement = {
+                              id: generateId(),
+                              warehouseId: activeId,
+                              itemId: item.id,
+                              itemName: item.name,
+                              type: diff > 0 ? 'IN' : 'OUT',
+                              quantity: Math.abs(diff),
+                              unit: item.baseUnit === 'unit' ? Unit.UNIDAD : item.baseUnit === 'g' ? Unit.GRAMO : Unit.MILILITRO, // Adjusted base
+                              calculatedCost: Math.abs(diff) * item.averageCost,
+                              date: new Date().toISOString(),
+                              notes: notes,
+                              outputCode: 'AUDIT-ADJ'
+                          };
+                          const res = processInventoryMovement(data.inventory, mov);
+                          saveData({ ...data, inventory: res.updatedInventory, movements: [...data.movements, mov] });
+                          notify('Inventario ajustado.');
+                      }
+                  }}
+                  onClose={() => setShowAuditModal(false)}
+              />
+          )}
+
+          {showManualModal && <ManualModal onClose={() => setShowManualModal(false)} />}
+
+          {showLaborForm && (
+              <LaborForm 
+                  personnel={activePersonnel}
+                  costCenters={activeCostCenters}
+                  activities={activeActivities}
+                  onSave={handleAddLabor}
+                  onCancel={() => setShowLaborForm(false)}
+                  onOpenSettings={() => { setShowLaborForm(false); setShowSettingsModal(true); }}
+              />
+          )}
+
+          {showPayrollModal && (
+              <PayrollModal 
+                  logs={activeLabor}
+                  personnel={activePersonnel}
+                  onMarkAsPaid={handleMarkPaid}
+                  onClose={() => setShowPayrollModal(false)}
+                  warehouseName={data.warehouses.find(w => w.id === activeId)?.name || ''}
+                  laborFactor={data.laborFactor}
+              />
+          )}
+
+          {showDataModal && (
+              <DataModal 
+                  fullState={data}
+                  onRestoreData={(d) => { saveData(d); }}
+                  onClose={() => setShowDataModal(false)}
+                  onShowNotification={(msg, type) => notify(msg, type)}
+              />
+          )}
+
+          {showSecurityModal && (
+              <SecurityModal 
+                  existingPin={data.adminPin}
+                  onSuccess={(pin) => handleSecuritySuccess(pin)}
+                  onClose={() => { if (!isAuthenticated) handleLogout(); else setShowSecurityModal(false); }}
+              />
+          )}
+
+          {showNotification && (
+              <Notification 
+                  message={showNotification.msg} 
+                  type={showNotification.type} 
+                  onClose={() => setShowNotification(null)} 
+              />
+          )}
+
+      </div>
     </div>
   );
-}
+};
 
 export default App;
