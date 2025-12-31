@@ -1,5 +1,4 @@
 
-
 import { InventoryItem, Movement, Unit, AppState, SWOT } from '../types';
 
 const STORAGE_KEY = 'datosfinca_viva_v1_expert'; // Updated to DatosFinca Viva
@@ -110,14 +109,15 @@ export const loadData = (): AppState => {
     agenda: parsed.agenda || [],
     phenologyLogs: parsed.phenologyLogs || [],
     pestLogs: parsed.pestLogs || [],
+    plannedLabors: parsed.plannedLabors || [], // Inicializado para el programador
     laborFactor: parsed.laborFactor || 1.0,
-    adminPin: parsed.adminPin || undefined,
+    // adminPin: parsed.adminPin || undefined, // Removed adminPin
     swot: parsed.swot || {
       f: 'Experiencia técnica en el cultivo.',
       o: 'Demanda de productos orgánicos.',
       d: 'Costos de insumos elevados.',
       a: 'Cambio climático severo.'
-    },
+    }, // REMOVED TRAILING COMMA HERE
     bpaChecklist: parsed.bpaChecklist || {},
     assets: parsed.assets || []
   };

@@ -1,5 +1,4 @@
 
-
 import React, { useRef, useState } from 'react';
 import { AppState } from '../types';
 import { 
@@ -36,12 +35,17 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
   
   const handleDownloadBackup = () => {
     try {
+        const activeWarehouse = fullState.warehouses.find(w => w.id === fullState.activeWarehouseId);
+        const warehouseName = activeWarehouse ? activeWarehouse.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'finca';
+        const dateStr = new Date().toISOString().split('T')[0];
+        const fileName = `Backup_${warehouseName}_${dateStr}.json`;
+
         const jsonString = JSON.stringify(fullState, null, 2);
         const blob = new Blob([jsonString], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Backup_DatosFincaViva_${new Date().toISOString().split('T')[0]}.json`; // Updated name
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         setTimeout(() => {
@@ -132,9 +136,9 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 space-y-4 flex flex-col">
                     <h4 className="text-emerald-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                        <FileJson className="w-4 h-4" /> Backup Rápido (JSON)
+                        <FileJson className="w-4 h-4" /> Backup Inversionista (JSON)
                     </h4>
-                    <p className="text-[10px] text-slate-500 leading-tight flex-1">Crea una "fotografía" de la app para restaurarla en otro dispositivo.</p>
+                    <p className="text-[10px] text-slate-500 leading-tight flex-1">Copia exacta de la base de datos local para enviar a socios y restaurar en otro celular.</p>
                     <button onClick={handleDownloadBackup} className="w-full bg-slate-800 hover:bg-emerald-600 text-white py-4 rounded-xl text-[10px] font-black uppercase transition-all">Descargar .JSON</button>
                 </div>
 
@@ -142,7 +146,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                     <h4 className="text-blue-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
                         <Upload className="w-4 h-4" /> Restaurar Backup
                     </h4>
-                    <p className="text-[10px] text-slate-500 leading-tight flex-1">Carga un archivo .json para reemplazar todos los datos actuales.</p>
+                    <p className="text-[10px] text-slate-500 leading-tight flex-1">Carga un archivo .json para visualizar la finca de un socio o recuperar datos.</p>
                     <label className={`block w-full text-white py-4 rounded-xl text-[10px] font-black uppercase transition-all text-center ${isRestoring ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 hover:bg-blue-600 cursor-pointer'}`}>
                         {isRestoring ? (
                            <span className="flex items-center justify-center gap-2">

@@ -1,9 +1,7 @@
-
-
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
-import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog, Machine, Asset, MaintenanceLog, RainLog, FinanceLog, SoilAnalysis, PPELog, WasteLog, AgendaEvent, CostClassification, Warehouse } from '../types';
+import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog, Machine, Asset, MaintenanceLog, RainLog, FinanceLog, SoilAnalysis, PPELog, WasteLog, AgendaEvent, CostClassification, Warehouse, PlannedLabor } from '../types';
 import { formatCurrency, generateId, convertToBase, getBaseUnitType, processInventoryMovement } from './inventoryService';
 
 const BRAND_COLORS = {
@@ -571,6 +569,24 @@ export const getDemoData = (): AppState => {
   const pestLogs: PestLog[] = [];
   const bpaChecklist: Record<string, boolean> = {};
 
+  const plannedLabors: PlannedLabor[] = [
+      {
+          id: 'plan_labor_1',
+          warehouseId: WAREHOUSE_ID,
+          activityId: 'act_fertilizacion',
+          activityName: 'Fertilización',
+          costCenterId: 'lote_castillo_1',
+          costCenterName: 'Lote 1: Castillo',
+          date: new Date().toISOString().split('T')[0],
+          targetArea: 3,
+          technicalYield: 1.5, // Ha/Jornal
+          unitCost: JORNAL_VALUE,
+          efficiency: 95,
+          calculatedPersonDays: 2.1,
+          calculatedTotalCost: 2.1 * JORNAL_VALUE,
+          completed: false
+      }
+  ];
 
   // Fix: Return a complete AppState object
   return {
@@ -594,6 +610,7 @@ export const getDemoData = (): AppState => {
       agenda,
       phenologyLogs,
       pestLogs,
+      plannedLabors,
       swot: {
           f: 'Finca tecnificada con datos reales.',
           o: 'Optimizar costos con análisis de rentabilidad.',

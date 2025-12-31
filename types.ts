@@ -1,5 +1,4 @@
 
-
 export enum Category {
   FERTILIZANTE = 'Fertilizante',
   INSECTICIDA = 'Insecticida',
@@ -83,6 +82,24 @@ export interface PestLog {
   notes?: string;
 }
 
+export interface PlannedLabor {
+  id: string;
+  warehouseId: string;
+  activityId: string;
+  activityName: string;
+  costCenterId: string;
+  costCenterName: string;
+  date: string;
+  targetArea: number; // Hectáreas a trabajar
+  technicalYield: number; // Rendimiento técnico (ej: Jornales/Ha o Ha/Jornal)
+  unitCost: number; // Costo unitario del jornal
+  efficiency: number; // Porcentaje de eficiencia (0-100)
+  calculatedPersonDays: number; // Jornales calculados
+  calculatedTotalCost: number; // Costo total calculado
+  completed: boolean;
+  notes?: string;
+}
+
 export interface AppState {
   warehouses: Warehouse[];
   activeWarehouseId: string;
@@ -104,6 +121,7 @@ export interface AppState {
   agenda: AgendaEvent[];
   phenologyLogs: PhenologyLog[];
   pestLogs: PestLog[];
+  plannedLabors: PlannedLabor[]; // Nuevo campo para el programador
   swot?: SWOT;
   bpaChecklist: Record<string, boolean>;
   assets: Asset[];

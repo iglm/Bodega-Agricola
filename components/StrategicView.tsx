@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { AppState, SWOT, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
 import { InvestmentCalculatorView } from './InvestmentCalculatorView'; // NEW IMPORT
-import { Target, TrendingUp, DollarSign, PieChart, Landmark, Timer, ArrowRightLeft, Lightbulb, ShieldCheck, Briefcase, Activity as ActivityIcon, Info, Users, AlertTriangle, Scale, Database, BarChart3, Search, Zap, CheckCircle, BrainCircuit } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, PieChart, Landmark, Timer, ArrowRightLeft, Lightbulb, ShieldCheck, Briefcase, Activity as ActivityIcon, Info, Users, AlertTriangle, Scale, Database, BarChart3, Search, Zap, CheckCircle, BrainCircuit, Sprout, Split } from 'lucide-react';
 
 interface StrategicViewProps {
   data: AppState;
@@ -125,6 +125,61 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
 
   }, [data, laborFactor, arriendoFigurado]);
 
+  // --- POLYCULTURE ANALYSIS (NEW) ---
+  const polycultureData = useMemo(() => {
+      const stats: Record<string, { income: number; directLabor: number; directInputs: number; area: number }> = {
+          'Café': { income: 0, directLabor: 0, directInputs: 0, area: 0 },
+          'Plátano': { income: 0, directLabor: 0, directInputs: 0, area: 0 },
+          'Otro': { income: 0, directLabor: 0, directInputs: 0, area: 0 },
+          'Conjunto': { income: 0, directLabor: 0, directInputs: 0, area: 0 } // For Joint Costs
+      };
+
+      // 1. Map Lots to Crops
+      const lotMap = new Map(data.costCenters.map(c => [c.id, c.cropType]));
+      
+      // Calculate Total Areas for Allocation
+      data.costCenters.forEach(c => {
+          const key = (c.cropType === 'Café' || c.cropType === 'Plátano') ? c.cropType : 'Otro';
+          stats[key].area += c.area;
+      });
+
+      // 2. Allocate Harvest Income (Direct)
+      data.harvests.forEach(h => {
+          // Heuristic: Check crop name string to bucket revenue
+          const name = h.cropName.toLowerCase();
+          let key = 'Otro';
+          if (name.includes('caf') || name.includes('pergamino') || name.includes('cereza')) key = 'Café';
+          else if (name.includes('platano') || name.includes('plátano') || name.includes('banano')) key = 'Plátano';
+          
+          if (stats[key]) stats[key].income += h.totalValue;
+      });
+
+      // 3. Allocate Labor Costs (Using Activity Classification)
+      data.laborLogs.forEach(l => {
+          const activity = data.activities.find(a => a.id === l.activityId);
+          const classification = activity?.costClassification || 'JOINT';
+          const cost = l.value * laborFactor;
+
+          if (classification === 'COFFEE') stats['Café'].directLabor += cost;
+          else if (classification === 'PLANTAIN') stats['Plátano'].directLabor += cost;
+          else if (classification === 'OTHER') stats['Otro'].directLabor += cost;
+          else stats['Conjunto'].directLabor += cost; // JOINT
+      });
+
+      // 4. Allocate Inputs (Based on Lot Type)
+      data.movements.filter(m => m.type === 'OUT').forEach(m => {
+          if (!m.costCenterId) return;
+          const lotType = lotMap.get(m.costCenterId);
+          let key = 'Otro';
+          if (lotType === 'Café') key = 'Café';
+          else if (lotType === 'Plátano' || lotType === 'Banano') key = 'Plátano';
+          
+          if (stats[key]) stats[key].directInputs += m.calculatedCost;
+      });
+
+      return stats;
+  }, [data, laborFactor]);
+
 
   return (
     <div className="space-y-8 pb-32 animate-fade-in">
@@ -136,9 +191,68 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Del Dato Bruto a la Decisión Estratégica</p>
         </div>
 
+        {/* --- CROP COMPARISON (POLYCULTURE) --- */}
+        <div className="space-y-4">
+            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest">
+                <Split className="w-5 h-5 text-indigo-500" /> Rentabilidad por Cultivo
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {['Café', 'Plátano'].map(crop => {
+                    const s = polycultureData[crop];
+                    const grossMargin = s.income - (s.directLabor + s.directInputs);
+                    // Allocation of Joint Costs based on simplified 50/50 for display (real allocation is complex)
+                    // Or display Joint costs separately
+                    return (
+                        <div key={crop} className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800 relative overflow-hidden group">
+                            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity`}>
+                                <Sprout className={`w-24 h-24 ${crop === 'Café' ? 'text-red-500' : 'text-yellow-500'}`} />
+                            </div>
+                            <div className="relative z-10">
+                                <h4 className="font-black text-xl text-white mb-4 flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${crop === 'Café' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                    {crop}
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-end border-b border-slate-800 pb-2">
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">Ventas Totales</span>
+                                        <span className="text-emerald-400 font-mono font-black">{formatCurrency(s.income)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[10px] text-slate-500 uppercase font-bold">Labor Directa</span>
+                                        <span className="text-slate-300 font-mono text-xs">- {formatCurrency(s.directLabor)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[10px] text-slate-500 uppercase font-bold">Insumos Directos</span>
+                                        <span className="text-slate-300 font-mono text-xs">- {formatCurrency(s.directInputs)}</span>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-slate-700 flex justify-between items-end">
+                                        <span className="text-xs text-indigo-400 uppercase font-black">Margen Directo</span>
+                                        <span className={`text-lg font-mono font-black ${grossMargin >= 0 ? 'text-white' : 'text-red-500'}`}>
+                                            {formatCurrency(grossMargin)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {/* JOINT COSTS CARD */}
+            <div className="bg-slate-900/50 p-4 rounded-2xl border border-dashed border-slate-700 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-800 rounded-lg"><Users className="w-4 h-4 text-slate-400"/></div>
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase">Costos Conjuntos (Compartidos)</p>
+                        <p className="text-[9px] text-slate-500">Mano de obra general no asignable a un solo cultivo.</p>
+                    </div>
+                </div>
+                <p className="text-lg font-mono font-black text-amber-500">- {formatCurrency(polycultureData['Conjunto'].directLabor)}</p>
+            </div>
+        </div>
+
         {/* --- FINANCIAL KPIs --- */}
         <div className="space-y-4">
-            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest"><Scale className="w-5 h-5 text-emerald-500" /> KPIs Financieros</h3>
+            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest"><Scale className="w-5 h-5 text-emerald-500" /> KPIs Financieros Globales</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <KPI_Card title="Punto de Equilibrio" value={isFinite(kpiData.breakEvenKg) ? `${kpiData.breakEvenKg.toFixed(0)} Kg` : 'N/A'} subvalue="Para cubrir costos fijos" color="text-emerald-400" icon={Landmark} />
                 <KPI_Card title="Tasa de Gasto Mensual" value={formatCurrency(kpiData.burnRate)} subvalue="Burn Rate Operativo" color="text-red-400" icon={Timer} />
