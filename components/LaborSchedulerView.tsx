@@ -89,7 +89,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
       // 4. Calculate COMMITTED (Planned but not done) - Excluding current form item if edit mode (not applicable here)
       const committed = plannedLabors
           .filter(l => l.costCenterId === costCenterId && !l.completed && new Date(l.date).getFullYear() === year)
-          .reduce((sum, l) => sum + l.calculatedTotalCost, 0);
+          .reduce((sum, l) => sum + (l.calculatedTotalCost || 0), 0);
 
       // 5. Check Availability
       const remaining = totalBudgetLimit - executed - committed;
@@ -149,9 +149,9 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
   // Totals
   const totals = useMemo(() => {
       return filteredLabors.reduce((acc, l) => ({
-          hectares: acc.hectares + l.targetArea,
-          jornales: acc.jornales + l.calculatedPersonDays,
-          cost: acc.cost + l.calculatedTotalCost
+          hectares: acc.hectares + (l.targetArea || 0),
+          jornales: acc.jornales + (l.calculatedPersonDays || 0),
+          cost: acc.cost + (l.calculatedTotalCost || 0)
       }), { hectares: 0, jornales: 0, cost: 0 });
   }, [filteredLabors]);
 
@@ -213,8 +213,8 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="font-mono font-black text-slate-700 dark:text-slate-300 text-sm">{formatCurrency(l.calculatedTotalCost)}</p>
-                                <p className="text-[10px] text-violet-500 font-bold uppercase">{l.calculatedPersonDays.toFixed(1)} Jornales</p>
+                                <p className="font-mono font-black text-slate-700 dark:text-slate-300 text-sm">{formatCurrency(l.calculatedTotalCost || 0)}</p>
+                                <p className="text-[10px] text-violet-500 font-bold uppercase">{(l.calculatedPersonDays || 0).toFixed(1)} Jornales</p>
                             </div>
                         </div>
                         

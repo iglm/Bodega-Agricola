@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
@@ -87,6 +88,204 @@ export const generateSQLDump = (data: AppState): void => {
     link.href = url;
     link.download = fileName;
     link.click();
+};
+
+// --- SIMULATOR REPORTS (WITH ROI) ---
+export const generateSimulatorPDF = (data: any): void => {
+    const doc = new jsPDF();
+    let y = addHeader(doc, "SIMULACIÓN FINANCIERA", "Proyección Fenológica de Flujo de Caja", "Escenario Proyectado", BRAND_COLORS.indigo);
+
+    // 1. Parámetros del Cultivo
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text("1. Parámetros de la Simulación", 14, y);
+    y += 5;
+
+    autoTable(doc, {
+        startY: y,
+        head: [['Parámetro', 'Valor Configurado', 'Unidad']],
+        body: [
+            ['Cantidad de Árboles', data.parameters.totalTrees.toLocaleString(), 'Árboles'],
+            ['Densidad de Siembra', data.parameters.density.toLocaleString(), 'Arb/Ha'],
+            ['Precio Carga (125Kg)', formatCurrency(data.parameters.coffeeLoadPrice), 'COP'],
+            ['Costo Jornal', formatCurrency(data.parameters.jornalValue), 'COP'],
+            ['Costo Recolección', formatCurrency(data.parameters.harvestCostPerKg), 'Por Kg Cereza'],
+            ['Factor Conversión', `${data.parameters.yieldConversion} : 1`, 'Kg Cereza / Kg CPS'],
+            ['Meta Mensual', formatCurrency(data.reverseCalc.goal), 'COP Libre']
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: BRAND_COLORS.slate },
+        styles: { fontSize: 9 }
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 15;
+
+    // 2. Resumen de Ejecución
+    doc.setFontSize(12);
+    doc.text("2. Proyección a 7 Años (Ciclo Completo)", 14, y);
+    y += 5;
+
+    const rows = data.calculation.yearlyData.map((row: any) => [
+        `Año ${row.year}`,
+        row.label,
+        formatCurrency(row.income * data.parameters.totalTrees),
+        formatCurrency(row.totalCost * data.parameters.totalTrees),
+        formatCurrency(row.profit * data.parameters.totalTrees)
+    ]);
+
+    autoTable(doc, {
+        startY: y,
+        head: [['Año', 'Etapa', 'Ingreso Bruto', 'Costos Totales', 'Utilidad Neta']],
+        body: rows,
+        theme: 'grid',
+        headStyles: { fillColor: BRAND_COLORS.indigo },
+        columnStyles: { 
+            2: { halign: 'right', textColor: [22, 163, 74] }, // Emerald
+            3: { halign: 'right', textColor: [220, 38, 38] }, // Red
+            4: { halign: 'right', fontStyle: 'bold' } 
+        },
+        foot: [['', 'TOTAL ACUMULADO', formatCurrency(data.calculation.yearlyData.reduce((a:number, b:any) => a + b.income * data.parameters.totalTrees, 0)), 
+               formatCurrency(data.calculation.yearlyData.reduce((a:number, b:any) => a + b.totalCost * data.parameters.totalTrees, 0)), 
+               formatCurrency(data.calculation.globalAccumulated)]],
+        footStyles: { fillColor: BRAND_COLORS.slate, textColor: 255, fontStyle: 'bold' }
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 15;
+
+    // 3. INDICADORES FINANCIEROS (NEW SECTION)
+    doc.setFontSize(12);
+    doc.text("3. Indicadores Financieros Estratégicos", 14, y);
+    y += 5;
+
+    autoTable(doc, {
+        startY: y,
+        head: [['Indicador', 'Valor', 'Interpretación']],
+        body: [
+            ['Retorno Inversión (ROI)', `${data.calculation.roi.toFixed(1)} %`, `Gana $${data.calculation.roi.toFixed(0)} por cada $100 invertidos`],
+            ['Margen Neto Global', `${data.calculation.netMargin.toFixed(1)} %`, 'Porcentaje de utilidad sobre ventas totales'],
+            ['Costo Producción (Carga)', formatCurrency(data.calculation.costPerCarga), 'Punto de equilibrio por carga producida'],
+            ['Año Recuperación (Payback)', data.calculation.paybackYear > 0 ? `Año ${data.calculation.paybackYear}` : 'N/A', 'Momento en que la inversión se paga sola'],
+            ['Inversión Máxima (Peak)', formatCurrency(data.calculation.maxInvestment), 'Capital de trabajo máximo requerido']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: BRAND_COLORS.purple },
+        columnStyles: { 1: { fontStyle: 'bold', halign: 'center' } }
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 15;
+
+    // 4. Resultado Ingeniería Inversa
+    doc.setFillColor(240, 253, 244); // Emerald 50
+    doc.setDrawColor(22, 163, 74);
+    doc.roundedRect(14, y, 180, 35, 3, 3, 'FD');
+    
+    doc.setFontSize(11);
+    doc.setTextColor(22, 163, 74);
+    doc.text("ANÁLISIS DE VIABILIDAD PARA LA META", 20, y + 10);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(50, 50, 50);
+    doc.text(`Para lograr una utilidad mensual libre de ${formatCurrency(data.reverseCalc.goal)}, el modelo sugiere:`, 20, y + 20);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`• Sembrar: ${data.reverseCalc.trees.toLocaleString()} Árboles`, 20, y + 28);
+    doc.text(`• Área Requerida: ${data.reverseCalc.area.toFixed(1)} Hectáreas`, 100, y + 28);
+
+    addFooter(doc);
+    doc.save("Simulacion_Financiera_Cafetera.pdf");
+};
+
+export const generateSimulatorExcel = (data: any): void => {
+    const wb = XLSX.utils.book_new();
+    
+    // 1. Sheet Data Construction
+    const ws_data = [
+        ["DATOSFINCA VIVA - MODELO DE SIMULACIÓN FINANCIERA"],
+        [`Fecha Generación: ${new Date().toLocaleDateString()}`],
+        [""],
+        ["PARÁMETROS DEL CULTIVO"],
+        ["Variable", "Valor", "Unidad"],
+        ["Árboles Totales", data.parameters.totalTrees, "Und"],
+        ["Densidad", data.parameters.density, "Arb/Ha"],
+        ["Precio Carga", data.parameters.coffeeLoadPrice, "COP"],
+        ["Costo Jornal", data.parameters.jornalValue, "COP"],
+        ["Costo Fertilizante", data.parameters.fertilizerPriceBulto, "COP/Bulto"],
+        ["Factor Conversión", data.parameters.yieldConversion, "Kg Cereza / Kg CPS"],
+        [""],
+        ["PROYECCIÓN DE FLUJO DE CAJA (7 AÑOS)"],
+        ["Año", "Etapa Fenológica", "Producción (Kg/Arb)", "Ingreso Global ($)", "Egreso Global ($)", "Utilidad Neta ($)", "Margen (%)"],
+    ];
+
+    // Add Table Rows
+    data.calculation.yearlyData.forEach((row: any) => {
+        const income = row.income * data.parameters.totalTrees;
+        const cost = row.totalCost * data.parameters.totalTrees;
+        const profit = row.profit * data.parameters.totalTrees;
+        const margin = income > 0 ? (profit / income) : 0;
+        
+        ws_data.push([
+            row.year,
+            row.label,
+            row.yieldKg.toFixed(2),
+            income,
+            cost,
+            profit,
+            margin
+        ]);
+    });
+
+    // Add Footer Stats (Updated with new metrics)
+    ws_data.push(["", "", "", "", "", "", ""]);
+    ws_data.push(["RESUMEN DE INDICADORES"]);
+    ws_data.push(["Utilidad Total Ciclo", data.calculation.globalAccumulated]);
+    ws_data.push(["ROI (Retorno s/ Inversión)", data.calculation.roi / 100]); // Percent format
+    ws_data.push(["Margen Neto Global", data.calculation.netMargin / 100]); // Percent format
+    ws_data.push(["Costo Producción / Carga", data.calculation.costPerCarga]);
+    ws_data.push(["Año Recuperación (Payback)", data.calculation.paybackYear]);
+    ws_data.push(["Inversión Máxima Req.", data.calculation.maxInvestment]);
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+    // Styles
+    const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "4F46E5" } } }; // Indigo
+    const subHeaderStyle = { font: { bold: true, color: { rgb: "4F46E5" } } };
+    const currencyFormat = { numFmt: '"$"#,##0' };
+    const percentFormat = { numFmt: '0.00%' };
+
+    // Apply Styles
+    ws['A1'].s = { font: { bold: true, sz: 14 } };
+    ws['A4'].s = subHeaderStyle;
+    ws['A13'].s = subHeaderStyle;
+    ws['A23'].s = subHeaderStyle;
+
+    // Apply to Parameter Headers
+    ['A5', 'B5', 'C5'].forEach(ref => { if(ws[ref]) ws[ref].s = headerStyle; });
+    // Apply to Main Table Headers
+    ['A14', 'B14', 'C14', 'D14', 'E14', 'F14', 'G14'].forEach(ref => { if(ws[ref]) ws[ref].s = headerStyle; });
+
+    // Apply Formats to Data Columns
+    const range = XLSX.utils.decode_range(ws['!ref']!);
+    for (let R = 14; R <= 20; ++R) { // Rows for years 1-7 (approx)
+        ['D', 'E', 'F'].forEach(C => {
+            const cellRef = XLSX.utils.encode_cell({c: XLSX.utils.decode_col(C), r: R});
+            if (ws[cellRef]) ws[cellRef].s = currencyFormat;
+        });
+        const pctRef = XLSX.utils.encode_cell({c: 6, r: R}); // Column G
+        if (ws[pctRef]) ws[pctRef].s = percentFormat;
+    }
+
+    // Formats for Footer Summary
+    // B25 (ROI) and B26 (Margin)
+    if(ws['B25']) ws['B25'].s = percentFormat;
+    if(ws['B26']) ws['B26'].s = percentFormat;
+    // Currency
+    ['B24', 'B27', 'B29'].forEach(ref => { if(ws[ref]) ws[ref].s = currencyFormat; });
+
+    // Column Widths
+    ws['!cols'] = [{wch: 10}, {wch: 25}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 20}, {wch: 12}];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Simulación Financiera");
+    XLSX.writeFile(wb, `Simulacion_Agro_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 // --- EXECUTIVE REPORT (DOSSIER GERENCIAL) ---
