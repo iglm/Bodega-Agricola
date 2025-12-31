@@ -24,28 +24,48 @@ import { Notification } from './components/Notification';
 import { SupportModal } from './components/SupportModal';
 import { LaborSchedulerView } from './components/LaborSchedulerView';
 import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClassification, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine, PlannedLabor } from './types';
-import { loadData, saveData, processInventoryMovement, generateId, getBaseUnitType, convertToBase } from './services/inventoryService';
+import { processInventoryMovement, generateId, getBaseUnitType, convertToBase, loadDataFromLocalStorage, saveDataToLocalStorage } from './services/inventoryService';
+import { dbService } from './services/db'; 
 import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport } from './services/reportService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange } from 'lucide-react';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState<User | null>(null);
   const [view, setView] = useState<'landing' | 'app'>('landing');
   const [currentTab, setCurrentTab] = useState('inventory');
-  const [data, setData] = useState<AppState>(loadData());
+  
+  // --- INICIALIZACIÓN SINCRÓNICA (MODO SEGURO) ---
+  // Cargamos los datos inmediatamente para evitar la pantalla azul.
+  const [data, setData] = useState<AppState>(() => {
+      try {
+          return loadDataFromLocalStorage();
+      } catch (error) {
+          console.error("Error crítico inicializando:", error);
+          return getDemoData(); // Fallback final
+      }
+  });
+  
+  // Ya no usamos isLoading true por defecto, la app carga instantáneamente
+  const [isLoading, setIsLoading] = useState(false); 
+
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   // Security State
   const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
 
-  // Debounce effect for saving data
+  // --- ESTRATEGIA DE GUARDADO HÍBRIDO (DOBLE RESPALDO) ---
   useEffect(() => {
+    if (!data) return;
+
     const handler = setTimeout(() => {
-      saveData(data);
+      // 1. Guardado Sincrónico (Rápido y Seguro)
+      saveDataToLocalStorage(data);
+      
+      // 2. Guardado Asincrónico (Robusto - Segundo Plano)
+      dbService.saveState(data).catch(err => console.warn("Fallo guardado IDB (No crítico):", err));
     }, 500); // 500ms debounce delay
 
-    // Cleanup function to clear the timeout if data changes before 500ms
     return () => {
       clearTimeout(handler);
     };
@@ -74,6 +94,9 @@ function App() {
   const [movementModal, setMovementModal] = useState<{item: InventoryItem, type: 'IN' | 'OUT'} | null>(null);
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
+
+  // Guard clause simplified
+  if (!data) return null;
 
   const activeId = data.activeWarehouseId;
   const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
@@ -257,7 +280,7 @@ function App() {
       )}
 
       {/* APLICACIÓN PRINCIPAL */}
-      {view === 'app' && (
+      {view === 'app' && data && (
         <>
           <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-2 pt-10 sm:pt-2">
             <div className="max-w-4xl mx-auto flex flex-col gap-2">
@@ -313,15 +336,15 @@ function App() {
 
       {/* MODALES GLOBALES (Renderizados siempre por encima de todo) */}
       <div className="z-[100] relative">
-          {secureAction && <SecurityModal existingPin={data.adminPin} onSuccess={handlePinSuccess} onClose={() => setSecureAction(null)} />}
+          {secureAction && <SecurityModal existingPin={data?.adminPin} onSuccess={handlePinSuccess} onClose={() => setSecureAction(null)} />}
           {showManual && <ManualModal onClose={() => setShowManual(false)} />}
-          {showData && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={showNotification} />}
-          {showSettings && <SettingsModal 
+          {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={showNotification} />}
+          {showSettings && data && <SettingsModal 
               suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} 
               costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} 
               personnel={data.personnel.filter(p=>p.warehouseId===activeId)} 
               activities={data.activities.filter(a=>a.warehouseId===activeId)} 
-              fullState={data} onUpdateState={setData}
+              fullState={data} onUpdateState={(newState) => setData(newState)}
               onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} 
               onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} 
               onAddCostCenter={(n,b,a,s,pc,ct,ac) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac}]}))} 
@@ -332,14 +355,14 @@ function App() {
               onDeleteActivity={(id) => setData(prev=>({...prev, activities: prev.activities.filter(a=>a.id!==id)}))} 
               onClose={() => setShowSettings(false)} 
           />}
-          {showPayroll && <PayrollModal logs={data.laborLogs.filter(l => l.warehouseId === activeId)} personnel={data.personnel.filter(p => p.warehouseId === activeId)} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
-          {showAddForm && <InventoryForm suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} onSave={handleSaveNewItem} onCancel={() => setShowAddForm(false)} />}
-          {movementModal && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} onSave={(mov, price, exp) => { const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); setData(prev => ({ ...prev, inventory: updatedInventory, movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] })); setMovementModal(null); }} onCancel={() => setMovementModal(null)} />}
-          {historyItem && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
+          {showPayroll && data && <PayrollModal logs={data.laborLogs.filter(l => l.warehouseId === activeId)} personnel={data.personnel.filter(p => p.warehouseId === activeId)} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
+          {showAddForm && data && <InventoryForm suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} onSave={handleSaveNewItem} onCancel={() => setShowAddForm(false)} />}
+          {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} onSave={(mov, price, exp) => { const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); setData(prev => ({ ...prev, inventory: updatedInventory, movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] })); setMovementModal(null); }} onCancel={() => setMovementModal(null)} />}
+          {historyItem && data && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
           {deleteItem && <DeleteModal itemName={deleteItem.name} onConfirm={() => handleDeleteItem(deleteItem.id)} onCancel={() => setDeleteItem(null)} />}
-          {showWarehouses && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString()}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
-          {showExport && <ExportModal onExportPDF={() => generatePDF(data)} onExportExcel={() => generateExcel(data)} onGenerateOrder={() => {alert('Función PRO: No implementada.')}} onExportLaborPDF={() => generateLaborReport(data)} onExportLaborExcel={() => {alert('Función PRO: No implementada.')}} onExportHarvestPDF={() => generateHarvestReport(data)} onClose={() => setShowExport(false)} activeData={data} onShowSupport={() => setShowSupport(true)} isSupporter={true} />}
-          {showLaborForm && <LaborForm personnel={data.personnel.filter(p=>p.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} onSave={(l)=> { setData(prev=>({...prev, laborLogs: [...prev.laborLogs, {...l, id: generateId(), warehouseId: activeId, paid: false}]})); setShowLaborForm(false); }} onCancel={()=>setShowLaborForm(false)} onOpenSettings={()=>setShowSettings(true)} />}
+          {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString()}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
+          {showExport && data && <ExportModal onExportPDF={() => generatePDF(data)} onExportExcel={() => generateExcel(data)} onGenerateOrder={() => {alert('Función PRO: No implementada.')}} onExportLaborPDF={() => generateLaborReport(data)} onExportLaborExcel={() => {alert('Función PRO: No implementada.')}} onExportHarvestPDF={() => generateHarvestReport(data)} onClose={() => setShowExport(false)} activeData={data} onShowSupport={() => setShowSupport(true)} isSupporter={true} />}
+          {showLaborForm && data && <LaborForm personnel={data.personnel.filter(p=>p.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} onSave={(l)=> { setData(prev=>({...prev, laborLogs: [...prev.laborLogs, {...l, id: generateId(), warehouseId: activeId, paid: false}]})); setShowLaborForm(false); }} onCancel={()=>setShowLaborForm(false)} onOpenSettings={()=>setShowSettings(true)} />}
           {showSupport && <SupportModal onClose={() => setShowSupport(false)} onUpgrade={() => {}} isSupporter={false} />}
       </div>
 

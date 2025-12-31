@@ -21,6 +21,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { generateSQLDump } from '../services/reportService';
+import { dbService } from '../services/db';
 
 interface DataModalProps {
   fullState: AppState;
@@ -56,9 +57,10 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
     } catch (err) { onShowNotification("Error al generar el backup: " + err, 'error'); }
   };
 
-  const handleClearData = () => {
-      const userInput = prompt("PELIGRO: Esta acción eliminará permanentemente TODOS los datos. Para continuar, escriba 'ELIMINAR TODO'.");
+  const handleClearData = async () => {
+      const userInput = prompt("PELIGRO: Esta acción eliminará permanentemente TODOS los datos de la base de datos de alta capacidad. Para continuar, escriba 'ELIMINAR TODO'.");
       if (userInput === 'ELIMINAR TODO') {
+          await dbService.clearDatabase();
           localStorage.clear();
           window.location.reload();
       }

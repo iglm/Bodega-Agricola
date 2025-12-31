@@ -74,7 +74,9 @@ export const processInventoryMovement = (inventory: InventoryItem[], movement: O
   return { updatedInventory, movementCost };
 };
 
-export const loadData = (): AppState => {
+// --- MIGRATION UTILITY ---
+// Used only for the first-time bridge from LocalStorage to IndexedDB
+export const loadDataFromLocalStorage = (): AppState => {
   const storedData = localStorage.getItem(STORAGE_KEY);
   let parsed: any = {};
   
@@ -123,7 +125,8 @@ export const loadData = (): AppState => {
   };
 };
 
-export const saveData = (data: AppState) => {
+// Legacy save - deprecated for main flow but kept for emergency fallbacks
+export const saveDataToLocalStorage = (data: AppState) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) {

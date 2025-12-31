@@ -1,10 +1,8 @@
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine, Category } from '../types';
-import { getBaseUnitType, convertToBase, calculateCost, formatCurrency, formatBaseQuantity } from '../services/inventoryService';
-import { compressImage } from '../services/imageService';
-import { X, TrendingUp, TrendingDown, ArrowRight, DollarSign, FileText, AlertTriangle, Users, MapPin, Receipt, Image as ImageIcon, Tag, Settings, UserCheck, Calculator, Calendar, Camera, Trash2, Tractor, Maximize, Microscope, CheckCircle, ShieldCheck, Clock } from 'lucide-react';
+import { getBaseUnitType, convertToBase, formatBaseQuantity, formatCurrency } from '../services/inventoryService';
+import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Image as ImageIcon, Tag, UserCheck, ShieldCheck } from 'lucide-react';
 
 interface MovementModalProps {
   item: InventoryItem;
@@ -20,7 +18,7 @@ interface MovementModalProps {
 }
 
 export const MovementModal: React.FC<MovementModalProps> = ({ 
-  item, type, suppliers, costCenters, personnel = [], machines = [], movements = [],
+  item, type, suppliers, costCenters, personnel = [], machines = [],
   onSave, onCancel, allSoilAnalyses = []
 }) => {
   const [quantity, setQuantity] = useState('');
@@ -32,12 +30,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [expirationDate, setExpirationDate] = useState<string>(item.expirationDate || '');
   const [phiDays, setPhiDays] = useState<string>(item.safetyIntervalDays?.toString() || '');
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
-  const [isProcessingImg, setIsProcessingImg] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
-  const [destinationType, setDestinationType] = useState<'lote' | 'machine'>('lote');
+  const [destinationType] = useState<'lote' | 'machine'>('lote');
   const [selectedCostCenterId, setSelectedCostCenterId] = useState('');
   const [selectedMachineId, setSelectedMachineId] = useState('');
   const [previewCost, setPreviewCost] = useState<number>(0);
@@ -45,35 +41,35 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const isOut = type === 'OUT';
   const baseType = getBaseUnitType(item.lastPurchaseUnit);
   
-  const soilRecommendation = useMemo(() => {
-      if (!isOut || item.category !== Category.FERTILIZANTE || !selectedCostCenterId) return null;
-      return allSoilAnalyses
-          .filter(s => s.costCenterId === selectedCostCenterId)
-          .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-  }, [isOut, item.category, selectedCostCenterId, allSoilAnalyses]);
-
   // Filter compatible units based on the item's base unit type
-  const compatibleUnits = Object.values(Unit).filter(u => getBaseUnitType(u) === baseType);
+  // MEMOIZED to prevent effect loops
+  const compatibleUnits = useMemo(() => 
+    Object.values(Unit).filter(u => getBaseUnitType(u) === baseType), 
+  [baseType]);
 
   useEffect(() => {
-    // Set default unit to item's last purchase unit, but ensure it's compatible if a new baseType is inferred
+    // Set default unit if current is incompatible
     if (!compatibleUnits.includes(unit)) {
-      // Find a default compatible unit if the current one isn't
       if (baseType === 'g') setUnit(Unit.KILO);
       else if (baseType === 'ml') setUnit(Unit.LITRO);
       else setUnit(Unit.UNIDAD);
     }
     
-    if (!isOut && unit === item.lastPurchaseUnit) setManualUnitPrice(item.lastPurchasePrice.toString());
-    if (isOut && !outputCode) setOutputCode('SAL-' + Math.random().toString(36).substr(2, 6).toUpperCase());
-  }, [unit, isOut, item, baseType, compatibleUnits, outputCode]); // Added baseType and compatibleUnits to dependencies
+    // Initial values setup - careful to avoid loops
+    if (!isOut && unit === item.lastPurchaseUnit && !manualUnitPrice) {
+        setManualUnitPrice(item.lastPurchasePrice.toString());
+    }
+    if (isOut && !outputCode) {
+        setOutputCode('SAL-' + Math.random().toString(36).substr(2, 6).toUpperCase());
+    }
+  }, [compatibleUnits, baseType, isOut, item.lastPurchaseUnit, item.lastPurchasePrice, unit, manualUnitPrice, outputCode]); 
 
   useEffect(() => {
     const qtyNum = parseFloat(quantity);
     if (!isNaN(qtyNum) && qtyNum > 0) {
       const baseAmount = convertToBase(qtyNum, unit);
       if (isOut) {
-          if (baseAmount > (item.currentQuantity + 0.0001)) { // Added a small tolerance for float comparison
+          if (baseAmount > (item.currentQuantity + 0.0001)) { 
               setError(`Máximo disponible: ${formatBaseQuantity(item.currentQuantity, item.baseUnit)}`);
           } else { setError(null); }
           setPreviewCost(baseAmount * (item.averageCost || 0));
@@ -196,3 +192,4 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     </div>
   );
 };
+    
