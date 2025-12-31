@@ -45,10 +45,11 @@ export interface SWOT {
 
 export interface BpaCriterion {
   id:string;
-  category: 'CHEMICALS' | 'SST' | 'ENVIRONMENT' | 'TRACEABILITY' | 'INFRASTRUCTURE';
+  standard: 'ICA' | 'GLOBALGAP' | 'CODE_4C'; // NEW: Added 4C Code
+  category: string; // Changed to string to support diverse modules (AF, CB, FV, etc)
   code: string;
   label: string;
-  isCritical: boolean;
+  complianceLevel: 'MAJOR' | 'MINOR' | 'REC'; // NEW: For GlobalGap logic
   compliant: boolean;
   na?: boolean;
 }
