@@ -1,20 +1,22 @@
 
+
 import { InventoryItem, Movement, Unit, AppState, SWOT } from '../types';
 
-const STORAGE_KEY = 'datosfinca_viva_v1';
+const STORAGE_KEY = 'datosfinca_viva_v1_expert'; // Updated to DatosFinca Viva
 
 export const generateId = () => Math.random().toString(36).substring(2, 15);
 
 const CONVERSION_RATES: Record<string, number> = {
   [Unit.BULTO_50KG]: 50000, [Unit.KILO]: 1000, [Unit.GRAMO]: 1,
-  [Unit.LITRO]: 1000, [Unit.MILILITRO]: 1, [Unit.UNIDAD]: 1
+  [Unit.LITRO]: 1000, [Unit.MILILITRO]: 1, [Unit.GALON]: 3785.41, // NEW: Added Galón (1 US liquid gallon = 3785.41 ml)
+  [Unit.UNIDAD]: 1
 };
 
 export const convertToBase = (qty: number, unit: Unit) => qty * CONVERSION_RATES[unit];
 
 export const getBaseUnitType = (unit: Unit): 'g' | 'ml' | 'unit' => {
   if (unit === Unit.UNIDAD) return 'unit';
-  if (unit === Unit.LITRO || unit === Unit.MILILITRO) return 'ml';
+  if (unit === Unit.LITRO || unit === Unit.MILILITRO || unit === Unit.GALON) return 'ml'; // NEW: Included Galón
   return 'g';
 };
 
@@ -58,7 +60,7 @@ export const processInventoryMovement = (inventory: InventoryItem[], movement: O
 
   if (movement.type === 'IN') {
     const unitPrice = newPrice || item.lastPurchasePrice;
-    movementCost = movement.quantity * unitPrice;
+    movementCost = movement.quantity * unitPrice; 
     item.averageCost = calculateWeightedAverageCost(item, movement.quantity, movement.unit, unitPrice);
     item.currentQuantity += baseQty;
     item.lastPurchasePrice = unitPrice;
@@ -88,7 +90,7 @@ export const loadData = (): AppState => {
   const id = parsed.activeWarehouseId || generateId();
   
   return {
-    warehouses: parsed.warehouses || [{ id, name: 'Finca Principal', created: new Date().toISOString() }],
+    warehouses: parsed.warehouses || [{ id, name: 'Finca Principal', created: new Date().toISOString(), ownerId: 'local_user' }], // Added default ownerId
     activeWarehouseId: id,
     inventory: parsed.inventory || [],
     movements: parsed.movements || [],

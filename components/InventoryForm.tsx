@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Category, Unit, InventoryItem, Supplier } from '../types';
 import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle, Info, Tag, Bookmark, ShieldCheck, Loader2 } from 'lucide-react';
@@ -37,7 +38,12 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
 
   useEffect(() => {
       const baseType = getBaseUnitType(purchaseUnit);
-      if (baseType !== getBaseUnitType(initialUnit)) setInitialUnit(purchaseUnit);
+      // Ensure initialUnit is compatible with the selected purchaseUnit's base type
+      if (getBaseUnitType(initialUnit) !== baseType) {
+        if (baseType === 'g') setInitialUnit(Unit.KILO);
+        else if (baseType === 'ml') setInitialUnit(Unit.LITRO);
+        else setInitialUnit(Unit.UNIDAD);
+      }
   }, [purchaseUnit, initialUnit]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>, isInvoice: boolean = false) => {

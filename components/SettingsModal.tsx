@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification } from '../types';
 import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle } from 'lucide-react';

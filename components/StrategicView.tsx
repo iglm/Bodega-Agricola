@@ -1,7 +1,7 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { AppState, SWOT, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
+import { InvestmentCalculatorView } from './InvestmentCalculatorView'; // NEW IMPORT
 import { Target, TrendingUp, DollarSign, PieChart, Landmark, Timer, ArrowRightLeft, Lightbulb, ShieldCheck, Briefcase, Activity as ActivityIcon, Info, Users, AlertTriangle, Scale, Database, BarChart3, Search, Zap, CheckCircle, BrainCircuit } from 'lucide-react';
 
 interface StrategicViewProps {
@@ -190,6 +190,14 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                     </div>
                  ))}
             </div>
+        </div>
+
+        {/* --- HERRAMIENTAS DE VIABILIDAD DE PROYECTOS (NEW SECTION) --- */}
+        <div className="space-y-4 pt-4">
+            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest">
+                <DollarSign className="w-5 h-5 text-indigo-500" /> Herramientas de Viabilidad de Proyectos
+            </h3>
+            <InvestmentCalculatorView /> {/* Render the new component here */}
         </div>
 
     </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { InventoryItem, AgendaEvent, HarvestLog, LaborLog, Movement, MaintenanceLog, FinanceLog } from '../types';
 import { formatCurrency, getCostPerGramOrMl, formatBaseQuantity } from '../services/inventoryService';

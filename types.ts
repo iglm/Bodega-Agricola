@@ -1,4 +1,5 @@
 
+
 export enum Category {
   FERTILIZANTE = 'Fertilizante',
   INSECTICIDA = 'Insecticida',
@@ -16,6 +17,7 @@ export enum Unit {
   GRAMO = 'Gramo',
   LITRO = 'Litro',
   MILILITRO = 'Mililitro',
+  GALON = 'Galón', // NEW: Added Galón unit
   UNIDAD = 'Unidad'
 }
 
@@ -109,7 +111,13 @@ export interface AppState {
   adminPin?: string; // PIN de seguridad para acciones gerenciales
 }
 
-export interface Warehouse { id: string; name: string; created: string; }
+export interface Warehouse { 
+  id: string; 
+  name: string; 
+  created: string; 
+  ownerId: string; // Add ownerId to the Warehouse interface
+  sharedWith?: { userId: string; email: string; role: 'viewer' | 'editor' }[]; // For sharing functionality
+}
 
 export interface CostCenter { 
   id: string; 

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { ShieldCheck, User, Server, Globe, Scale, LogIn, Sparkles, ShieldAlert, X, FileText, Lock, Database, HelpCircle, CheckCircle2, Gavel, Zap } from 'lucide-react';
 import { User as UserType } from '../types';
@@ -22,10 +23,10 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
     setIsLoggingIn(true);
     setTimeout(() => {
       const mockUser: UserType = {
-        id: 'user_android_360',
+        id: 'user_datosfinca_viva',
         name: 'Productor DatosFinca',
         email: 'gestor@datosfinca.com',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroSuite'
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DatosFincaViva'
       };
       onEnter(mockUser);
     }, 800);

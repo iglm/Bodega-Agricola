@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine, Category } from '../types';
 import { getBaseUnitType, convertToBase, calculateCost, formatCurrency, formatBaseQuantity } from '../services/inventoryService';
@@ -51,19 +52,28 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
   }, [isOut, item.category, selectedCostCenterId, allSoilAnalyses]);
 
+  // Filter compatible units based on the item's base unit type
   const compatibleUnits = Object.values(Unit).filter(u => getBaseUnitType(u) === baseType);
 
   useEffect(() => {
+    // Set default unit to item's last purchase unit, but ensure it's compatible if a new baseType is inferred
+    if (!compatibleUnits.includes(unit)) {
+      // Find a default compatible unit if the current one isn't
+      if (baseType === 'g') setUnit(Unit.KILO);
+      else if (baseType === 'ml') setUnit(Unit.LITRO);
+      else setUnit(Unit.UNIDAD);
+    }
+    
     if (!isOut && unit === item.lastPurchaseUnit) setManualUnitPrice(item.lastPurchasePrice.toString());
     if (isOut && !outputCode) setOutputCode('SAL-' + Math.random().toString(36).substr(2, 6).toUpperCase());
-  }, [unit, isOut, item]);
+  }, [unit, isOut, item, baseType, compatibleUnits, outputCode]); // Added baseType and compatibleUnits to dependencies
 
   useEffect(() => {
     const qtyNum = parseFloat(quantity);
     if (!isNaN(qtyNum) && qtyNum > 0) {
       const baseAmount = convertToBase(qtyNum, unit);
       if (isOut) {
-          if (baseAmount > (item.currentQuantity + 0.0001)) {
+          if (baseAmount > (item.currentQuantity + 0.0001)) { // Added a small tolerance for float comparison
               setError(`Máximo disponible: ${formatBaseQuantity(item.currentQuantity, item.baseUnit)}`);
           } else { setError(null); }
           setPreviewCost(baseAmount * (item.averageCost || 0));

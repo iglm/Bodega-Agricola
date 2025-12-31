@@ -127,10 +127,10 @@ function App() {
     const demoData = getDemoData();
     setData(demoData);
     setSession({
-      id: 'user_demo_360',
+      id: 'user_demo_datosfinca',
       name: 'Usuario Demo',
       email: 'demo@datosfinca.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroSuiteDemo'
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DatosFincaVivaDemo'
     });
     setView('app');
     showNotification('Datos de demostración cargados. ¡Explora el potencial!', 'success');
@@ -291,7 +291,8 @@ function App() {
             {currentTab === 'management' && <ManagementView machines={data.machines.filter(m=>m.warehouseId===activeId)} onUpdateMachine={handleUpdateMachine} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} soilAnalyses={data.soilAnalyses.filter(s=>s.warehouseId===activeId)} ppeLogs={data.ppeLogs.filter(p=>p.warehouseId===activeId)} wasteLogs={data.wasteLogs.filter(w=>w.warehouseId===activeId)} assets={data.assets.filter(a=>a.warehouseId===activeId)} bpaChecklist={data.bpaChecklist} onAddMachine={(m)=>setData(prev=>({...prev, machines:[...prev.machines,{...m, id:generateId(), warehouseId:activeId}]}))} onAddMaintenance={handleAddMaintenance} onDeleteMachine={(id)=>setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r)=>setData(prev=>({...prev, rainLogs:[...prev.rainLogs,{...r, id:generateId(), warehouseId:activeId}]}))} onDeleteRain={(id)=>setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s)=>setData(prev=>({...prev, soilAnalyses:[...prev.soilAnalyses,{...s, id:generateId(), warehouseId:activeId}]}))} onDeleteSoilAnalysis={(id)=>setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p)=>setData(prev=>({...prev, ppeLogs:[...prev.ppeLogs,{...p, id:generateId(), warehouseId:activeId}]}))} onDeletePPE={(id)=>setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w)=>setData(prev=>({...prev, wasteLogs:[...prev.wasteLogs,{...w, id:generateId(), warehouseId:activeId}]}))} onDeleteWaste={(id)=>setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={handleAddAsset} onDeleteAsset={handleDeleteAsset} onToggleBpa={handleToggleBpa} isAdmin={true} phenologyLogs={data.phenologyLogs.filter(p=>p.warehouseId===activeId)} onAddPhenologyLog={handleAddPhenologyLog} onDeletePhenologyLog={handleDeletePhenologyLog} pestLogs={data.pestLogs.filter(p=>p.warehouseId===activeId)} onAddPestLog={handleAddPestLog} onDeletePestLog={handleDeletePestLog} />}
             {currentTab === 'agenda' && <AgendaView agenda={data.agenda.filter(a => a.warehouseId === activeId)} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
             {currentTab === 'strategic' && <StrategicView data={data} onUpdateSWOT={handleUpdateSWOT} />}
-            {currentTab === 'stats' && <StatsView data={data} />}
+            {/* FIX: Removed unused `inventory` prop from StatsView component call. */}
+            {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={data.movements.filter(m=>m.warehouseId===activeId)} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId===activeId)} harvests={data.harvests.filter(h=>h.warehouseId===activeId)} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} />}
             
             <div className="fixed bottom-6 left-6 flex gap-2 z-30">
                 <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border border-slate-700 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>

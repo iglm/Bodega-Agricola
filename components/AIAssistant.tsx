@@ -24,7 +24,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ data, onExecuteCommand
   const [mode, setMode] = useState<'CHAT' | 'COMMAND' | 'VISION_OCR'>('CHAT');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'ai', text: '¡Hola! Soy tu consultor DatosFinca. Puedo analizar tu rentabilidad o digitalizar tus facturas con solo una foto.' }
+    { id: '1', role: 'ai', text: '¡Hola! Soy tu consultor AgroSuite. Puedo analizar tu rentabilidad o digitalizar tus facturas con solo una foto.' }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -130,7 +130,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ data, onExecuteCommand
             <div className="flex items-center gap-3">
                 <div className="bg-indigo-500/20 p-2 rounded-xl border border-indigo-500/30"><Bot className="w-6 h-6 text-indigo-400" /></div>
                 <div>
-                    <h3 className="text-white font-black">Asistente DatosFinca</h3>
+                    <h3 className="text-white font-black">Asistente AgroSuite</h3>
                     <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Digitalización Inteligente</p>
                 </div>
             </div>

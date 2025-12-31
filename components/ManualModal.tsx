@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Sparkles, Mic, BrainCircuit, Target, Lightbulb, Scale, PieChart, Leaf, Gauge, Microscope, ShieldCheck, Signature, Recycle, Gem, Coins, Timer, Camera, Info, Loader2, FileDown, Lock } from 'lucide-react';
 import { generateManualPDF } from '../services/reportService';
@@ -20,7 +21,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
           <div className="space-y-6 animate-fade-in">
             <div className="bg-gradient-to-br from-emerald-900 to-slate-900 p-8 rounded-[3rem] border border-emerald-500/30 text-center relative overflow-hidden">
               <div className="relative z-10">
-                <h4 className="text-4xl font-black text-white mb-2 tracking-tight">Guía <span className="text-emerald-400">360</span></h4>
+                <h4 className="text-4xl font-black text-white mb-2 tracking-tight">Guía <span className="text-emerald-400">Viva</span></h4>
                 <p className="text-emerald-200 font-bold text-sm uppercase tracking-widest">Transformación Digital del Campo</p>
                 <div className="mt-6 inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-[10px] text-white border border-white/20 uppercase font-black">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" /> Sistema Certificado 2025
@@ -66,7 +67,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                         </div>
                         <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
                             <span className="text-[10px] font-black text-emerald-500 uppercase">2. Carga Legal (Factor 1.52)</span>
-                            <p className="text-[11px] text-slate-400 mt-1">Calcula el costo real de una empresa agroindustrial formal (Prestaciones, Salud, Pensión).</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Calcula el costo real de un empleado formal, incluyendo el 'salario emocional' (prestaciones, parafiscales, seguridad social). Este factor es configurable y permite al productor simular su transición a un modelo empresarial formal, entendiendo su impacto en la estructura de costos.</p>
                         </div>
                     </div>
                 </div>

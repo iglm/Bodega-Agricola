@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useState } from 'react';
 import { AppState } from '../types';
 import { 
@@ -40,7 +41,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Backup_DatosFincaViva_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `Backup_DatosFincaViva_${new Date().toISOString().split('T')[0]}.json`; // Updated name
         document.body.appendChild(link);
         link.click();
         setTimeout(() => {

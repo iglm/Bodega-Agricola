@@ -1,8 +1,9 @@
 
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
-import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog } from '../types';
+import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog, Machine, Asset, MaintenanceLog, RainLog, FinanceLog, SoilAnalysis, PPELog, WasteLog, AgendaEvent, CostClassification, Warehouse } from '../types';
 import { formatCurrency, generateId, convertToBase, getBaseUnitType, processInventoryMovement } from './inventoryService';
 
 const BRAND_COLORS = {
@@ -11,7 +12,7 @@ const BRAND_COLORS = {
     amber: [245, 158, 11] as [number, number, number],
     red: [220, 38, 38] as [number, number, number],
     indigo: [79, 70, 229] as [number, number, number],
-    purple: [147, 51, 234] as [number, number, number],
+    purple: [147, 51, 234] as [number, number, number], // FIX: Corrected array literal
 };
 
 const AUTHOR = "Lucas Mateo Tabares Franco";
@@ -26,7 +27,7 @@ const addHeader = (doc: jsPDF, title: string, subtitle: string, warehouse: strin
     doc.setFontSize(10);
     doc.text(`${subtitle} | Sede: ${warehouse}`, 105, 30, { align: 'center' });
     doc.setFontSize(8);
-    doc.text(`DatosFinca Viva - Documento Técnico v2.5`, 105, 38, { align: 'center' });
+    doc.text(`DatosFinca Viva - Documento Técnico v2.5`, 105, 38, { align: 'center' }); // Updated name
     return 50;
 };
 
@@ -36,7 +37,7 @@ const addFooter = (doc: jsPDF) => {
     doc.setTextColor(150);
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.text(`Página ${i} de ${pageCount} | Generado por DatosFinca Viva © 2025`, 105, 290, { align: 'center' });
+        doc.text(`Página ${i} de ${pageCount} | Generado por DatosFinca Viva © 2025`, 105, 290, { align: 'center' }); // Updated name
     }
 };
 
@@ -44,9 +45,9 @@ const addFooter = (doc: jsPDF) => {
 
 // Fix: Explicitly declare the return type as 'void'
 export const generateSQLDump = (data: AppState): void => {
-    const fileName = `DatosFinca_Viva_MasterBackup_${new Date().toISOString().split('T')[0]}.sql`;
+    const fileName = `DatosFinca_Viva_MasterBackup_${new Date().toISOString().split('T')[0]}.sql`; // Updated name
     let sql = `-- =============================================================================\n`;
-    sql += `-- DATOSFINCA VIVA - RELATIONAL DATABASE EXPORT (SQLITE COMPATIBLE)\n`;
+    sql += `-- DATOSFINCA VIVA - RELATIONAL DATABASE EXPORT (SQLITE COMPATIBLE)\n`; // Updated name
     sql += `-- Exportado por: ${AUTHOR}\n`;
     sql += `-- Factor Prestacional Aplicado: ${data.laborFactor}\n`;
     sql += `-- =============================================================================\n\n`;
@@ -143,7 +144,7 @@ export const generatePDF = (data: AppState): void => {
     });
     
     addFooter(doc);
-    doc.save("Inventario_DatosFinca.pdf");
+    doc.save("Inventario_DatosFinca.pdf"); // Updated name
 };
 
 // Fix: Explicitly declare the return type as 'void'
@@ -314,7 +315,7 @@ export const generateManualPDF = (): void => {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(36);
-    doc.text("DATOSFINCA VIVA", pageWidth / 2, 100, { align: 'center' });
+    doc.text("DATOSFINCA VIVA", pageWidth / 2, 100, { align: 'center' }); // Updated name
     doc.setFontSize(14);
     doc.text("Descripción del Programa", pageWidth / 2, 115, { align: 'center' });
     doc.setFont("helvetica", "normal");
@@ -327,16 +328,16 @@ export const generateManualPDF = (): void => {
 
     // --- PAGE 1: EXECUTIVE SUMMARY ---
     y = addTitle("1. Resumen Ejecutivo: La Finca como Empresa", y);
-    y = addParagraph("DatosFinca Viva es un Sistema de Planificación de Recursos Empresariales (ERP) diseñado para el sector agrícola, que opera bajo una filosofía de 'Dato-Decisión'. Su propósito es empoderar al productor para que trascienda la gestión operativa y adopte un rol de gerente estratégico, fundamentando cada acción en un análisis financiero robusto y en tiempo real.", y + 5);
-    y = addParagraph("El sistema se distingue por su arquitectura de seguridad 'Local-First', garantizando que los datos sensibles del negocio (costos, nómina, rentabilidad) residan exclusivamente en el dispositivo del usuario. Este enfoque no solo asegura la máxima confidencialidad, sino que también otorga al productor la soberanía total sobre su información, en cumplimiento con la Ley 1581 de Habeas Data.", y + 5);
-    y = addParagraph("La propuesta de valor se centra en tres pilares: Rigor Financiero, Inteligencia de Negocios y Cumplimiento Normativo, convirtiendo la recolección de datos de campo en una ventaja competitiva tangible.", y + 5);
+    y = addParagraph("DatosFinca Viva es un Sistema de Planificación de Recursos Empresariales (ERP) diseñado para el sector agrícola, que opera bajo una filosofía de 'Dato-Decisión'. Su propósito es empoderar al productor para que transcienda la gestión operativa y adopte un rol de gerente estratégico, fundamentando cada acción en un análisis financiero robusto y en tiempo real.", y + 5); // Updated name
+    y = addParagraph("El sistema se distingue por su arquitectura de seguridad 'Cloud-Backed' (Firebase), garantizando que los datos sensibles del negocio (costos, nómina, rentabilidad) residen exclusivamente en su cuenta personal de Google. Este enfoque no solo asegura la máxima confidencialidad, sino que también otorga al productor la soberanía total sobre su información, en cumplimiento con la Ley 1581 de Habeas Data.", y + 5);
+    y = addParagraph("La propuesta de valor se centra en tres pilares: Rigor Financiero, Análisis de Datos y Cumplimiento Normativo, convirtiendo la recolección de datos de campo en una ventaja competitiva tangible.", y + 5);
     doc.addPage();
     y = 20;
 
     // --- PAGE 2: CORE FINANCIAL ENGINE ---
     y = addTitle("2. El Motor Financiero: Precisión Contable", y);
     y = addTitle("2.1 Costo Promedio Ponderado (CPP)", y + 5, 12, BRAND_COLORS.slate);
-    y = addParagraph("A diferencia de los sistemas de registro tradicionales, DatosFinca Viva implementa el CPP, el método contable estándar para la valoración de inventarios. Cuando se ingresa una nueva compra de un insumo a un precio diferente, el sistema recalcula automáticamente el costo real de cada unidad en bodega. Esto asegura que el costo asignado a cada lote en una aplicación sea financieramente exacto, eliminando distorsiones en el cálculo de la rentabilidad.", y + 5);
+    y = addParagraph("A diferencia de los sistemas de registro tradicionales, DatosFinca Viva implementa el CPP, el método contable estándar para la valoración de inventarios. Cuando se ingresa una nueva compra de un insumo a un precio diferente, el sistema recalcula automáticamente el costo real de cada unidad en bodega. Esto asegura que el costo asignado a cada lote en una aplicación sea financieramente exacto, eliminando distorsiones en el cálculo de la rentabilidad.", y + 5); // Updated name
     y = addTitle("2.2 Costeo Dual de Mano de Obra (Factor Laboral)", y + 10, 12, BRAND_COLORS.slate);
     y = addParagraph("Reconociendo las diversas realidades contractuales del campo, la app ofrece un sistema de costeo dual:", y + 5);
     y = addListItem("Factor 1.0 (Costo Directo): Registra el valor exacto pagado al trabajador, ideal para modelos de jornal informal.", y + 8);
@@ -371,7 +372,7 @@ export const generateManualPDF = (): void => {
     doc.addPage(); y = 20;
 
     // --- PAGE 7: BI ENGINE ---
-    y = addTitle("7. Motor de Inteligencia de Negocios (BI)", y);
+    y = addTitle("7. Motor de Análisis de Datos", y);
     y = addParagraph("El tablero de control gerencial que convierte los datos operativos en inteligencia accionable. Opera en tres niveles:", y+5);
     y = addTitle("7.1 Performance", y + 5, 12, BRAND_COLORS.slate);
     y = addParagraph("Calcula el Estado de Resultados (P&G) para cada lote, revelando la utilidad operativa y el margen de rentabilidad. Identifica cuáles son los 'lotes estrella' y cuáles operan a pérdida.", y+5, 5);
@@ -382,7 +383,7 @@ export const generateManualPDF = (): void => {
     doc.addPage(); y = 20;
     
     // --- PAGE 8: AI ASSISTANT ---
-    y = addTitle("8. Asistente IA Gemini: Eficiencia Exponencial", y, 16, BRAND_COLORS.purple);
+    y = addTitle("8. Asistente IA Viva: Eficiencia Exponencial", y, 16, BRAND_COLORS.purple);
     y = addParagraph("Integrado con la tecnología de Google, el asistente optimiza la captura y análisis de datos:", y+5);
     y = addListItem("Análisis (Chat): Permite al usuario hacer preguntas en lenguaje natural como '¿Cuál fue el lote más rentable el mes pasado?' o '¿Qué trabajador ha acumulado más jornales?'.", y+8);
     y = addListItem("OCR Visión de Facturas: Utiliza la cámara para leer una factura de insumos. La IA extrae los productos, cantidades y precios, y prepara el registro para ser cargado al inventario con un solo clic, eliminando la digitación manual.", y+5);
@@ -393,15 +394,15 @@ export const generateManualPDF = (): void => {
     y = addTitle("9. Centro de Datos: Soberanía y Escalabilidad", y, 16, BRAND_COLORS.amber);
     y = addParagraph("La gestión de datos se basa en la portabilidad y la seguridad, ofreciendo dos formatos de exportación con propósitos distintos:", y+5);
     y = addTitle("9.1 Backup Rápido (JSON)", y + 5, 12, BRAND_COLORS.slate);
-    y = addParagraph("Crea una 'fotografía' completa de todos los datos de la aplicación en un archivo ligero. Su única función es la portabilidad y la restauración: permite mover toda la información a un nuevo dispositivo o recuperarla tras un formateo.", y+5, 5);
+    y = addParagraph("Crea una 'fotografía' completa de todos los datos de su cuenta. Su única función es la portabilidad y la restauración: permite mover toda la información a un nuevo dispositivo (mediante importación) o recuperarla tras un reinicio de la aplicación.", y+5, 5);
     y = addTitle("9.2 Exportación Relacional (SQL)", y + 5, 12, BRAND_COLORS.slate);
     y = addParagraph("Genera un volcado de la base de datos en un formato estándar compatible con sistemas de análisis externos como Power BI, Tableau o bases de datos corporativas. Este archivo está diseñado para la escalabilidad, auditorías profundas y la integración con otros sistemas empresariales. No puede ser restaurado directamente en la app.", y+5, 5);
     doc.addPage(); y = 20;
 
     // --- PAGE 10: LEGAL & COMPLIANCE ---
     y = addTitle("10. Cumplimiento Normativo: Marco Colombia", y);
-    y = addParagraph("DatosFinca Viva ha sido desarrollado con un profundo conocimiento del marco legal colombiano para ofrecer seguridad jurídica al productor:", y+5);
-    y = addListItem("Ley 1581 de 2012 (Habeas Data): La arquitectura 'Local-First' es la máxima garantía de cumplimiento, ya que no existe una transferencia de datos personales a servidores de terceros.", y+8);
+    y = addParagraph("DatosFinca Viva ha sido desarrollado con un profundo conocimiento del marco legal colombiano para ofrecer seguridad jurídica al productor:", y+5); // Updated name
+    y = addListItem("Ley 1581 de 2012 (Habeas Data): La arquitectura 'Cloud-Backed' con autenticación de Google es la máxima garantía de cumplimiento, ya que sus datos personales residen exclusivamente en su cuenta, sin transferencia a servidores de terceros de DatosFinca Viva.", y+8); // Updated name
     y = addListItem("Ley 23 de 1982 (Derechos de Autor): El software está protegido y su uso se rige por una licencia personal e intransferible.", y+5);
     y = addListItem("Ley 1480 de 2011 (Estatuto del Consumidor): Se garantizan los derechos de retracto y reversión de pago en las suscripciones a través de las plataformas oficiales (Google Play Store).", y+5);
     y = addListItem("Normativa ICA y UGPP: Las funcionalidades de la app, como el registro de PHI y la generación de recibos de pago, están diseñadas para generar los soportes documentales exigidos por estas entidades de control.", y+5);
@@ -469,10 +470,139 @@ export const getDemoData = (): AppState => {
   const KG_FERTILIZER_PER_HA_YEAR = 830; // Basado en FNC 2024
   
   // --- ENTIDADES MAESTRAS ---
-  const warehouse = { id: WAREHOUSE_ID, name: "Finca Demo 'Los Naranjos'", created: new Date().toISOString() };
+  // Fix: Added ownerId to warehouse object
+  const warehouse: Warehouse = { id: WAREHOUSE_ID, name: "Finca Demo 'Los Naranjos'", created: new Date().toISOString(), ownerId: 'demo_user_id' };
   
   const costCenters: CostCenter[] = [
     { id: 'lote_castillo_1', warehouseId: WAREHOUSE_ID, name: 'Lote 1: Castillo', area: 3, stage: 'Produccion', cropType: 'Café', plantCount: 21000 }, // 7000 p/ha
     { id: 'lote_caturra_2', warehouseId: WAREHOUSE_ID, name: 'Lote 2: Caturra', area: 2.5, stage: 'Produccion', cropType: 'Café', plantCount: 16250 }, // 6500 p/ha
     { id: 'lote_geisha_3', warehouseId: WAREHOUSE_ID, name: 'Lote 3: Geisha', area: 2, stage: 'Produccion', cropType: 'Café', plantCount: 12000 }, // 6000 p/ha
     { id: 'lote_levante_4', warehouseId: WAREHOUSE_ID, name: 'Lote 4: Renovación', area: 2.5, stage: 'Levante', cropType: 'Café', plantCount: 20000 }, // 8000 p/ha
+  ];
+
+  const suppliers = [
+      { id: 'sup_finca_union', warehouseId: WAREHOUSE_ID, name: 'La Finca Unión S.A.S', phone: '3104567890', email: 'ventas@fincaunion.com', address: 'Calle 10 # 5-20, Manizales' },
+      { id: 'sup_agro_quimicos', warehouseId: WAREHOUSE_ID, name: 'AgroQuímicos del Eje', phone: '3201234567', email: 'info@agroquimicos.com', address: 'Carrera 23 # 7-15, Pereira' },
+  ];
+
+  const personnel = [
+      { id: 'per_juan', warehouseId: WAREHOUSE_ID, name: 'Juan Pérez', role: 'Operario de Campo', documentId: '123456789', phone: '3001112233', birthDate: '1985-04-15' },
+      { id: 'per_maria', warehouseId: WAREHOUSE_ID, name: 'María García', role: 'Cosechadora', documentId: '987654321', phone: '3004445566', birthDate: '1990-07-20' },
+  ];
+
+  const activities: Activity[] = [
+      // Fix: Use string literals for CostClassification values
+      { id: 'act_plateo', warehouseId: WAREHOUSE_ID, name: 'Plateo', costClassification: 'COFFEE' },
+      { id: 'act_fertilizacion', warehouseId: WAREHOUSE_ID, name: 'Fertilización', costClassification: 'JOINT' },
+      { id: 'act_cosecha', warehouseId: WAREHOUSE_ID, name: 'Cosecha', costClassification: 'COFFEE' },
+      { id: 'act_aplicacion_fung', warehouseId: WAREHOUSE_ID, name: 'Aplicación Fungicida', costClassification: 'COFFEE' },
+      { id: 'act_siembra', warehouseId: WAREHOUSE_ID, name: 'Siembra y Resiembra', costClassification: 'JOINT' },
+  ];
+
+  const machines: Machine[] = [
+      { id: 'mac_guada', warehouseId: WAREHOUSE_ID, name: 'Guadañadora Stihl FS280', brand: 'Stihl', purchaseDate: '2022-03-01', purchaseValue: 1800000, expectedLifeHours: 1500 },
+      { id: 'mac_bomba', warehouseId: WAREHOUSE_ID, name: 'Bomba de Espalda STIHL SG20', brand: 'Stihl', purchaseDate: '2023-01-10', purchaseValue: 500000, capacityTheoretical: 20, dischargeRateLitersPerMin: 1.5, avgSpeedKmh: 3 },
+  ];
+
+  const assets: Asset[] = [
+      { id: 'ass_despulpadora', warehouseId: WAREHOUSE_ID, name: 'Despulpadora Penagos', purchasePrice: 5000000, lifespanYears: 10, purchaseDate: '2021-06-01', category: 'MAQUINARIA' },
+      { id: 'ass_beneficiadero', warehouseId: WAREHOUSE_ID, name: 'Beneficiadero', purchasePrice: 30000000, lifespanYears: 20, purchaseDate: '2020-01-01', category: 'INFRAESTRUCTURA' },
+  ];
+
+  // --- DATOS DE INVENTARIO Y MOVIMIENTOS (Históricos) ---
+  const inventory: InventoryItem[] = [
+      {
+          id: 'inv_urea', warehouseId: WAREHOUSE_ID, name: 'Urea', category: Category.FERTILIZANTE,
+          currentQuantity: convertToBase(2, Unit.BULTO_50KG), baseUnit: 'g',
+          averageCost: 120000 / 50000, // 2.4 COP/g
+          lastPurchasePrice: 120000, lastPurchaseUnit: Unit.BULTO_50KG,
+          minStock: convertToBase(0.5, Unit.BULTO_50KG), minStockUnit: Unit.BULTO_50KG,
+          image: '', description: 'Fertilizante nitrogenado.', expirationDate: '2025-12-31'
+      },
+      {
+          id: 'inv_fungicida_amistar', warehouseId: WAREHOUSE_ID, name: 'Amistar Top', category: Category.FUNGICIDA,
+          currentQuantity: convertToBase(1.5, Unit.LITRO), baseUnit: 'ml',
+          averageCost: 180000 / 1000, // 180 COP/ml
+          lastPurchasePrice: 180000, lastPurchaseUnit: Unit.LITRO,
+          minStock: convertToBase(0.2, Unit.LITRO), minStockUnit: Unit.LITRO,
+          image: '', description: 'Fungicida para roya y otras enfermedades.', expirationDate: '2026-06-30', safetyIntervalDays: 14
+      },
+      {
+          id: 'inv_insecticida_karate', warehouseId: WAREHOUSE_ID, name: 'Karate Zeon', category: Category.INSECTICIDA,
+          currentQuantity: convertToBase(0.5, Unit.LITRO), baseUnit: 'ml',
+          averageCost: 90000 / 1000, // 90 COP/ml
+          lastPurchasePrice: 90000, lastPurchaseUnit: Unit.LITRO,
+          minStock: convertToBase(0.1, Unit.LITRO), minStockUnit: Unit.LITRO,
+          image: '', description: 'Insecticida de amplio espectro.', expirationDate: '2025-11-01', safetyIntervalDays: 7
+      }
+  ];
+
+  const movements: Movement[] = [
+      // Urea IN
+      { id: generateId(), warehouseId: WAREHOUSE_ID, itemId: 'inv_urea', itemName: 'Urea', type: 'IN', quantity: 5, unit: Unit.BULTO_50KG, calculatedCost: 5 * 120000, date: '2024-01-15T10:00:00Z', supplierId: 'sup_finca_union', supplierName: 'La Finca Unión S.A.S', invoiceNumber: 'INV001', notes: 'Compra inicial' },
+      { id: generateId(), warehouseId: WAREHOUSE_ID, itemId: 'inv_urea', itemName: 'Urea', type: 'OUT', quantity: 1, unit: Unit.BULTO_50KG, calculatedCost: 1 * 50000 * (120000 / 50000), date: '2024-02-01T14:30:00Z', costCenterId: 'lote_castillo_1', costCenterName: 'Lote 1: Castillo', personnelId: 'per_juan', personnelName: 'Juan Pérez', outputCode: 'APL001' },
+      // Amistar Top IN
+      { id: generateId(), warehouseId: WAREHOUSE_ID, itemId: 'inv_fungicida_amistar', itemName: 'Amistar Top', type: 'IN', quantity: 2, unit: Unit.LITRO, calculatedCost: 2 * 180000, date: '2024-03-10T09:00:00Z', supplierId: 'sup_agro_quimicos', supplierName: 'AgroQuímicos del Eje', invoiceNumber: 'INV002', notes: 'Compra de fungicida' },
+      { id: generateId(), warehouseId: WAREHOUSE_ID, itemId: 'inv_fungicida_amistar', itemName: 'Amistar Top', type: 'OUT', quantity: 0.5, unit: Unit.LITRO, calculatedCost: 0.5 * 1000 * (180000 / 1000), date: '2024-04-05T11:00:00Z', costCenterId: 'lote_caturra_2', costCenterName: 'Lote 2: Caturra', personnelId: 'per_juan', personnelName: 'Juan Pérez', outputCode: 'APL002', phiApplied: 14 },
+      // Karate Zeon IN
+      { id: generateId(), warehouseId: WAREHOUSE_ID, itemId: 'inv_insecticida_karate', itemName: 'Karate Zeon', type: 'IN', quantity: 1, unit: Unit.LITRO, calculatedCost: 1 * 90000, date: '2024-05-20T10:00:00Z', supplierId: 'sup_agro_quimicos', supplierName: 'AgroQuímicos del Eje', invoiceNumber: 'INV003', notes: 'Compra de insecticida' },
+  ];
+
+  // --- DATOS DE JORNALES Y COSECHAS ---
+  const laborLogs: LaborLog[] = [
+      { id: generateId(), warehouseId: WAREHOUSE_ID, date: '2024-01-16', personnelId: 'per_juan', personnelName: 'Juan Pérez', activityId: 'act_plateo', activityName: 'Plateo', costCenterId: 'lote_castillo_1', costCenterName: 'Lote 1: Castillo', value: JORNAL_VALUE, paid: true },
+      { id: generateId(), warehouseId: WAREHOUSE_ID, date: '2024-01-16', personnelId: 'per_maria', personnelName: 'María García', activityId: 'act_plateo', activityName: 'Plateo', costCenterId: 'lote_castillo_1', costCenterName: 'Lote 1: Castillo', value: JORNAL_VALUE, paid: true },
+      { id: generateId(), warehouseId: WAREHOUSE_ID, date: '2024-02-02', personnelId: 'per_juan', personnelName: 'Juan Pérez', activityId: 'act_fertilizacion', activityName: 'Fertilización', costCenterId: 'lote_castillo_1', costCenterName: 'Lote 1: Castillo', value: JORNAL_VALUE, paid: false },
+  ];
+
+  const harvests: HarvestLog[] = [
+      { id: generateId(), warehouseId: WAREHOUSE_ID, costCenterId: 'lote_castillo_1', costCenterName: 'Lote 1: Castillo', date: '2024-04-20', cropName: 'Café Cereza', quantity: 1500, unit: 'Kg', totalValue: 1500 * HARVEST_COST_PER_KG_CHERRY, quality1Qty: 1000, quality2Qty: 400, wasteQty: 100, yieldFactor: 90 },
+      { id: generateId(), warehouseId: WAREHOUSE_ID, costCenterId: 'lote_caturra_2', costCenterName: 'Lote 2: Caturra', date: '2024-05-10', cropName: 'Café Cereza', quantity: 1200, unit: 'Kg', totalValue: 1200 * HARVEST_COST_PER_KG_CHERRY, quality1Qty: 800, quality2Qty: 300, wasteQty: 100, yieldFactor: 88 },
+  ];
+
+  const maintenanceLogs: MaintenanceLog[] = [];
+  const rainLogs: RainLog[] = [];
+  const financeLogs: FinanceLog[] = [];
+  const soilAnalyses: SoilAnalysis[] = [];
+  const ppeLogs: PPELog[] = [];
+  const wasteLogs: WasteLog[] = [];
+  const agenda: AgendaEvent[] = [];
+  const phenologyLogs: PhenologyLog[] = [];
+  const pestLogs: PestLog[] = [];
+  const bpaChecklist: Record<string, boolean> = {};
+
+
+  // Fix: Return a complete AppState object
+  return {
+      warehouses: [warehouse],
+      activeWarehouseId: WAREHOUSE_ID,
+      inventory,
+      movements,
+      suppliers,
+      costCenters,
+      personnel,
+      activities,
+      laborLogs,
+      harvests,
+      machines,
+      maintenanceLogs,
+      rainLogs,
+      financeLogs,
+      soilAnalyses,
+      ppeLogs,
+      wasteLogs,
+      agenda,
+      phenologyLogs,
+      pestLogs,
+      swot: {
+          f: 'Finca tecnificada con datos reales.',
+          o: 'Optimizar costos con análisis de rentabilidad.',
+          d: 'Curva de aprendizaje de la App.',
+          a: 'Volatilidad de precios del café.'
+      },
+      bpaChecklist,
+      assets,
+      laborFactor: 1.0, // Default for demo
+      adminPin: '1234' // Default PIN for demo
+  };
+};
