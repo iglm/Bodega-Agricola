@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, BpaCriterion, PhenologyLog, PestLog } from '../types';
 import { formatCurrency, generateId } from '../services/inventoryService';
-import { Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug } from 'lucide-react';
+import { Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug, FlaskConical, Scale } from 'lucide-react';
 
 interface ManagementViewProps {
   machines: Machine[];
@@ -91,13 +91,15 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
   const [wasteQty, setWasteQty] = useState('');
   const [wasteTripleWashed, setWasteTripleWashed] = useState(true);
 
-  // Tools State
+  // Tools State (Updated for intuitiveness)
   const [toolMachineId, setToolMachineId] = useState('');
   const [toolDischarge, setToolDischarge] = useState('');
+  const [toolDischargeUnit, setToolDischargeUnit] = useState<'L' | 'ml' | 'cc'>('L'); // New: Unit state
   const [toolWidth, setToolWidth] = useState('');
   const [toolSpeed, setToolSpeed] = useState('');
   const [toolTank, setToolTank] = useState('');
   const [toolDose, setToolDose] = useState('');
+  const [toolDoseUnit, setToolDoseUnit] = useState<'L' | 'ml' | 'cc' | 'Kg' | 'g'>('cc'); // New: Unit state for dose
 
 
   const bpaSummary = useMemo(() => {
@@ -109,22 +111,36 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
   }, [bpaChecklist]);
 
   const toolCalculations = useMemo(() => {
-      const discharge = parseFloat(toolDischarge);
+      // 1. Normalize Discharge to Liters per Minute for the formula
+      let dischargeLmin = parseFloat(toolDischarge);
+      if (toolDischargeUnit === 'ml' || toolDischargeUnit === 'cc') {
+          dischargeLmin = dischargeLmin / 1000;
+      }
+
       const width = parseFloat(toolWidth);
       const speed = parseFloat(toolSpeed);
-      if (!discharge || !width || !speed) return { LHa: 0, productPerTank: 0 };
       
-      const LHa = (discharge * 600) / (width * speed);
+      if (!dischargeLmin || !width || !speed) return { LHa: 0, productPerTank: 0 };
+      
+      // Formula: (L/min * 600) / (m * km/h)
+      const LHa = (dischargeLmin * 600) / (width * speed);
+      
       const tank = parseFloat(toolTank);
-      const dose = parseFloat(toolDose);
+      const dose = parseFloat(toolDose); // Raw number entered by user
+      
+      // 2. Calculate Product Per Tank
+      // We do NOT normalize the dose unit here because we want the result in the SAME unit as the input.
+      // Logic: (Tank Size / Water per Ha) * Dose
+      // Example: (20L Tank / 200 L/Ha water) = 0.1 Hectares covered per tank.
+      // If dose is 300g/Ha -> 0.1 * 300g = 30g per tank.
       
       let productPerTank = 0;
       if (LHa > 0 && tank > 0 && dose > 0) {
-          productPerTank = (tank * dose) / LHa;
+          productPerTank = (tank / LHa) * dose;
       }
 
       return { LHa, productPerTank };
-  }, [toolDischarge, toolWidth, toolSpeed, toolTank, toolDose]);
+  }, [toolDischarge, toolDischargeUnit, toolWidth, toolSpeed, toolTank, toolDose]);
 
   const handleAddRain = (e: React.FormEvent) => { e.preventDefault(); if(rainMm) { onAddRain({date: new Date().toISOString(), millimeters: parseFloat(rainMm)}); setRainMm(''); } };
   const handleAddPheno = (e: React.FormEvent) => { e.preventDefault(); if(phenoLotId) { onAddPhenologyLog({date: new Date().toISOString(), costCenterId: phenoLotId, stage: phenoStage}); setPhenoLotId(''); } };
@@ -148,14 +164,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     setWasteDescription(''); setWasteQty(''); setWasteTripleWashed(true);
   };
   
-  const handleSaveCalibration = () => {
-      const machine = machines.find(m => m.id === toolMachineId);
-      if (!machine) return;
-      const updatedMachine = { ...machine, dischargeRateLitersPerMin: parseFloat(toolDischarge), avgSpeedKmh: parseFloat(toolSpeed) };
-      onUpdateMachine(updatedMachine);
-      alert("Calibración guardada!");
-  };
-
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
         <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto scrollbar-hide gap-1 sticky top-[120px] z-30 shadow-md">
@@ -251,30 +259,76 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
         {subTab === 'tools' && (
             <div className="space-y-6 animate-fade-in">
                  <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                    <h4 className="text-amber-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Tractor className="w-4 h-4" /> Calibración y Dosificación</h4>
+                    <h4 className="text-amber-400 text-xs uppercase font-black mb-2 flex items-center gap-2"><Tractor className="w-4 h-4" /> Calibración y Dosificación Inteligente</h4>
                      
-                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
-                        <h5 className="text-[10px] font-black uppercase text-slate-400 mb-2">1. Calibración del Equipo</h5>
-                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            <input value={toolDischarge} onChange={e=>setToolDischarge(e.target.value)} placeholder="L/min Boquilla" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
-                            <input value={toolWidth} onChange={e=>setToolWidth(e.target.value)} placeholder="Ancho Faja (m)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
-                            <input value={toolSpeed} onChange={e=>setToolSpeed(e.target.value)} placeholder="Velocidad (Km/h)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 relative">
+                        <div className="absolute -top-3 -right-3 bg-blue-600 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg">PASO 1</div>
+                        <h5 className="text-[10px] font-black uppercase text-slate-400 mb-3 flex items-center gap-2">
+                            <Gauge className="w-3 h-3" /> Calibración del Equipo
+                        </h5>
+                         <div className="space-y-3">
+                            <div>
+                                <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">Descarga Boquilla</label>
+                                <div className="flex">
+                                    <input value={toolDischarge} onChange={e=>setToolDischarge(e.target.value)} placeholder="0.0" className="flex-1 bg-slate-800 border-y border-l border-slate-600 rounded-l-xl p-3 text-sm text-white font-mono" />
+                                    <select value={toolDischargeUnit} onChange={e => setToolDischargeUnit(e.target.value as any)} className="bg-slate-800 border border-slate-600 rounded-r-xl px-2 text-xs text-amber-500 font-bold outline-none">
+                                        <option value="L">L/min</option>
+                                        <option value="ml">ml/min</option>
+                                        <option value="cc">cc/min</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">Ancho Faja (m)</label>
+                                    <input value={toolWidth} onChange={e=>setToolWidth(e.target.value)} placeholder="Metros" className="w-full bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white font-mono" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">Velocidad (Km/h)</label>
+                                    <input value={toolSpeed} onChange={e=>setToolSpeed(e.target.value)} placeholder="Km/h" className="w-full bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white font-mono" />
+                                </div>
+                            </div>
                          </div>
-                         <div className="mt-4 p-4 rounded-2xl bg-amber-950/50 border border-amber-500/20 text-center">
-                            <p className="text-[10px] uppercase font-black text-amber-500">Gasto de Agua (L/Ha)</p>
-                            <p className="text-2xl font-mono font-black text-white">{toolCalculations.LHa.toFixed(1)}</p>
+                         <div className="mt-4 p-4 rounded-2xl bg-amber-950/50 border border-amber-500/20 text-center flex items-center justify-between">
+                            <div className="text-left">
+                                <p className="text-[10px] uppercase font-black text-amber-500">Gasto de Agua</p>
+                                <p className="text-[9px] text-slate-500">Volumen de aplicación</p>
+                            </div>
+                            <p className="text-3xl font-mono font-black text-white">{toolCalculations.LHa.toFixed(1)} <span className="text-xs text-amber-500">L/Ha</span></p>
                          </div>
                     </div>
 
-                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
-                        <h5 className="text-[10px] font-black uppercase text-slate-400 mb-2">2. Mezcla de Tanque</h5>
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 relative">
+                        <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg">PASO 2</div>
+                        <h5 className="text-[10px] font-black uppercase text-slate-400 mb-3 flex items-center gap-2">
+                            <FlaskConical className="w-3 h-3" /> Preparación de Mezcla
+                        </h5>
                          <div className="grid grid-cols-2 gap-3">
-                            <input value={toolTank} onChange={e=>setToolTank(e.target.value)} placeholder="Tanque (L)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
-                            <input value={toolDose} onChange={e=>setToolDose(e.target.value)} placeholder="Dosis (L o Kg / Ha)" className="bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white" />
+                            <div>
+                                <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">Tamaño Tanque</label>
+                                <div className="flex items-center bg-slate-800 border border-slate-600 rounded-xl px-3">
+                                    <input value={toolTank} onChange={e=>setToolTank(e.target.value)} placeholder="0" className="w-full bg-transparent border-none p-3 pl-0 text-sm text-white font-mono outline-none" />
+                                    <span className="text-xs text-slate-500 font-bold">Lts</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">Dosis Recomendada</label>
+                                <div className="flex">
+                                    <input value={toolDose} onChange={e=>setToolDose(e.target.value)} placeholder="0.0" className="flex-1 bg-slate-800 border-y border-l border-slate-600 rounded-l-xl p-3 text-sm text-white font-mono w-full min-w-0" />
+                                    <select value={toolDoseUnit} onChange={e => setToolDoseUnit(e.target.value as any)} className="bg-slate-800 border border-slate-600 rounded-r-xl px-1 text-[10px] text-emerald-500 font-bold outline-none max-w-[60px]">
+                                        <option value="cc">cc/Ha</option>
+                                        <option value="ml">ml/Ha</option>
+                                        <option value="L">L/Ha</option>
+                                        <option value="g">g/Ha</option>
+                                        <option value="Kg">Kg/Ha</option>
+                                    </select>
+                                </div>
+                            </div>
                          </div>
                           <div className="mt-4 p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/20 text-center">
-                            <p className="text-[10px] uppercase font-black text-emerald-500">Producto por Tanque (L o Kg)</p>
-                            <p className="text-2xl font-mono font-black text-white">{toolCalculations.productPerTank.toFixed(2)}</p>
+                            <p className="text-[10px] uppercase font-black text-emerald-500 mb-1">Producto a agregar al Tanque</p>
+                            <p className="text-3xl font-mono font-black text-white">{toolCalculations.productPerTank.toFixed(1)} <span className="text-lg text-emerald-400">{toolDoseUnit}</span></p>
+                            <p className="text-[9px] text-slate-500 mt-1 italic">Calculado automáticamente según el gasto de agua.</p>
                          </div>
                     </div>
 
