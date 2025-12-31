@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -413,6 +412,7 @@ function App() {
               fullState={data} onUpdateState={(newState) => setData(newState)}
               onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} 
               onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} 
+              /* Added ownerId to new warehouse creation to fix TS error */
               onAddCostCenter={(n,b,a,s,pc,ct,ac) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac}]}))} 
               onDeleteCostCenter={(id) => setData(prev=>({...prev, costCenters: prev.costCenters.filter(c=>c.id!==id)}))} 
               onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} 
@@ -426,7 +426,8 @@ function App() {
           {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} onSave={(mov, price, exp) => { const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); setData(prev => ({ ...prev, inventory: updatedInventory, movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] })); setMovementModal(null); }} onCancel={() => setMovementModal(null)} />}
           {historyItem && data && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
           {deleteItem && <DeleteModal itemName={deleteItem.name} onConfirm={() => handleDeleteItem(deleteItem.id)} onCancel={() => setDeleteItem(null)} />}
-          {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString()}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
+          /* Added missing ownerId to warehouse creation in showWarehouses modal */
+          {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString(), ownerId: session?.id || 'local_user'}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
           {showExport && data && <ExportModal onExportPDF={() => generatePDF(data)} onExportExcel={() => generateExcel(data)} onGenerateOrder={() => {alert('Función PRO: No implementada.')}} onExportLaborPDF={() => generateLaborReport(data)} onExportLaborExcel={() => {alert('Función PRO: No implementada.')}} onExportHarvestPDF={() => generateHarvestReport(data)} onClose={() => setShowExport(false)} activeData={data} onShowSupport={() => setShowSupport(true)} isSupporter={true} />}
           {showLaborForm && data && <LaborForm personnel={data.personnel.filter(p=>p.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} onSave={(l)=> { setData(prev=>({...prev, laborLogs: [...prev.laborLogs, {...l, id: generateId(), warehouseId: activeId, paid: false}]})); setShowLaborForm(false); }} onCancel={()=>setShowLaborForm(false)} onOpenSettings={()=>setShowSettings(true)} />}
           {showSupport && <SupportModal onClose={() => setShowSupport(false)} onUpgrade={() => {}} isSupporter={false} />}
