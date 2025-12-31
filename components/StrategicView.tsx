@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { AppState, SWOT, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';

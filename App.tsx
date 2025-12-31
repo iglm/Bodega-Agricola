@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -27,7 +26,7 @@ import { SupportModal } from './components/SupportModal';
 import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClassification, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine } from './types';
 import { loadData, saveData, processInventoryMovement, generateId, getBaseUnitType, convertToBase } from './services/inventoryService';
 import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport } from './services/reportService';
-// import { ParsedCommand } from './services/aiService'; // REMOVED
+// import { ParsedCommand } => from './services/aiService'; // REMOVED
 import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap } from 'lucide-react'; // Sparkles removed, Zap retained for other uses
 
 function App() {
@@ -41,8 +40,16 @@ function App() {
   // Security State
   const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
 
+  // Debounce effect for saving data
   useEffect(() => {
-    saveData(data);
+    const handler = setTimeout(() => {
+      saveData(data);
+    }, 500); // 500ms debounce delay
+
+    // Cleanup function to clear the timeout if data changes before 500ms
+    return () => {
+      clearTimeout(handler);
+    };
   }, [data]);
 
   useEffect(() => {
