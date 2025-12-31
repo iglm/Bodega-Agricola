@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, BpaCriterion, PhenologyLog, PestLog } from '../types';
 import { formatCurrency, generateId } from '../services/inventoryService';
-import { Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug, FlaskConical, Scale } from 'lucide-react';
+import { Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug, FlaskConical, Scale, Warehouse, HardHat, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 
 interface ManagementViewProps {
   machines: Machine[];
@@ -40,14 +40,39 @@ interface ManagementViewProps {
   isAdmin: boolean;
 }
 
+// LISTA ROBUSTA BASADA EN RES. ICA 082394
 const BPA_TEMPLATE: BpaCriterion[] = [
-  { id: '1', category: 'CHEMICALS', code: 'CH.01', label: 'Bodega de químicos ventilada y con llave', isCritical: true, compliant: false },
-  { id: '2', category: 'CHEMICALS', code: 'CH.02', label: 'Registro de aplicaciones (Res. 082394)', isCritical: true, compliant: false },
-  { id: '3', category: 'SST', code: 'SST.01', label: 'Uso de EPP según etiqueta de producto', isCritical: true, compliant: false },
-  { id: '4', category: 'SST', code: 'SST.02', label: 'Botiquín de primeros auxilios dotado', isCritical: false, compliant: false },
-  { id: '5', category: 'ENVIRONMENT', code: 'ENV.01', label: 'Triple lavado y perforación de envases', isCritical: true, compliant: false },
-  { id: '6', category: 'TRACEABILITY', code: 'TRA.01', label: 'Registros de cosecha diarios por lote', isCritical: true, compliant: false },
-  { id: '7', category: 'INFRASTRUCTURE', code: 'INF.01', label: 'Instalaciones sanitarias limpias y con agua', isCritical: true, compliant: false },
+  // 1. INFRAESTRUCTURA (INF)
+  { id: '1', category: 'INFRASTRUCTURE', code: 'INF.01', label: 'Unidad sanitaria (baño) limpia, con agua, jabón, toallas y papel', isCritical: true, compliant: false },
+  { id: '2', category: 'INFRASTRUCTURE', code: 'INF.02', label: 'Área de almacenamiento de insumos (Bodega) separada de vivienda', isCritical: true, compliant: false },
+  { id: '3', category: 'INFRASTRUCTURE', code: 'INF.03', label: 'Bodega ventilada, con iluminación y piso impermeable', isCritical: false, compliant: false },
+  { id: '4', category: 'INFRASTRUCTURE', code: 'INF.04', label: 'Estanterías de material no absorbente (No madera)', isCritical: false, compliant: false },
+  { id: '5', category: 'INFRASTRUCTURE', code: 'INF.05', label: 'Área de dosificación y mezcla con kit de derrames (Arena/Aserrín)', isCritical: true, compliant: false },
+  { id: '6', category: 'INFRASTRUCTURE', code: 'INF.06', label: 'Área de acopio temporal de cosecha techada y limpia', isCritical: true, compliant: false },
+  
+  // 2. INSUMOS Y QUÍMICOS (CH)
+  { id: '7', category: 'CHEMICALS', code: 'CH.01', label: 'Uso exclusivo de plaguicidas con Registro ICA para el cultivo', isCritical: true, compliant: false },
+  { id: '8', category: 'CHEMICALS', code: 'CH.02', label: 'Inventario de insumos actualizado (Kárdex)', isCritical: false, compliant: false },
+  { id: '9', category: 'CHEMICALS', code: 'CH.03', label: 'Separación física: Fertilizantes lejos de Plaguicidas', isCritical: true, compliant: false },
+  { id: '10', category: 'CHEMICALS', code: 'CH.04', label: 'Insumos vencidos identificados y separados', isCritical: true, compliant: false },
+  
+  // 3. SEGURIDAD Y SALUD EN EL TRABAJO (SST)
+  { id: '11', category: 'SST', code: 'SST.01', label: 'Uso de EPP completo según etiqueta del producto aplicado', isCritical: true, compliant: false },
+  { id: '12', category: 'SST', code: 'SST.02', label: 'Botiquín de primeros auxilios dotado y accesible', isCritical: false, compliant: false },
+  { id: '13', category: 'SST', code: 'SST.03', label: 'Extintor multipropósito vigente y señalizado', isCritical: true, compliant: false },
+  { id: '14', category: 'SST', code: 'SST.04', label: 'Capacitación a operarios en manejo seguro de agroquímicos', isCritical: true, compliant: false },
+  { id: '15', category: 'SST', code: 'SST.05', label: 'Exámenes médicos ocupacionales (Colinesterasa) al día', isCritical: false, compliant: false },
+
+  // 4. MEDIO AMBIENTE (ENV)
+  { id: '16', category: 'ENVIRONMENT', code: 'ENV.01', label: 'Análisis de agua (Físico-químico y Microbiológico) < 1 año', isCritical: true, compliant: false },
+  { id: '17', category: 'ENVIRONMENT', code: 'ENV.02', label: 'Práctica de Triple Lavado en envases vacíos', isCritical: true, compliant: false },
+  { id: '18', category: 'ENVIRONMENT', code: 'ENV.03', label: 'Envases perforados y almacenados en centro de acopio temporal', isCritical: true, compliant: false },
+  { id: '19', category: 'ENVIRONMENT', code: 'ENV.04', label: 'Protección de fuentes de agua (Zonas de barbecho)', isCritical: true, compliant: false },
+
+  // 5. TRAZABILIDAD Y DOCUMENTACIÓN (TRA)
+  { id: '20', category: 'TRACEABILITY', code: 'TRA.01', label: 'Plan de trazabilidad documentado (Lote -> Cliente)', isCritical: true, compliant: false },
+  { id: '21', category: 'TRACEABILITY', code: 'TRA.02', label: 'Registros de aplicación respetando Periodos de Carencia (PC)', isCritical: true, compliant: false },
+  { id: '22', category: 'TRACEABILITY', code: 'TRA.03', label: 'Asistencia técnica por Ingeniero Agrónomo (Visitas)', isCritical: false, compliant: false },
 ];
 
 export const ManagementView: React.FC<ManagementViewProps> = ({
@@ -64,6 +89,8 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     isAdmin
 }) => {
   const [subTab, setSubTab] = useState<'audit' | 'assets' | 'agronomy' | 'sst' | 'tools'>('audit');
+  // State for collapsible sections
+  const [expandedCategory, setExpandedCategory] = useState<string | null>('INFRASTRUCTURE');
 
   // Forms State
   const [assetName, setAssetName] = useState('');
@@ -91,15 +118,15 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
   const [wasteQty, setWasteQty] = useState('');
   const [wasteTripleWashed, setWasteTripleWashed] = useState(true);
 
-  // Tools State (Updated for intuitiveness)
+  // Tools State
   const [toolMachineId, setToolMachineId] = useState('');
   const [toolDischarge, setToolDischarge] = useState('');
-  const [toolDischargeUnit, setToolDischargeUnit] = useState<'L' | 'ml' | 'cc'>('L'); // New: Unit state
+  const [toolDischargeUnit, setToolDischargeUnit] = useState<'L' | 'ml' | 'cc'>('L'); 
   const [toolWidth, setToolWidth] = useState('');
   const [toolSpeed, setToolSpeed] = useState('');
   const [toolTank, setToolTank] = useState('');
   const [toolDose, setToolDose] = useState('');
-  const [toolDoseUnit, setToolDoseUnit] = useState<'L' | 'ml' | 'cc' | 'Kg' | 'g'>('cc'); // New: Unit state for dose
+  const [toolDoseUnit, setToolDoseUnit] = useState<'L' | 'ml' | 'cc' | 'Kg' | 'g'>('cc');
 
 
   const bpaSummary = useMemo(() => {
@@ -107,11 +134,20 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     const total = criteria.length;
     const compliant = criteria.filter(c => c.compliant).length;
     const criticalFail = criteria.some(c => c.isCritical && !c.compliant);
-    return { criteria, percent: (compliant / total) * 100, criticalFail };
+    
+    // Agrupar por categoría
+    const grouped = {
+        'INFRASTRUCTURE': criteria.filter(c => c.category === 'INFRASTRUCTURE'),
+        'CHEMICALS': criteria.filter(c => c.category === 'CHEMICALS'),
+        'SST': criteria.filter(c => c.category === 'SST'),
+        'ENVIRONMENT': criteria.filter(c => c.category === 'ENVIRONMENT'),
+        'TRACEABILITY': criteria.filter(c => c.category === 'TRACEABILITY'),
+    };
+
+    return { criteria, percent: (compliant / total) * 100, criticalFail, grouped };
   }, [bpaChecklist]);
 
   const toolCalculations = useMemo(() => {
-      // 1. Normalize Discharge to Liters per Minute for the formula
       let dischargeLmin = parseFloat(toolDischarge);
       if (toolDischargeUnit === 'ml' || toolDischargeUnit === 'cc') {
           dischargeLmin = dischargeLmin / 1000;
@@ -122,17 +158,10 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
       
       if (!dischargeLmin || !width || !speed) return { LHa: 0, productPerTank: 0 };
       
-      // Formula: (L/min * 600) / (m * km/h)
       const LHa = (dischargeLmin * 600) / (width * speed);
       
       const tank = parseFloat(toolTank);
-      const dose = parseFloat(toolDose); // Raw number entered by user
-      
-      // 2. Calculate Product Per Tank
-      // We do NOT normalize the dose unit here because we want the result in the SAME unit as the input.
-      // Logic: (Tank Size / Water per Ha) * Dose
-      // Example: (20L Tank / 200 L/Ha water) = 0.1 Hectares covered per tank.
-      // If dose is 300g/Ha -> 0.1 * 300g = 30g per tank.
+      const dose = parseFloat(toolDose);
       
       let productPerTank = 0;
       if (LHa > 0 && tank > 0 && dose > 0) {
@@ -163,6 +192,17 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     onAddWaste({ date: new Date().toISOString(), itemDescription: wasteDescription, quantity: parseFloat(wasteQty), tripleWashed: wasteTripleWashed });
     setWasteDescription(''); setWasteQty(''); setWasteTripleWashed(true);
   };
+
+  const getCategoryLabel = (cat: string) => {
+      switch(cat) {
+          case 'INFRASTRUCTURE': return { label: 'Infraestructura & Instalaciones', icon: Warehouse, color: 'text-indigo-500' };
+          case 'CHEMICALS': return { label: 'Bodega de Insumos', icon: FlaskConical, color: 'text-purple-500' };
+          case 'SST': return { label: 'Seguridad y Salud (SST)', icon: HardHat, color: 'text-amber-500' };
+          case 'ENVIRONMENT': return { label: 'Gestión Ambiental', icon: Leaf, color: 'text-emerald-500' };
+          case 'TRACEABILITY': return { label: 'Trazabilidad y Registros', icon: ClipboardList, color: 'text-blue-500' };
+          default: return { label: cat, icon: Info, color: 'text-slate-500' };
+      }
+  };
   
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
@@ -176,21 +216,122 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
 
         {subTab === 'audit' && (
             <div className="space-y-6 animate-fade-in">
-                <div className={`p-8 rounded-[3rem] text-center border-2 transition-all ${bpaSummary.criticalFail ? 'bg-red-950/20 border-red-500/50' : 'bg-emerald-950/20 border-emerald-500/50'}`}>
-                    <h3 className="font-black text-xl flex items-center justify-center gap-2 uppercase tracking-tighter mb-4"><Globe className={`w-6 h-6 ${bpaSummary.criticalFail ? 'text-red-500' : 'text-emerald-500'}`} /> Radar Certificación BPA</h3>
-                    <div className="relative w-32 h-32 mx-auto mb-4">
-                        <svg className="w-full h-full transform -rotate-90"><circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" /><circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={364} strokeDashoffset={364 - (364 * bpaSummary.percent / 100)} className={bpaSummary.criticalFail ? 'text-red-500' : 'text-emerald-500'} /></svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-3xl font-black text-white">{bpaSummary.percent.toFixed(0)}%</span></div>
+                {/* RADAR CHART AND SUMMARY - BIGGER AND BOLDER */}
+                <div className={`p-8 rounded-[3rem] border-4 transition-all relative overflow-hidden ${bpaSummary.criticalFail ? 'bg-slate-900 border-red-500/30' : 'bg-slate-900 border-emerald-500/30'}`}>
+                    <div className="relative z-10 flex flex-col items-center">
+                        <h3 className="font-black text-2xl flex items-center justify-center gap-3 uppercase tracking-tighter mb-6 text-white">
+                            <Globe className={`w-8 h-8 ${bpaSummary.criticalFail ? 'text-red-500' : 'text-emerald-500'}`} /> 
+                            Radar Certificación
+                        </h3>
+                        
+                        <div className="relative w-48 h-48 mx-auto mb-6">
+                            <svg className="w-full h-full transform -rotate-90 drop-shadow-2xl">
+                                <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-800" />
+                                <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={552} strokeDashoffset={552 - (552 * bpaSummary.percent / 100)} className={`transition-all duration-1000 ${bpaSummary.criticalFail ? 'text-red-500' : 'text-emerald-500'}`} strokeLinecap="round" />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-5xl font-black text-white">{bpaSummary.percent.toFixed(0)}%</span>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase mt-1">Cumplimiento</span>
+                            </div>
+                        </div>
+
+                        {bpaSummary.criticalFail ? (
+                            <div className="bg-red-500/20 border border-red-500 text-red-200 px-6 py-3 rounded-2xl flex items-center gap-3 animate-pulse">
+                                <AlertTriangle className="w-6 h-6 text-red-500" />
+                                <div className="text-left">
+                                    <p className="font-black text-xs uppercase">Certificación en Riesgo</p>
+                                    <p className="text-[10px]">Existen Puntos Críticos Fallidos</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-emerald-500/20 border border-emerald-500 text-emerald-200 px-6 py-3 rounded-2xl flex items-center gap-3">
+                                <CheckCircle className="w-6 h-6 text-emerald-500" />
+                                <div className="text-left">
+                                    <p className="font-black text-xs uppercase">Camino a la Certificación</p>
+                                    <p className="text-[10px]">Sin puntos críticos pendientes</p>
+                                </div>
+                            </div>
+                        )}
+                        <p className="text-[10px] text-slate-500 mt-6 uppercase font-bold tracking-widest">Auditoría Res. ICA 082394</p>
                     </div>
-                    {bpaSummary.criticalFail && (<div className="bg-red-500 text-white text-[10px] font-black px-4 py-2 rounded-full inline-flex items-center gap-2 animate-bounce"><AlertTriangle className="w-4 h-4" /> REQUERIMIENTOS MAYORES INCUMPLIDOS</div>)}
-                    <p className="text-[10px] text-slate-400 mt-4 uppercase font-bold">Res. ICA 082394 de 2020</p>
                 </div>
-                <div className="space-y-3">
-                    {bpaSummary.criteria.map(c => (<div key={c.code} onClick={() => onToggleBpa(c.code)} className={`p-5 rounded-[2rem] border transition-all cursor-pointer flex items-center justify-between group ${c.compliant ? 'bg-emerald-900/10 border-emerald-500/30 shadow-emerald-900/20' : 'bg-slate-900 border-slate-700'}`}><div className="flex gap-4 items-center"><div className={`p-3 rounded-2xl ${c.compliant ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-slate-700'}`}>{c.compliant ? <CheckCircle2 className="w-5 h-5" /> : <div className="w-5 h-5 border-2 border-current rounded-full" />}</div><div><div className="flex items-center gap-2"><span className="text-[9px] font-black text-slate-500">{c.code}</span>{c.isCritical && <span className="text-[8px] bg-red-500 text-white px-1.5 rounded uppercase font-black">Fundamental</span>}</div><p className={`text-sm font-bold ${c.compliant ? 'text-white' : 'text-slate-400'}`}>{c.label}</p></div></div><ArrowRight className={`w-4 h-4 transition-transform ${c.compliant ? 'text-emerald-500' : 'text-slate-600 group-hover:translate-x-1'}`} /></div>))}
+
+                {/* ACCORDION LIST */}
+                <div className="space-y-4">
+                    {Object.entries(bpaSummary.grouped).map(([catKey, items]) => {
+                        const style = getCategoryLabel(catKey);
+                        const Icon = style.icon;
+                        const isExpanded = expandedCategory === catKey;
+                        const typedItems = items as BpaCriterion[];
+                        
+                        const compliantCount = typedItems.filter(i => i.compliant).length;
+                        const totalCount = typedItems.length;
+                        const progress = (compliantCount / totalCount) * 100;
+                        const hasCriticalFail = typedItems.some(i => i.isCritical && !i.compliant);
+
+                        return (
+                            <div key={catKey} className={`rounded-[2rem] border overflow-hidden transition-all duration-300 ${isExpanded ? 'bg-slate-900 border-slate-700 shadow-xl' : 'bg-slate-900/50 border-slate-800'}`}>
+                                <button 
+                                    onClick={() => setExpandedCategory(isExpanded ? null : catKey)}
+                                    className="w-full p-5 flex items-center justify-between"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-xl ${isExpanded ? 'bg-slate-800' : 'bg-slate-800/50'}`}>
+                                            <Icon className={`w-6 h-6 ${style.color}`} />
+                                        </div>
+                                        <div className="text-left">
+                                            <h4 className={`text-sm font-black uppercase tracking-wide text-white`}>
+                                                {style.label}
+                                            </h4>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <div className="w-20 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                    <div className={`h-full ${style.color.replace('text-', 'bg-')}`} style={{width: `${progress}%`}}></div>
+                                                </div>
+                                                <span className="text-[10px] font-mono text-slate-400">{compliantCount}/{totalCount}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {hasCriticalFail && !isExpanded && (
+                                            <div className="bg-red-500/20 p-2 rounded-full animate-pulse">
+                                                <AlertCircle className="w-4 h-4 text-red-500" />
+                                            </div>
+                                        )}
+                                        {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                                    </div>
+                                </button>
+
+                                {isExpanded && (
+                                    <div className="p-5 pt-0 border-t border-slate-800/50 space-y-3 animate-fade-in-down">
+                                        <div className="h-4"></div> {/* Spacer */}
+                                        {typedItems.map(c => (
+                                            <div 
+                                                key={c.code} 
+                                                onClick={() => onToggleBpa(c.code)} 
+                                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 group ${c.compliant ? 'bg-emerald-950/20 border-emerald-500/20' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}`}
+                                            >
+                                                <div className={`mt-0.5 p-1 rounded-full shrink-0 border ${c.compliant ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-transparent border-slate-600 text-transparent'}`}>
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-[9px] font-black text-slate-500">{c.code}</span>
+                                                        {c.isCritical && <span className="text-[8px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 uppercase font-black tracking-wider">Fundamental</span>}
+                                                    </div>
+                                                    <p className={`text-xs font-bold leading-snug ${c.compliant ? 'text-emerald-100 line-through decoration-emerald-500/50' : 'text-slate-300'}`}>{c.label}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         )}
 
+        {/* ... (OTHER TABS - ASSETS, AGRONOMY, SST, TOOLS - SAME AS BEFORE) ... */}
         {subTab === 'assets' && (
             <div className="space-y-6 animate-fade-in">
                 { /* Asset Management and Maintenance Forms */ }
