@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { AppState, SWOT, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
 import { InvestmentCalculatorView } from './InvestmentCalculatorView'; // NEW IMPORT
-import { Target, TrendingUp, DollarSign, PieChart, Landmark, Timer, ArrowRightLeft, Lightbulb, ShieldCheck, Briefcase, Activity as ActivityIcon, Info, Users, AlertTriangle, Scale, Database, BarChart3, Search, Zap, CheckCircle, BrainCircuit, Sprout, Split } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, PieChart, Landmark, Timer, ArrowRightLeft, Lightbulb, ShieldCheck, Briefcase, Activity as ActivityIcon, Info, Users, AlertTriangle, Scale, Database, BarChart3, Search, Zap, CheckCircle, BrainCircuit, Sprout, Split, BookOpen, ArrowDown, ArrowUp } from 'lucide-react';
 
 interface StrategicViewProps {
   data: AppState;
@@ -125,7 +125,7 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
 
   }, [data, laborFactor, arriendoFigurado]);
 
-  // --- POLYCULTURE ANALYSIS (NEW) ---
+  // --- POLYCULTURE ANALYSIS ---
   const polycultureData = useMemo(() => {
       const stats: Record<string, { income: number; directLabor: number; directInputs: number; area: number }> = {
           'Café': { income: 0, directLabor: 0, directInputs: 0, area: 0 },
@@ -180,6 +180,42 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
       return stats;
   }, [data, laborFactor]);
 
+  // --- BENCHMARK METRICS CALCULATION (NEW) ---
+  const cropBenchmarks = useMemo(() => {
+    return CALDAS_BENCHMARKS.map(bench => {
+        // 1. Identify lots for this crop type
+        const lots = data.costCenters.filter(c => c.cropType.toLowerCase().includes(bench.crop.toLowerCase()));
+        const lotIds = lots.map(l => l.id);
+        
+        // 2. Calculate Totals
+        const totalArea = lots.reduce((a,b) => a + b.area, 0);
+        
+        // Harvests
+        const cropHarvests = data.harvests.filter(h => lotIds.includes(h.costCenterId));
+        const totalKg = cropHarvests.reduce((a,b) => a + b.quantity, 0);
+        
+        // Costs
+        const laborRaw = data.laborLogs.filter(l => lotIds.includes(l.costCenterId)).reduce((a,b) => a + b.value, 0) * laborFactor;
+        const inputsRaw = data.movements.filter(m => m.type === 'OUT' && lotIds.includes(m.costCenterId || '')).reduce((a,b) => a + b.calculatedCost, 0);
+        const totalCost = laborRaw + inputsRaw;
+
+        // 3. Metrics Calculation
+        const actualYield = totalArea > 0 ? totalKg / totalArea : 0;
+        const actualCup = totalKg > 0 ? totalCost / totalKg : 0; // Costo por Kilo
+        const actualLaborPart = totalCost > 0 ? laborRaw / totalCost : 0; // % Mano de Obra
+
+        return {
+            name: bench.crop,
+            benchYield: bench.yield,
+            benchLabor: bench.laborPart,
+            actualYield,
+            actualCup,
+            actualLaborPart,
+            hasData: totalArea > 0
+        };
+    });
+  }, [data, laborFactor]);
+
 
   return (
     <div className="space-y-8 pb-32 animate-fade-in">
@@ -200,8 +236,6 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                 {['Café', 'Plátano'].map(crop => {
                     const s = polycultureData[crop];
                     const grossMargin = s.income - (s.directLabor + s.directInputs);
-                    // Allocation of Joint Costs based on simplified 50/50 for display (real allocation is complex)
-                    // Or display Joint costs separately
                     return (
                         <div key={crop} className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800 relative overflow-hidden group">
                             <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity`}>
@@ -250,9 +284,59 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
             </div>
         </div>
 
+        {/* --- BENCHMARKS & KEY METRICS (NEW SECTION) --- */}
+        <div className="space-y-4">
+            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest">
+                <BookOpen className="w-5 h-5 text-emerald-500" /> Benchmarks de Cultivo & Métricas
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cropBenchmarks.map(bench => (
+                    <div key={bench.name} className={`bg-slate-900 p-5 rounded-3xl border border-slate-700 ${!bench.hasData ? 'opacity-60' : ''}`}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-black text-white uppercase text-sm flex items-center gap-2">
+                                <Sprout className="w-4 h-4 text-emerald-500" /> {bench.name}
+                            </h4>
+                            {!bench.hasData && <span className="text-[9px] bg-slate-800 text-slate-500 px-2 py-1 rounded">Sin Datos</span>}
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {/* Costo Por Kilo */}
+                            <div className="flex justify-between items-center bg-slate-950/50 p-3 rounded-xl">
+                                <div>
+                                    <p className="text-[9px] text-slate-400 font-black uppercase">Costo Prod. Unitario</p>
+                                    <p className="text-lg font-mono font-black text-white">{formatCurrency(bench.actualCup)} <span className="text-[10px] text-slate-500">/Kg</span></p>
+                                </div>
+                                <DollarSign className="w-5 h-5 text-emerald-600 opacity-50" />
+                            </div>
+
+                            {/* Rendimiento Comparativo */}
+                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <span className="text-[10px] text-slate-500 uppercase font-bold">Rendimiento (Kg/Ha)</span>
+                                <div className="text-right">
+                                    <span className="text-sm font-black text-white">{bench.actualYield.toFixed(0)}</span>
+                                    <span className="text-[9px] text-slate-500 ml-2">Meta: {bench.benchYield}</span>
+                                </div>
+                            </div>
+
+                            {/* Participacion Laboral */}
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-slate-500 uppercase font-bold">Participación Laboral</span>
+                                <div className="text-right">
+                                    <span className={`text-sm font-black ${(bench.actualLaborPart > bench.benchLabor) ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                        {(bench.actualLaborPart * 100).toFixed(1)}%
+                                    </span>
+                                    <span className="text-[9px] text-slate-500 ml-2">Ref: {(bench.benchLabor * 100).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+
         {/* --- FINANCIAL KPIs --- */}
         <div className="space-y-4">
-            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest"><Scale className="w-5 h-5 text-emerald-500" /> KPIs Financieros Globales</h3>
+            <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest"><Scale className="w-5 h-5 text-blue-500" /> KPIs Financieros Globales</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <KPI_Card title="Punto de Equilibrio" value={isFinite(kpiData.breakEvenKg) ? `${kpiData.breakEvenKg.toFixed(0)} Kg` : 'N/A'} subvalue="Para cubrir costos fijos" color="text-emerald-400" icon={Landmark} />
                 <KPI_Card title="Tasa de Gasto Mensual" value={formatCurrency(kpiData.burnRate)} subvalue="Burn Rate Operativo" color="text-red-400" icon={Timer} />
