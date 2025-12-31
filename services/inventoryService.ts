@@ -1,5 +1,5 @@
 
-import { InventoryItem, Movement, Unit, AppState, SWOT } from '../types';
+import { InventoryItem, Movement, Unit, AppState } from '../types';
 
 const STORAGE_KEY = 'datosfinca_viva_v1_expert'; // Updated to DatosFinca Viva
 
