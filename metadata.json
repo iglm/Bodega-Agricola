@@ -2,8 +2,7 @@
   "name": "DatosFinca Viva",
   "description": "ERP Agrícola Integral - Gestión de Inventarios CPP, Nómina, Calidad y Estrategia. Diseñado por Lucas Mateo Tabares Franco.",
   "requestFramePermissions": [
-    "camera",
-    "microphone"
+    "camera"
   ],
   "android": {
     "vibrate": true,

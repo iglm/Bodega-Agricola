@@ -313,7 +313,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <FileText className="w-6 h-6 text-emerald-500" />
                               <div className="text-left">
                                   <p className="font-black text-sm text-white uppercase">Política de Privacidad</p>
-                                  <p className="text-[9px] text-slate-500 font-bold">Habeas Data & Uso de IA 2025</p>
+                                  <p className="text-[9px] text-slate-500 font-bold">Habeas Data & Uso de Datos 2025</p> {/* Updated text */}
                               </div>
                           </div>
                           <Zap className="w-5 h-5 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -339,7 +339,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           Define el factor prestacional para calcular el costo real de la empresa por cada jornal pagado.
                       </p>
                       <div>
-                          <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Factor Multiplicador</label>
+                          <label className="block text-xs font-black text-slate-400 uppercase ml-2">Factor Multiplicador</label>
                           <div className="flex items-center gap-2 mt-1">
                               <input 
                                   type="number"

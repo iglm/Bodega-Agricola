@@ -1,14 +1,14 @@
 
 
 import React, { useState } from 'react';
-import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Sparkles, Mic, BrainCircuit, Target, Lightbulb, Scale, PieChart, Leaf, Gauge, Microscope, ShieldCheck, Signature, Recycle, Gem, Coins, Timer, Camera, Info, Loader2, FileDown, Lock } from 'lucide-react';
+import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Mic, BrainCircuit, Target, Lightbulb, Scale, PieChart, Leaf, Gauge, Microscope, ShieldCheck, Signature, Recycle, Gem, Coins, Timer, Camera, Info, Loader2, FileDown, Lock, Zap } from 'lucide-react'; // Removed Sparkles, FileSearch
 import { generateManualPDF } from '../services/reportService';
 
 interface ManualModalProps {
   onClose: () => void;
 }
 
-type Section = 'intro' | 'modules' | 'finance' | 'technical' | 'ai' | 'compliance' | 'enterprise';
+type Section = 'intro' | 'modules' | 'finance' | 'technical' | 'automation' | 'enterprise'; // Changed 'ai' to 'automation'
 
 export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
   const [activeSection, setActiveSection] = useState<Section>('intro');
@@ -127,24 +127,32 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
           </div>
         );
 
-      case 'ai':
+      case 'automation': // Changed from 'ai' to 'automation'
         return (
             <div className="space-y-6 animate-fade-in">
                 <h4 className="text-xl font-black text-white flex items-center gap-2 uppercase tracking-tighter">
-                    <Sparkles className="w-6 h-6 text-purple-400" /> Inteligencia Artificial
+                    <BrainCircuit className="w-6 h-6 text-purple-400" /> Automatización de Procesos
                 </h4>
                 <div className="bg-slate-800 p-6 rounded-[2.5rem] border border-purple-500/20 space-y-4">
                     <div className="flex items-center gap-3">
-                        <BrainCircuit className="w-8 h-8 text-purple-400" />
-                        <h5 className="font-black text-white text-sm uppercase">Asistente Gemini 3.0</h5>
+                        <Zap className="w-8 h-8 text-purple-400" /> {/* Changed from BrainCircuit to Zap */}
+                        <h5 className="font-black text-white text-sm uppercase">Funciones Automatizadas</h5>
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        Nuestra IA utiliza visión artificial para digitalizar su finca.
+                        La aplicación optimiza la captura y el análisis de datos mediante las siguientes características:
                     </p>
                     <ul className="space-y-3">
                         <li className="bg-slate-900/50 p-3 rounded-xl border border-slate-700 flex items-start gap-3">
                             <Camera className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-                            <span className="text-[10px] text-slate-400"><strong>OCR Vision:</strong> Tome foto a la factura de agroquímicos y la app cargará los productos automáticamente.</span>
+                            <span className="text-[10px] text-slate-400"><strong>Detección de Datos en Facturas:</strong> Utilice la cámara para identificar y pre-rellenar campos en los registros de compras.</span>
+                        </li>
+                        <li className="bg-slate-900/50 p-3 rounded-xl border border-slate-700 flex items-start gap-3">
+                            <Mic className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                            <span className="text-[10px] text-slate-400"><strong>Asistencia de Registro por Voz:</strong> Registre operaciones mediante comandos de voz para agilizar el ingreso de datos en campo.</span>
+                        </li>
+                        <li className="bg-slate-900/50 p-3 rounded-xl border border-slate-700 flex items-start gap-3">
+                            <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                            <span className="text-[10px] text-slate-400"><strong>Alertas de Seguridad Alimentaria (PC):</strong> El sistema cruza fechas de aplicación con cosechas para emitir alertas de Periodo de Carencia.</span>
                         </li>
                     </ul>
                 </div>
@@ -192,9 +200,9 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                     <Package className="w-5 h-5 text-emerald-400" />
                     <span className="text-xs font-black uppercase tracking-widest">Operación</span>
                 </button>
-                <button onClick={() => setActiveSection('ai')} className={`shrink-0 w-auto md:w-full text-left px-6 py-4 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'ai' ? 'bg-slate-800 border-r-4 border-purple-500' : 'text-slate-400'}`}>
-                    <Sparkles className="w-5 h-5 text-purple-400" />
-                    <span className="text-xs font-black uppercase tracking-widest">Inteligencia</span>
+                <button onClick={() => setActiveSection('automation')} className={`shrink-0 w-auto md:w-full text-left px-6 py-4 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'automation' ? 'bg-slate-800 border-r-4 border-purple-500' : 'text-slate-400'}`}>
+                    <Zap className="w-5 h-5 text-purple-400" /> {/* Changed from Sparkles to Zap */}
+                    <span className="text-xs font-black uppercase tracking-widest">Automatización</span> {/* Changed from Inteligencia */}
                 </button>
                 <button onClick={() => setActiveSection('enterprise')} className={`shrink-0 w-auto md:w-full text-left px-6 py-4 flex items-center gap-3 hover:bg-slate-800 transition-colors ${activeSection === 'enterprise' ? 'bg-slate-800 border-r-4 border-indigo-500' : 'text-slate-400'}`}>
                     <Lock className="w-5 h-5 text-indigo-400" />

@@ -41,7 +41,6 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, 
                 
                 <ul className="space-y-4">
                     {[
-                        "Analista IA Gemini Ilimitado",
                         "Reportes PDF/Excel Gerenciales",
                         "Gestión de Múltiples Fincas",
                         "Exportación de Nómina Masiva",

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -18,7 +19,7 @@ import { AgendaView } from './components/AgendaView';
 import { StrategicView } from './components/StrategicView';
 import { HistoryModal } from './components/HistoryModal';
 import { DeleteModal } from './components/DeleteModal';
-import { AIAssistant } from './components/AIAssistant';
+// import { AIAssistant } from './components/AIAssistant'; // REMOVED
 import { PayrollModal } from './components/PayrollModal';
 import { SecurityModal } from './components/SecurityModal';
 import { Notification } from './components/Notification';
@@ -26,8 +27,8 @@ import { SupportModal } from './components/SupportModal';
 import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClassification, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine } from './types';
 import { loadData, saveData, processInventoryMovement, generateId, getBaseUnitType, convertToBase } from './services/inventoryService';
 import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport } from './services/reportService';
-import { ParsedCommand } from './services/aiService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar } from 'lucide-react';
+// import { ParsedCommand } from './services/aiService'; // REMOVED
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap } from 'lucide-react'; // Sparkles removed, Zap retained for other uses
 
 function App() {
   const [session, setSession] = useState<User | null>(null);
@@ -143,28 +144,8 @@ function App() {
   const handleDeletePestLog = (id: string) => setData(prev => ({ ...prev, pestLogs: prev.pestLogs.filter(p => p.id !== id) }));
   const handleAddMaintenance = (log: Omit<MaintenanceLog, 'id'|'warehouseId'>) => setData(prev => ({...prev, maintenanceLogs: [...prev.maintenanceLogs, {...log, id: generateId(), warehouseId: activeId}]}));
 
-
-  const handleExecuteAICommand = (cmd: ParsedCommand) => {
-      const { action, data: cmdData } = cmd;
-      if (action === 'INVENTORY_IN') {
-          const item = data.inventory.find(i => i.name.toLowerCase().includes(cmdData.itemName?.toLowerCase()));
-          if (item) {
-              const movement: Omit<Movement, 'id' | 'date' | 'warehouseId'> = {
-                  itemId: item.id, itemName: item.name, type: 'IN', quantity: cmdData.quantity || 1,
-                  unit: cmdData.unit || item.lastPurchaseUnit, calculatedCost: 0,
-                  invoiceNumber: cmdData.invoiceNumber, notes: "Registrado vía IA Vision OCR"
-              };
-              const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, movement, cmdData.unitPrice);
-              setData(prev => ({ 
-                  ...prev, inventory: updatedInventory, 
-                  movements: [{ ...movement, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] 
-              }));
-              showNotification(`IA: Compra de ${item.name} registrada.`, 'success');
-          } else {
-              showNotification(`IA: Producto "${cmdData.itemName}" no encontrado en bodega.`, 'error');
-          }
-      }
-  };
+  // Removed AI command execution logic
+  // const handleExecuteAICommand = (cmd: ParsedCommand) => { /* ... */ };
 
   const handleSaveNewItem = (
     item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>,
@@ -298,7 +279,8 @@ function App() {
                 <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border border-slate-700 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>
             </div>
             
-            <AIAssistant data={data} onExecuteCommand={handleExecuteAICommand} />
+            {/* AIAssistant component removed */}
+            {/* <AIAssistant data={data} onExecuteCommand={handleExecuteAICommand} /> */}
 
             {currentTab === 'inventory' && <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 text-white p-5 rounded-3xl shadow-2xl active:scale-95 transition-all z-30 mr-20 sm:mr-0"><Plus className="w-8 h-8" /></button>}
           </main>

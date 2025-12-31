@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { ShieldCheck, User, Server, Globe, Scale, LogIn, Sparkles, ShieldAlert, X, FileText, Lock, Database, HelpCircle, CheckCircle2, Gavel, Zap } from 'lucide-react';
+import { ShieldCheck, User, Server, Globe, Scale, LogIn, X, FileText, Lock, Database, HelpCircle, CheckCircle2, Gavel, Zap } from 'lucide-react';
 import { User as UserType } from '../types';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
@@ -51,7 +51,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
               </div>
               <div>
                   <h1 className="text-2xl font-black text-white tracking-tight leading-none">DatosFinca <span className="text-emerald-400">Viva</span></h1>
-                  <p className="text-[9px] text-emerald-300 font-bold uppercase tracking-widest mt-1 italic">Intelligence by Lucas Mateo Tabares Franco</p>
+                  <p className="text-[9px] text-emerald-300 font-bold uppercase tracking-widest mt-1 italic">Desarrollado por Lucas Mateo Tabares Franco</p>
               </div>
           </div>
           <div className="flex gap-2">
@@ -137,8 +137,9 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
                 {isDemoLoading ? (
                   <div className="h-4 w-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <><Zap className="w-4 h-4" /> Explorar con Datos de Demostración</>
+                  <Zap className="w-4 h-4 text-slate-500" /> /* Changed from Sparkles to Zap, still keeps the visual "power" */
                 )}
+                Explorar con Datos de Demostración
             </span>
           </button>
           <p className="text-[10px] text-slate-600 text-center mt-2 px-4">

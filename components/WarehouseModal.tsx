@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Warehouse } from '../types';
 import { X, Warehouse as WarehouseIcon, Plus, Check, Trash2, Home, Map } from 'lucide-react';

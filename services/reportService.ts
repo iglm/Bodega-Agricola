@@ -329,7 +329,7 @@ export const generateManualPDF = (): void => {
     // --- PAGE 1: EXECUTIVE SUMMARY ---
     y = addTitle("1. Resumen Ejecutivo: La Finca como Empresa", y);
     y = addParagraph("DatosFinca Viva es un Sistema de Planificación de Recursos Empresariales (ERP) diseñado para el sector agrícola, que opera bajo una filosofía de 'Dato-Decisión'. Su propósito es empoderar al productor para que transcienda la gestión operativa y adopte un rol de gerente estratégico, fundamentando cada acción en un análisis financiero robusto y en tiempo real.", y + 5); // Updated name
-    y = addParagraph("El sistema se distingue por su arquitectura de seguridad 'Cloud-Backed' (Firebase), garantizando que los datos sensibles del negocio (costos, nómina, rentabilidad) residen exclusivamente en su cuenta personal de Google. Este enfoque no solo asegura la máxima confidencialidad, sino que también otorga al productor la soberanía total sobre su información, en cumplimiento con la Ley 1581 de Habeas Data.", y + 5);
+    y = addParagraph("El sistema se distingue por su arquitectura de seguridad 'Local-First', garantizando que los datos sensibles del negocio (costos, nómina, rentabilidad) residen exclusivamente en su dispositivo. Este enfoque no solo asegura la máxima confidencialidad, sino que también otorga al productor la soberanía total sobre su información, en cumplimiento con la Ley 1581 de Habeas Data.", y + 5);
     y = addParagraph("La propuesta de valor se centra en tres pilares: Rigor Financiero, Análisis de Datos y Cumplimiento Normativo, convirtiendo la recolección de datos de campo en una ventaja competitiva tangible.", y + 5);
     doc.addPage();
     y = 20;
@@ -377,17 +377,17 @@ export const generateManualPDF = (): void => {
     y = addTitle("7.1 Performance", y + 5, 12, BRAND_COLORS.slate);
     y = addParagraph("Calcula el Estado de Resultados (P&G) para cada lote, revelando la utilidad operativa y el margen de rentabilidad. Identifica cuáles son los 'lotes estrella' y cuáles operan a pérdida.", y+5, 5);
     y = addTitle("7.2 Data Mining", y + 5, 12, BRAND_COLORS.slate);
-    y = addParagraph("La IA analiza correlaciones en los datos. Por ejemplo, puede identificar un lote donde la relación costo-insumo/ingreso-venta es anómalamente alta, sugiriendo una posible sobre-fertilización o un problema de absorción de nutrientes que requiere una revisión técnica.", y+5, 5);
+    y = addParagraph("Esta funcionalidad analítica permite identificar patrones y correlaciones en los datos registrados. Por ejemplo, puede sugerir un lote donde la relación costo-insumo/ingreso-venta es anómalamente alta, lo que podría indicar una sobre-fertilización o un problema de absorción de nutrientes que requiere una revisión técnica en campo.", y+5, 5);
     y = addTitle("7.3 Benchmarking", y + 5, 12, BRAND_COLORS.slate);
     y = addParagraph("Compara indicadores clave de la finca, como el porcentaje de participación de la mano de obra en los costos totales, contra promedios técnicos de la región (Ej: datos de Evaluaciones Agropecuarias para Caldas). Esto ofrece una medida objetiva de la competitividad y eficiencia de la operación.", y+5, 5);
     doc.addPage(); y = 20;
     
-    // --- PAGE 8: AI ASSISTANT ---
-    y = addTitle("8. Asistente IA Viva: Eficiencia Exponencial", y, 16, BRAND_COLORS.purple);
-    y = addParagraph("Integrado con la tecnología de Google, el asistente optimiza la captura y análisis de datos:", y+5);
-    y = addListItem("Análisis (Chat): Permite al usuario hacer preguntas en lenguaje natural como '¿Cuál fue el lote más rentable el mes pasado?' o '¿Qué trabajador ha acumulado más jornales?'.", y+8);
-    y = addListItem("OCR Visión de Facturas: Utiliza la cámara para leer una factura de insumos. La IA extrae los productos, cantidades y precios, y prepara el registro para ser cargado al inventario con un solo clic, eliminando la digitación manual.", y+5);
-    y = addListItem("Dictado de Comandos: Permite registrar operaciones con la voz. El usuario puede decir 'Registrar jornal para Juan en Lote 1, plateo, 60 mil pesos', y la IA estructurará el comando para su confirmación.", y+5);
+    // --- PAGE 8: AI ASSISTANT --- (REMOVED CONTENT)
+    y = addTitle("8. Automatización de Procesos: Eficiencia sin IA", y, 16, BRAND_COLORS.purple);
+    y = addParagraph("La aplicación optimiza la captura y el análisis de datos a través de funcionalidades automatizadas que no requieren de inteligencia artificial externa:", y+5);
+    y = addListItem("Detección de Datos en Facturas: Utiliza el escaneo de imágenes para identificar y pre-rellenar campos en los registros de compras, agilizando el ingreso de insumos al inventario.", y+8);
+    y = addListItem("Asistencia de Registro por Voz: Permite dictar información para crear registros de operaciones, facilitando la captura de datos directamente en campo.", y+5);
+    y = addListItem("Alertas de Seguridad Alimentaria: Automatiza el cruce de fechas de aplicación de agroquímicos con fechas de cosecha para emitir alertas de Periodo de Carencia (PC), garantizando la inocuidad de los productos.", y+5);
     doc.addPage(); y = 20;
 
     // --- PAGE 9: DATA MANAGEMENT ---
@@ -402,7 +402,7 @@ export const generateManualPDF = (): void => {
     // --- PAGE 10: LEGAL & COMPLIANCE ---
     y = addTitle("10. Cumplimiento Normativo: Marco Colombia", y);
     y = addParagraph("DatosFinca Viva ha sido desarrollado con un profundo conocimiento del marco legal colombiano para ofrecer seguridad jurídica al productor:", y+5); // Updated name
-    y = addListItem("Ley 1581 de 2012 (Habeas Data): La arquitectura 'Cloud-Backed' con autenticación de Google es la máxima garantía de cumplimiento, ya que sus datos personales residen exclusivamente en su cuenta, sin transferencia a servidores de terceros de DatosFinca Viva.", y+8); // Updated name
+    y = addListItem("Ley 1581 de 2012 (Habeas Data): La arquitectura 'Local-First' es la máxima garantía de cumplimiento, ya que sus datos personales residen exclusivamente en su dispositivo, sin transferencia a servidores de terceros de DatosFinca Viva.", y+8); // Updated name
     y = addListItem("Ley 23 de 1982 (Derechos de Autor): El software está protegido y su uso se rige por una licencia personal e intransferible.", y+5);
     y = addListItem("Ley 1480 de 2011 (Estatuto del Consumidor): Se garantizan los derechos de retracto y reversión de pago en las suscripciones a través de las plataformas oficiales (Google Play Store).", y+5);
     y = addListItem("Normativa ICA y UGPP: Las funcionalidades de la app, como el registro de PHI y la generación de recibos de pago, están diseñadas para generar los soportes documentales exigidos por estas entidades de control.", y+5);
