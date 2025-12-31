@@ -1,10 +1,9 @@
 
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { InventoryItem, AgendaEvent, HarvestLog, LaborLog, Movement, MaintenanceLog, FinanceLog } from '../types';
 import { formatCurrency, getCostPerGramOrMl, formatBaseQuantity } from '../services/inventoryService';
 import { getStorageUsage } from '../services/imageService';
-import { TrendingDown, TrendingUp, DollarSign, Package, AlertTriangle, Image as ImageIcon, Search, PieChart, Activity, Trash2, Calendar, Clock, Wallet, HeartPulse, HardDrive } from 'lucide-react';
+import { TrendingDown, TrendingUp, DollarSign, Package, AlertTriangle, Image as ImageIcon, Search, PieChart, Activity, Trash2, Calendar, Clock, Wallet, HeartPulse, HardDrive, Edit3, Save, Eraser, Pickaxe, Target, Plus } from 'lucide-react';
 
 interface DashboardProps {
   inventory: InventoryItem[];
@@ -34,6 +33,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterCategory, setFilterCategory] = React.useState<string>('Todos');
+  
+  // Scratchpad State
+  const [scratchpad, setScratchpad] = useState(() => localStorage.getItem('dashboard_scratchpad') || '');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+
+  useEffect(() => {
+      const handler = setTimeout(() => {
+          localStorage.setItem('dashboard_scratchpad', scratchpad);
+          setIsSavingNote(false);
+      }, 1000);
+      return () => clearTimeout(handler);
+  }, [scratchpad]);
+
+  const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setScratchpad(e.target.value);
+      setIsSavingNote(true);
+  };
 
   const storage = useMemo(() => getStorageUsage(), [inventory, movements]);
 
@@ -134,17 +150,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                  <HardDrive className={`w-3 h-3 ${storage.percent > 80 ? 'text-red-400 animate-pulse' : 'text-slate-500'}`} />
-                  <span className="text-[9px] font-black text-slate-500 uppercase">Espacio Offline</span>
-              </div>
-              <div className="flex items-center gap-2">
-                  <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                      <div className={`h-full transition-all duration-1000 ${storage.percent > 80 ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${storage.percent}%` }}></div>
+          {/* BITÁCORA DE CAMPO (SCRATCHPAD) */}
+          <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                      <Edit3 className="w-3 h-3 text-indigo-400" />
+                      <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">Bitácora Rápida</span>
                   </div>
-                  <span className="text-[9px] font-mono text-slate-400">{storage.used.toFixed(1)}MB</span>
+                  {isSavingNote && <span className="text-[8px] text-slate-500 animate-pulse">Guardando...</span>}
               </div>
+              <textarea 
+                  value={scratchpad}
+                  onChange={handleNoteChange}
+                  placeholder="Pega aquí los reportes de WhatsApp o notas rápidas de campo..."
+                  className="w-full bg-slate-900/80 border border-slate-700 rounded-xl p-3 text-xs text-slate-300 placeholder-slate-600 focus:border-indigo-500 outline-none resize-none h-20 font-medium"
+              />
+          </div>
+      </div>
+
+      {/* QUICK ACTIONS */}
+      <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => (document.getElementById('root')?.querySelector('button[aria-label="Nueva Tarea"]') as HTMLElement)?.click() /* Hacky but works for demo, better to use context */} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-3 active:scale-95 transition-transform group">
+              <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-xl text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <Calendar className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                  <p className="text-xs font-black text-slate-700 dark:text-white uppercase">Agenda</p>
+                  <p className="text-[9px] text-slate-400">Ver Tareas</p>
+              </div>
+          </button>
+          
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                  <HardDrive className={`w-4 h-4 ${storage.percent > 80 ? 'text-red-400 animate-pulse' : 'text-slate-400'}`} />
+                  <div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase">Espacio</p>
+                      <div className="w-16 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1">
+                          <div className={`h-full transition-all duration-1000 ${storage.percent > 80 ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${storage.percent}%` }}></div>
+                      </div>
+                  </div>
+              </div>
+              <span className="text-[9px] font-mono text-slate-400">{storage.used.toFixed(1)}MB</span>
           </div>
       </div>
 
