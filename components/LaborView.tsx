@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { LaborLog, Personnel, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { Plus, Users, MapPin, Calendar, Pickaxe, List, Wallet, FileText, ShieldCheck, Signature } from 'lucide-react';
+import { Plus, Users, MapPin, Calendar, Pickaxe, List, Wallet, FileText, ShieldCheck, Signature, Clock } from 'lucide-react';
 import { LaborHistoryModal } from './LaborHistoryModal';
 import { HeaderCard, EmptyState, Modal } from './UIElements';
 
@@ -77,9 +77,16 @@ export const LaborView: React.FC<LaborViewProps> = ({
                    <div key={log.id} className={`p-5 rounded-[2.5rem] border shadow-sm space-y-3 transition-all ${log.paid ? 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800' : 'bg-white dark:bg-slate-800 border-amber-200 dark:border-amber-900/30'}`}>
                       <div className="flex justify-between items-center">
                          <span className="text-[10px] text-slate-400 font-bold uppercase">{new Date(log.date).toLocaleDateString()}</span>
-                         <span className="font-black text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full text-xs">
-                             {formatCurrency(log.value)}
-                         </span>
+                         <div className="flex items-center gap-2">
+                             {log.hoursWorked && (
+                                 <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-black flex items-center gap-1">
+                                     <Clock className="w-3 h-3" /> {log.hoursWorked} Hrs
+                                 </span>
+                             )}
+                             <span className="font-black text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full text-xs">
+                                 {formatCurrency(log.value)}
+                             </span>
+                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-xs">{log.personnelName[0]}</div>

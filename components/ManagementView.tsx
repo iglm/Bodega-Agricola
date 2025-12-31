@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, BpaCriterion, PhenologyLog, PestLog } from '../types';
 import { formatCurrency, generateId } from '../services/inventoryService';
 import { Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug, FlaskConical, Scale, Warehouse, HardHat, ChevronDown, ChevronUp, AlertCircle, Award, Sprout, Coffee } from 'lucide-react';
+import { generateBpaReport } from '../services/reportService'; // Import the new function
 
 interface ManagementViewProps {
   machines: Machine[];
@@ -424,6 +425,13 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                         <p className="text-[9px] text-slate-500 mt-4 uppercase font-bold tracking-widest text-center">
                             {auditStandard === 'ICA' ? 'Auditoría Oficial Res. ICA 082394 / 30021' : auditStandard === 'GLOBALGAP' ? 'Basado en GLOBALG.A.P. IFA v6 GFS/Smart' : 'Código de Conducta 4C v4.1 (2025)'}
                         </p>
+                        
+                        <button 
+                            onClick={() => generateBpaReport("Predio Actual", auditStandard, bpaSummary.percent, bpaSummary.criticalFail, bpaSummary.criteria)}
+                            className="mt-6 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl text-xs font-black uppercase transition-all shadow-lg active:scale-95"
+                        >
+                            <FileText className="w-4 h-4" /> Descargar Informe de Auditoría
+                        </button>
                     </div>
                 </div>
 

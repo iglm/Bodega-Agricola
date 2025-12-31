@@ -74,6 +74,30 @@ function App() {
     };
   }, [data]);
 
+  // --- ESTRATEGIA DE BACKUP AUTOMÁTICO (SOLICITADO) ---
+  useEffect(() => {
+    if (!data) return;
+
+    // 1. Backup Periódico (Cada Hora)
+    const backupInterval = setInterval(() => {
+      console.log('Ejecutando Backup Automático (Hora)...');
+      saveDataToLocalStorage(data, 'datosfinca_viva_backup_hourly');
+    }, 3600000); // 1 Hora en ms
+
+    // 2. Backup al Cerrar (Unload)
+    const handleUnload = () => {
+      // Guardado sincrónico crítico al cerrar
+      saveDataToLocalStorage(data, 'datosfinca_viva_backup_exit');
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(backupInterval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [data]);
+
   useEffect(() => {
     document.documentElement.className = theme;
     localStorage.setItem('theme', theme);

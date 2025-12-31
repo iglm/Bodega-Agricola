@@ -126,10 +126,12 @@ export const loadDataFromLocalStorage = (): AppState => {
 };
 
 // Legacy save - deprecated for main flow but kept for emergency fallbacks
-export const saveDataToLocalStorage = (data: AppState) => {
+// Updated to accept an optional key for backups
+export const saveDataToLocalStorage = (data: AppState, key: string = STORAGE_KEY) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
     console.error("Error saving data to local storage", e);
+    // If quota exceeded, we might want to warn the user, but for now we log it.
   }
 };

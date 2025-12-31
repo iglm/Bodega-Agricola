@@ -209,7 +209,9 @@ export interface LaborLog {
   value: number; 
   paid: boolean;
   notes?: string;
-  technicalYield?: number; // Nuevo campo: Rendimiento Técnico (Ha/Jornal)
+  technicalYield?: number; // Rendimiento Técnico (Ha/Jornal)
+  hoursWorked?: number; // NEW: Horas reales trabajadas (Banco de Horas)
+  hourlyRate?: number; // NEW: Valor de la hora pactada
 }
 
 export interface HarvestLog { 

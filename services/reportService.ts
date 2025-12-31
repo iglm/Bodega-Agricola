@@ -2,7 +2,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style'; 
-import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog, Machine, Asset, MaintenanceLog, RainLog, FinanceLog, SoilAnalysis, PPELog, WasteLog, AgendaEvent, CostClassification, Warehouse, PlannedLabor } from '../types';
+import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog, Machine, Asset, MaintenanceLog, RainLog, FinanceLog, SoilAnalysis, PPELog, WasteLog, AgendaEvent, CostClassification, Warehouse, PlannedLabor, BpaCriterion } from '../types';
 import { formatCurrency, generateId, convertToBase, getBaseUnitType, processInventoryMovement } from './inventoryService';
 
 const BRAND_COLORS = {
@@ -45,6 +45,105 @@ const addFooter = (doc: jsPDF) => {
         doc.setPage(i);
         doc.text(`DatosFinca Viva | ${AUTHOR} | Pág ${i} de ${pageCount}`, 105, 290, { align: 'center' });
     }
+};
+
+// --- REPORTES DE AUDITORÍA BPA ---
+export const generateBpaReport = (
+    warehouseName: string,
+    standard: string,
+    score: number,
+    isCriticalFail: boolean,
+    criteria: BpaCriterion[]
+): void => {
+    const doc = new jsPDF();
+    const statusColor = isCriticalFail ? BRAND_COLORS.red : BRAND_COLORS.primary;
+    const statusText = isCriticalFail ? "NO CONFORME (CRÍTICO)" : "PRE-AUDITORÍA APROBADA";
+    
+    let y = addHeader(doc, "INFORME DE AUDITORÍA", `Estándar: ${standard}`, warehouseName, statusColor);
+
+    // 1. Resumen Ejecutivo
+    doc.setFontSize(14);
+    doc.setTextColor(0,0,0);
+    doc.text("1. Resumen de Cumplimiento", 14, y);
+    y += 8;
+
+    doc.setFillColor(isCriticalFail ? 254 : 240, isCriticalFail ? 242 : 253, isCriticalFail ? 242 : 244);
+    doc.setDrawColor(statusColor[0], statusColor[1], statusColor[2]);
+    doc.roundedRect(14, y, 182, 30, 3, 3, 'FD');
+
+    doc.setFontSize(20);
+    doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+    doc.text(`${score.toFixed(1)}%`, 20, y + 12);
+    
+    doc.setFontSize(10);
+    doc.text("Índice de Cumplimiento", 20, y + 18);
+
+    doc.setFontSize(16);
+    doc.text(statusText, 100, y + 12);
+    doc.setFontSize(10);
+    doc.setTextColor(80);
+    doc.text(isCriticalFail ? "Se han detectado fallos en Puntos Mayores/Críticos." : "El predio cumple con los umbrales mínimos del estándar.", 100, y + 18);
+
+    y += 40;
+
+    // 2. Detalle de Criterios
+    doc.setFontSize(14);
+    doc.setTextColor(0,0,0);
+    doc.text("2. Lista de Verificación Detallada", 14, y);
+    y += 5;
+
+    // Agrupar filas
+    const rows = criteria.map(c => [
+        c.category,
+        c.code,
+        c.label,
+        c.complianceLevel === 'MAJOR' ? 'MAYOR' : 'MENOR',
+        c.compliant ? 'CUMPLE' : 'NO CUMPLE'
+    ]);
+
+    autoTable(doc, {
+        startY: y,
+        head: [['Categoría', 'Código', 'Criterio de Control', 'Nivel', 'Estado']],
+        body: rows,
+        theme: 'grid',
+        headStyles: { fillColor: BRAND_COLORS.slate },
+        columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 35 },
+            2: { cellWidth: 'auto' },
+            3: { halign: 'center', cellWidth: 20 },
+            4: { halign: 'center', fontStyle: 'bold', cellWidth: 25 }
+        },
+        didParseCell: (data) => {
+            if (data.section === 'body') {
+                if (data.column.index === 3 && data.cell.raw === 'MAYOR') {
+                    data.cell.styles.textColor = [220, 38, 38]; // Red text for Major
+                }
+                if (data.column.index === 4) {
+                    if (data.cell.raw === 'NO CUMPLE') {
+                        data.cell.styles.fillColor = [254, 226, 226]; // Light Red bg
+                        data.cell.styles.textColor = [220, 38, 38];
+                    } else {
+                        data.cell.styles.textColor = [22, 163, 74]; // Green text
+                    }
+                }
+            }
+        }
+    });
+
+    // Firma
+    const finalY = (doc as any).lastAutoTable.finalY + 30;
+    if (finalY < 250) {
+        doc.line(14, finalY, 80, finalY);
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        doc.text("Firma del Auditor Interno / Productor", 14, finalY + 5);
+        
+        doc.line(110, finalY, 190, finalY);
+        doc.text("Firma del Responsable Agrícola", 110, finalY + 5);
+    }
+
+    addFooter(doc);
+    doc.save(`Auditoria_${standard}_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
 // --- MOTOR DE INGENIERÍA DE DATOS SQL RELACIONAL ---
@@ -618,15 +717,217 @@ export const generateFinancialReport = (data: AppState) => generateExecutiveRepo
 export const generateGlobalReport = (data: AppState) => generateExecutiveReport(data);
 
 export const getDemoData = (): AppState => {
-  // Demo Data Generator - kept same as before but ensure compatibility
-  const WAREHOUSE_ID = 'demo_finca_los_naranjos_v2';
-  const warehouse: Warehouse = { id: WAREHOUSE_ID, name: "Finca Demo 'Los Naranjos'", created: new Date().toISOString(), ownerId: 'demo' };
-  // ... (Rest of demo data is handled in previous implementation, assume it exists or use empty arrays if simple)
-  // For brevity in this fix, returning a minimal functional state if called directly, 
-  // but in the main App.tsx the full getDemoData from previous turns is used.
+  const WAREHOUSE_ID = 'demo_finca_esperanza_v3';
+  const TODAY = new Date();
+  
+  // --- 1. MASTER DATA ---
+  const warehouse: Warehouse = { id: WAREHOUSE_ID, name: "Finca La Esperanza", created: new Date().toISOString(), ownerId: 'demo_user' };
+  
+  const suppliers = [
+      { id: 'sup1', warehouseId: WAREHOUSE_ID, name: 'Agroinsumos del Café', phone: '3105551234', address: 'Plaza Principal' },
+      { id: 'sup2', warehouseId: WAREHOUSE_ID, name: 'Cooperativa de Caficultores', phone: '3125556789', address: 'Km 2 Vía al Valle' }
+  ];
+
+  const personnel: Personnel[] = [
+      { id: 'p1', warehouseId: WAREHOUSE_ID, name: 'José Martínez', role: 'Mayordomo', documentId: '1053123456', phone: '3201112233' },
+      { id: 'p2', warehouseId: WAREHOUSE_ID, name: 'Carlos Pérez', role: 'Recolector', documentId: '98765432' },
+      { id: 'p3', warehouseId: WAREHOUSE_ID, name: 'Ana López', role: 'Varios/Cocina', documentId: '12345678' },
+      { id: 'p4', warehouseId: WAREHOUSE_ID, name: 'Pedro Gómez', role: 'Contratista Podas', documentId: '87654321' }
+  ];
+
+  const costCenters: CostCenter[] = [
+      { id: 'lot1', warehouseId: WAREHOUSE_ID, name: 'Lote 1 - El Guayabo', area: 3.5, stage: 'Produccion', cropType: 'Café', plantCount: 15000, productionArea: 3.5 },
+      { id: 'lot2', warehouseId: WAREHOUSE_ID, name: 'Lote 2 - La Peña', area: 1.8, stage: 'Levante', cropType: 'Café', plantCount: 8000, accumulatedCapex: 12500000 },
+      { id: 'lot3', warehouseId: WAREHOUSE_ID, name: 'Lote 3 - El Bajo', area: 1.0, stage: 'Produccion', cropType: 'Plátano', plantCount: 1000 }
+  ];
+
+  const activities: Activity[] = [
+      { id: 'act1', warehouseId: WAREHOUSE_ID, name: 'Recolección', costClassification: 'COFFEE' },
+      { id: 'act2', warehouseId: WAREHOUSE_ID, name: 'Fertilización', costClassification: 'JOINT' },
+      { id: 'act3', warehouseId: WAREHOUSE_ID, name: 'Plateo (Guadaña)', costClassification: 'JOINT' },
+      { id: 'act4', warehouseId: WAREHOUSE_ID, name: 'Fumigación Broca', costClassification: 'COFFEE' },
+      { id: 'act5', warehouseId: WAREHOUSE_ID, name: 'Mantenimiento Beneficio', costClassification: 'JOINT' }
+  ];
+
+  // --- 2. INVENTORY & MOVEMENTS ---
+  let inventory: InventoryItem[] = [
+      { id: 'inv1', warehouseId: WAREHOUSE_ID, name: 'Urea', category: Category.FERTILIZANTE, baseUnit: 'g', currentQuantity: 0, averageCost: 0, lastPurchasePrice: 135000, lastPurchaseUnit: Unit.BULTO_50KG },
+      { id: 'inv2', warehouseId: WAREHOUSE_ID, name: 'DAP 18-46-0', category: 'Fertilizante' as Category, baseUnit: 'g', currentQuantity: 0, averageCost: 0, lastPurchasePrice: 180000, lastPurchaseUnit: Unit.BULTO_50KG },
+      { id: 'inv3', warehouseId: WAREHOUSE_ID, name: 'Glifosato', category: 'Herbicida' as Category, baseUnit: 'ml', currentQuantity: 0, averageCost: 0, lastPurchasePrice: 45000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 15 },
+      { id: 'inv4', warehouseId: WAREHOUSE_ID, name: 'Verdadero 600', category: 'Fungicida' as Category, baseUnit: 'g', currentQuantity: 0, averageCost: 0, lastPurchasePrice: 85000, lastPurchaseUnit: Unit.KILO, safetyIntervalDays: 21 },
+      { id: 'inv5', warehouseId: WAREHOUSE_ID, name: 'BrocaX', category: 'Insecticida' as Category, baseUnit: 'ml', currentQuantity: 0, averageCost: 0, lastPurchasePrice: 120000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 30 }
+  ];
+
+  let movements: Movement[] = [];
+
+  // Simulate buying stock 3 months ago
+  const buyStock = (itemIdx: number, qty: number, price: number, dateOffset: number, supplierIdx: number) => {
+      const item = inventory[itemIdx];
+      const date = new Date(TODAY);
+      date.setDate(date.getDate() - dateOffset);
+      
+      const mov: Movement = {
+          id: generateId(),
+          warehouseId: WAREHOUSE_ID,
+          itemId: item.id,
+          itemName: item.name,
+          type: 'IN',
+          quantity: qty,
+          unit: item.lastPurchaseUnit,
+          calculatedCost: qty * price,
+          date: date.toISOString(),
+          supplierId: suppliers[supplierIdx].id,
+          supplierName: suppliers[supplierIdx].name,
+          invoiceNumber: `FACT-${Math.floor(Math.random() * 10000)}`
+      };
+      
+      const res = processInventoryMovement(inventory, mov, price);
+      inventory = res.updatedInventory;
+      movements.push(mov);
+  };
+
+  buyStock(0, 20, 130000, 90, 0); // 20 Bultos Urea
+  buyStock(1, 15, 175000, 85, 1); // 15 Bultos DAP
+  buyStock(2, 10, 42000, 80, 0); // 10 Litros Glifo
+  buyStock(0, 10, 140000, 45, 1); // 10 Bultos Urea (Precio subió)
+  buyStock(4, 5, 125000, 30, 0); // 5 Litros BrocaX
+
+  // Simulate usage (Outputs)
+  const useStock = (itemIdx: number, qty: number, lotIdx: number, dateOffset: number, note: string) => {
+      const item = inventory[itemIdx];
+      const date = new Date(TODAY);
+      date.setDate(date.getDate() - dateOffset);
+      
+      const unit = item.lastPurchaseUnit === Unit.BULTO_50KG ? Unit.KILO : item.lastPurchaseUnit; // Use smaller unit for output
+      const qtyBase = convertToBase(qty, unit); // e.g., 50kg
+      const cost = qtyBase * item.averageCost;
+
+      const mov: Movement = {
+          id: generateId(),
+          warehouseId: WAREHOUSE_ID,
+          itemId: item.id,
+          itemName: item.name,
+          type: 'OUT',
+          quantity: qty,
+          unit: unit,
+          calculatedCost: cost,
+          date: date.toISOString(),
+          costCenterId: costCenters[lotIdx].id,
+          costCenterName: costCenters[lotIdx].name,
+          notes: note,
+          phiApplied: item.safetyIntervalDays
+      };
+
+      const res = processInventoryMovement(inventory, mov);
+      inventory = res.updatedInventory;
+      movements.push(mov);
+  };
+
+  useStock(0, 500, 0, 70, "Abonada Lote Producción"); // 500kg Urea
+  useStock(1, 200, 1, 60, "Abonada Levante"); 
+  useStock(2, 2, 0, 50, "Control Maleza"); // 2 Litros Glifo
+  useStock(4, 1, 0, 10, "Control Broca Foco"); // 1 Litro Insecticida (Recent!)
+
+  // --- 3. LABOR LOGS (MASSIVE) ---
+  const laborLogs: LaborLog[] = [];
+  
+  // Loop last 12 weeks
+  for (let i = 0; i < 12; i++) {
+      const weekDate = new Date(TODAY);
+      weekDate.setDate(weekDate.getDate() - (i * 7));
+      const dateStr = weekDate.toISOString();
+
+      // Mayordomo (Fixed Salary-ish)
+      laborLogs.push({
+          id: generateId(), warehouseId: WAREHOUSE_ID, date: dateStr, personnelId: 'p1', personnelName: 'José Martínez',
+          activityId: 'act5', activityName: 'Administración', costCenterId: 'lot1', costCenterName: 'General',
+          value: 450000, paid: true, notes: 'Semana Mayordomía'
+      });
+
+      // Recolector (Harvest Season Logic)
+      if (i < 8) { // Peak harvest was 2 months ago
+          laborLogs.push({
+              id: generateId(), warehouseId: WAREHOUSE_ID, date: dateStr, personnelId: 'p2', personnelName: 'Carlos Pérez',
+              activityId: 'act1', activityName: 'Recolección', costCenterId: 'lot1', costCenterName: 'Lote 1 - El Guayabo',
+              value: Math.floor(Math.random() * 300000) + 200000, paid: true, notes: 'Pago al Kilo'
+          });
+      }
+
+      // HOURLY LABOR EXAMPLE (New Feature)
+      if (i % 2 === 0) {
+          laborLogs.push({
+              id: generateId(), warehouseId: WAREHOUSE_ID, date: dateStr, personnelId: 'p4', personnelName: 'Pedro Gómez',
+              activityId: 'act3', activityName: 'Mantenimiento', costCenterId: 'lot2', costCenterName: 'Lote 2 - La Peña',
+              value: 120000, paid: true, 
+              hoursWorked: 8, hourlyRate: 15000, // 8 hours * 15k
+              notes: 'Poda de Formación por Horas'
+          });
+      }
+  }
+
+  // --- 4. HARVESTS ---
+  const harvests: HarvestLog[] = [];
+  // Simulate 8 weeks of harvest
+  for (let i = 0; i < 8; i++) {
+      const weekDate = new Date(TODAY);
+      weekDate.setDate(weekDate.getDate() - (i * 7) - 10);
+      
+      const kg = Math.floor(Math.random() * 500) + 200; // 200-700kg per week
+      const price = 2400000 / 125; // Base price per kg roughly
+      
+      harvests.push({
+          id: generateId(), warehouseId: WAREHOUSE_ID, date: weekDate.toISOString(),
+          costCenterId: 'lot1', costCenterName: 'Lote 1 - El Guayabo', cropName: 'Café Cereza',
+          quantity: kg, unit: 'Kg', totalValue: kg * price,
+          notes: `Pase Semana ${i+1}`
+      });
+  }
+
+  // --- 5. RAIN & OTHERS ---
+  const rainLogs: RainLog[] = [];
+  for (let i = 0; i < 30; i++) {
+      if (Math.random() > 0.5) {
+          const d = new Date(TODAY);
+          d.setDate(d.getDate() - i);
+          rainLogs.push({
+              id: generateId(), warehouseId: WAREHOUSE_ID, date: d.toISOString(),
+              millimeters: Math.floor(Math.random() * 50)
+          });
+      }
+  }
+
+  const financeLogs: FinanceLog[] = [
+      { id: 'fin1', warehouseId: WAREHOUSE_ID, date: new Date().toISOString(), type: 'EXPENSE', category: 'Servicios', amount: 150000, description: 'Energía Eléctrica Beneficio' },
+      { id: 'fin2', warehouseId: WAREHOUSE_ID, date: new Date().toISOString(), type: 'EXPENSE', category: 'Impuestos', amount: 450000, description: 'Predial Parcial' }
+  ];
+
   return {
       warehouses: [warehouse],
       activeWarehouseId: WAREHOUSE_ID,
-      inventory: [], movements: [], suppliers: [], costCenters: [], personnel: [], activities: [], laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], swot: { f:'', o:'', d:'', a:'' }, bpaChecklist: {}, assets: [], laborFactor: 1.0
+      inventory,
+      movements,
+      suppliers,
+      costCenters,
+      personnel,
+      activities,
+      laborLogs,
+      harvests,
+      machines: [],
+      maintenanceLogs: [],
+      rainLogs,
+      financeLogs,
+      soilAnalyses: [],
+      ppeLogs: [],
+      wasteLogs: [],
+      agenda: [],
+      phenologyLogs: [],
+      pestLogs: [],
+      plannedLabors: [],
+      budgets: [],
+      swot: { f:'Suelos volcánicos ricos.', o:'Precios internacionales al alza.', d:'Vías de acceso en mal estado.', a:'Fenómeno del Niño.' },
+      bpaChecklist: { '1.1': true, '1.2': true, '3.1': true }, // Some checked items
+      assets: [],
+      laborFactor: 1.0,
+      adminPin: '1234' // Default demo pin
   };
 };
