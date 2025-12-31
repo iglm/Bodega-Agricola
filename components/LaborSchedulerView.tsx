@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { PlannedLabor, CostCenter, Activity, BudgetPlan, LaborLog, Personnel } from '../types';
+import { PlannedLabor, CostCenter, Activity, BudgetPlan, LaborLog } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { CalendarRange, Plus, Calendar, Pickaxe, MapPin, Users, DollarSign, Calculator, Filter, CheckCircle2, Circle, Trash2, ArrowRight, AlertTriangle, AlertCircle, BarChart3, TrendingUp, Flag } from 'lucide-react';
+import { CalendarRange, Plus, Calendar, Pickaxe, MapPin, Users, DollarSign, Calculator, Filter, CheckCircle2, Circle, Trash2, ArrowRight, AlertTriangle, AlertCircle } from 'lucide-react';
 import { HeaderCard, EmptyState, Modal } from './UIElements';
 
 interface LaborSchedulerViewProps {
@@ -15,7 +15,6 @@ interface LaborSchedulerViewProps {
   // Budget Integration
   budgets?: BudgetPlan[];
   laborLogs?: LaborLog[];
-  personnel?: Personnel[]; // NEW: Added personnel prop
   laborFactor?: number;
 }
 
@@ -28,7 +27,6 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
   onToggleComplete,
   budgets = [],
   laborLogs = [],
-  personnel = [],
   laborFactor = 1.0
 }) => {
   const [showForm, setShowForm] = useState(false);
@@ -42,7 +40,6 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
   const [technicalYield, setTechnicalYield] = useState(''); // Ha / Jornal
   const [unitCost, setUnitCost] = useState('');
   const [efficiency, setEfficiency] = useState('100');
-  const [priority, setPriority] = useState<'HIGH'|'MEDIUM'|'LOW'>('MEDIUM');
   
   // Derived Calculation for Form
   const projection = useMemo(() => {
@@ -63,49 +60,6 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
 
       return { jornales: totalJornales, totalCost, people };
   }, [targetArea, technicalYield, unitCost, efficiency]);
-
-  // --- CAPACITY CHECK LOGIC ---
-  const capacityCheck = useMemo(() => {
-      const availableWorkers = personnel.length;
-      if (availableWorkers === 0) return { status: 'unknown', gap: 0 };
-      
-      const needed = projection.people;
-      const gap = needed - availableWorkers;
-      
-      if (gap > 0) return { status: 'overload', gap };
-      if (needed > availableWorkers * 0.8) return { status: 'tight', gap: 0 }; // 80% capacity
-      return { status: 'ok', gap: 0 };
-  }, [projection.people, personnel.length]);
-
-  // --- WEEKLY LOAD WIDGET DATA ---
-  const weeklyLoad = useMemo(() => {
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
-      // Adjust to start Monday (assuming Mon start) or just show next 7 days
-      // Let's show next 5 days
-      const days = [];
-      for (let i = 0; i < 5; i++) {
-          const d = new Date(today);
-          d.setDate(today.getDate() + i);
-          d.setHours(0,0,0,0);
-          
-          const load = plannedLabors
-            .filter(l => !l.completed)
-            .filter(l => {
-                const ld = new Date(l.date);
-                ld.setHours(0,0,0,0);
-                return ld.getTime() === d.getTime();
-            })
-            .reduce((sum, l) => sum + (l.calculatedPersonDays || 0), 0);
-            
-          days.push({ 
-              dayName: d.toLocaleDateString('es-CO', { weekday: 'short' }), 
-              load,
-              date: d
-          });
-      }
-      return days;
-  }, [plannedLabors]);
 
   // --- BUDGET CHECK LOGIC ---
   const budgetCheck = useMemo(() => {
@@ -164,14 +118,12 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
           unitCost: parseFloat(unitCost),
           efficiency: parseFloat(efficiency),
           calculatedPersonDays: projection.jornales,
-          calculatedTotalCost: projection.totalCost,
-          priority
+          calculatedTotalCost: projection.totalCost
       });
       setShowForm(false);
       // Reset sensitive fields
       setTargetArea('');
       setTechnicalYield('');
-      setPriority('MEDIUM');
   };
 
   // Filter Logic
@@ -191,14 +143,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
           }
           if (filterPeriod === 'month') return lDate.getMonth() === today.getMonth() && lDate.getFullYear() === today.getFullYear();
           return true;
-      }).sort((a,b) => {
-          // Sort by Priority first (High > Med > Low) then Date
-          const priorityVal = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, undefined: 1 };
-          const pA = priorityVal[a.priority || 'LOW'];
-          const pB = priorityVal[b.priority || 'LOW'];
-          if (pA !== pB) return pB - pA;
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
-      });
+      }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [plannedLabors, filterPeriod]);
 
   // Totals
@@ -223,29 +168,6 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
             actionLabel="Programar Labor"
             actionIcon={Plus}
         />
-
-        {/* WEEKLY LOAD WIDGET (NEW) */}
-        <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-700 shadow-lg">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase mb-4 flex items-center gap-2">
-                <BarChart3 className="w-3 h-3 text-violet-400" /> Carga Laboral (Próximos 5 Días)
-            </h4>
-            <div className="flex justify-between items-end gap-2 h-16">
-                {weeklyLoad.map((d, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                        <div className="w-full bg-slate-800 rounded-t-lg relative overflow-hidden h-full flex items-end justify-center">
-                            <div 
-                                className={`w-full transition-all duration-500 ${d.load > personnel.length ? 'bg-red-500' : d.load > 0 ? 'bg-violet-500' : 'bg-slate-700'}`} 
-                                style={{ height: `${Math.min((d.load / (personnel.length || 1)) * 100, 100)}%` }}
-                            ></div>
-                        </div>
-                        <div className="text-center">
-                            <span className="text-[9px] font-bold text-slate-300 block uppercase">{d.dayName}</span>
-                            <span className="text-[8px] font-mono text-slate-500">{d.load.toFixed(0)}</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
 
         {/* Filters & Summary */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -284,10 +206,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                                     {new Date(l.date).getDate()}
                                 </div>
                                 <div>
-                                    <h4 className={`font-black text-sm flex items-center gap-2 ${l.completed ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-white'}`}>
-                                        {l.activityName}
-                                        {l.priority === 'HIGH' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 uppercase">Urgente</span>}
-                                    </h4>
+                                    <h4 className={`font-black text-sm ${l.completed ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-white'}`}>{l.activityName}</h4>
                                     <p className="text-[10px] text-slate-500 font-bold uppercase flex items-center gap-1">
                                         <MapPin className="w-3 h-3" /> {l.costCenterName} • {l.targetArea} Ha
                                     </p>
@@ -358,18 +277,9 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                     </div>
                 </div>
 
-                {/* 3. Indicadores Técnicos y Prioridad */}
+                {/* 3. Indicadores Técnicos */}
                 <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Calculator className="w-3 h-3"/> Indicadores Técnicos</h5>
-                        
-                        <div className="flex bg-slate-950 p-1 rounded-lg">
-                            <button type="button" onClick={() => setPriority('LOW')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-colors ${priority === 'LOW' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Baja</button>
-                            <button type="button" onClick={() => setPriority('MEDIUM')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-colors ${priority === 'MEDIUM' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>Media</button>
-                            <button type="button" onClick={() => setPriority('HIGH')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-colors ${priority === 'HIGH' ? 'bg-red-600 text-white' : 'text-slate-500'}`}>Alta</button>
-                        </div>
-                    </div>
-
+                    <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Calculator className="w-3 h-3"/> Indicadores Técnicos</h5>
                     <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-400 uppercase block">Rendimiento (Ha/Jornal)</label>
@@ -386,7 +296,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                     </div>
                 </div>
 
-                {/* 4. Resultado y ALERTAS DE CAPACIDAD & PRESUPUESTO */}
+                {/* 4. Resultado y ALERTA DE PRESUPUESTO */}
                 <div className="bg-violet-900/20 p-5 rounded-2xl border border-violet-500/30">
                     <div className="flex items-center justify-between mb-4">
                         <div>
@@ -400,62 +310,46 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        {/* ALERTA DE CAPACIDAD */}
-                        {capacityCheck.status === 'overload' && (
-                            <div className="p-3 rounded-xl border flex items-start gap-3 bg-orange-950/40 border-orange-500/50">
-                                <Users className="w-5 h-5 text-orange-500 shrink-0 mt-0.5 animate-pulse" />
-                                <div>
-                                    <p className="text-xs font-bold text-orange-400 uppercase">Sobrecarga de Personal</p>
-                                    <p className="text-[10px] text-orange-200/70 mt-0.5 leading-tight">
-                                        Necesitas {projection.people} personas pero solo tienes {personnel.length} activos en nómina.
-                                        <br/> Déficit: {capacityCheck.gap} trabajadores.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* SEMÁFORO PRESUPUESTAL */}
-                        {budgetCheck && (
-                            <div className={`p-3 rounded-xl border flex items-start gap-3 ${
-                                budgetCheck.status === 'no-budget' ? 'bg-slate-900 border-slate-700' :
-                                budgetCheck.isOver ? 'bg-red-950/40 border-red-500/50' :
-                                'bg-emerald-950/40 border-emerald-500/50'
-                            }`}>
-                                {budgetCheck.status === 'no-budget' ? (
-                                    <>
-                                        <AlertCircle className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase">Sin Presupuesto Definido</p>
-                                            <p className="text-[10px] text-slate-500 mt-0.5">No hay un plan financiero para este lote y año.</p>
-                                        </div>
-                                    </>
-                                ) : budgetCheck.isOver ? (
-                                    <>
-                                        <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5 animate-pulse" />
-                                        <div>
-                                            <p className="text-xs font-bold text-red-400 uppercase">Desviación Presupuestal</p>
-                                            <p className="text-[10px] text-red-200/70 mt-0.5 leading-tight">
-                                                Esta labor excede el presupuesto restante en <strong>{formatCurrency(budgetCheck.newCost - budgetCheck.remaining)}</strong>.
-                                                <br/>
-                                                Disponible: {formatCurrency(Math.max(0, budgetCheck.remaining))}
-                                            </p>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs font-bold text-emerald-400 uppercase">Aprobado Financieramente</p>
-                                            <p className="text-[10px] text-emerald-200/70 mt-0.5">
-                                                La labor cabe dentro del presupuesto disponible ({formatCurrency(budgetCheck.remaining)}).
-                                            </p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    {/* SEMÁFORO PRESUPUESTAL */}
+                    {budgetCheck && (
+                        <div className={`mt-3 p-3 rounded-xl border flex items-start gap-3 ${
+                            budgetCheck.status === 'no-budget' ? 'bg-slate-900 border-slate-700' :
+                            budgetCheck.isOver ? 'bg-red-950/40 border-red-500/50' :
+                            'bg-emerald-950/40 border-emerald-500/50'
+                        }`}>
+                            {budgetCheck.status === 'no-budget' ? (
+                                <>
+                                    <AlertCircle className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400 uppercase">Sin Presupuesto Definido</p>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">No hay un plan financiero para este lote y año.</p>
+                                    </div>
+                                </>
+                            ) : budgetCheck.isOver ? (
+                                <>
+                                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5 animate-pulse" />
+                                    <div>
+                                        <p className="text-xs font-bold text-red-400 uppercase">Desviación Presupuestal</p>
+                                        <p className="text-[10px] text-red-200/70 mt-0.5 leading-tight">
+                                            Esta labor excede el presupuesto restante en <strong>{formatCurrency(budgetCheck.newCost - budgetCheck.remaining)}</strong>.
+                                            <br/>
+                                            Disponible: {formatCurrency(Math.max(0, budgetCheck.remaining))}
+                                        </p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-bold text-emerald-400 uppercase">Aprobado Financieramente</p>
+                                        <p className="text-[10px] text-emerald-200/70 mt-0.5">
+                                            La labor cabe dentro del presupuesto disponible ({formatCurrency(budgetCheck.remaining)}).
+                                        </p>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-4 rounded-xl shadow-xl shadow-violet-900/40 active:scale-95 transition-all">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppState, InventoryItem, Movement, Unit, User, Category, PlannedLabor, BudgetPlan, CostCenter } from './types';
 import { dbService } from './services/db';
@@ -35,6 +34,7 @@ import { BiologicalAssetsView } from './components/BiologicalAssetsView';
 
 import { 
   Menu, BarChart3, Package, Users, Sprout, DollarSign, Settings, 
+  /* Added FileText import here */
   LogOut, ClipboardList, Target, ShieldCheck, Database, Lock, CalendarRange, Calculator, TreePine,
   Wallet, Warehouse, FileText
 } from 'lucide-react';
