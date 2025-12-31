@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { InventoryItem, AgendaEvent, HarvestLog, LaborLog, Movement, MaintenanceLog, FinanceLog } from '../types';
 import { formatCurrency, getCostPerGramOrMl, formatBaseQuantity } from '../services/inventoryService';
 import { getStorageUsage } from '../services/imageService';
-import { TrendingDown, TrendingUp, DollarSign, Package, AlertTriangle, Image as ImageIcon, Search, PieChart, Activity, Trash2, Calendar, Clock, Wallet, HeartPulse, HardDrive, Edit3, Save, Eraser, Pickaxe, Target, Plus, History, ArrowRight } from 'lucide-react';
+import { TrendingDown, TrendingUp, DollarSign, Package, AlertTriangle, Image as ImageIcon, Search, PieChart, Activity, Trash2, Calendar, Clock, Wallet, HeartPulse, HardDrive, Edit3, Save, Eraser, Pickaxe, Target, Plus } from 'lucide-react';
 
 interface DashboardProps {
   inventory: InventoryItem[];
@@ -214,33 +214,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const totalVal = item.currentQuantity * getCostPerGramOrMl(item);
                 return (
                     <div key={item.id} className={`bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border transition-all hover:shadow-xl relative group ${isLowStock ? 'border-orange-500/30' : 'border-slate-200 dark:border-slate-700'}`}>
-                        
-                        {/* TOP RIGHT ACTION BUTTONS */}
-                        <div className="absolute top-4 right-4 flex gap-1">
+                        {isAdmin && (
                             <button 
-                                onClick={(e) => { e.stopPropagation(); onViewHistory(item); }}
-                                className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"
-                                title="Ver Historial (Kárdex)"
+                                onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} 
+                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2"
+                                title="Eliminar Ítem"
                             >
-                                <History className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" />
                             </button>
-                            {isAdmin && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} 
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                    title="Eliminar Ítem"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-
+                        )}
                         <div className="flex gap-4">
                             <div onClick={() => onViewHistory(item)} className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-900 flex-shrink-0 overflow-hidden cursor-pointer border dark:border-slate-700 transition-transform active:scale-90">
                                 {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon className="w-8 h-8" /></div>}
                             </div>
-                            <div className="flex-1 min-w-0 pr-8">
-                                <h3 className="font-black text-slate-800 dark:text-white truncate">{item.name}</h3>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-black text-slate-800 dark:text-white truncate pr-6">{item.name}</h3>
                                 <div className="flex items-end justify-between mt-2">
                                     <div>
                                         <p className="text-[8px] text-slate-400 uppercase font-black">Stock Actual</p>
@@ -254,8 +242,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t dark:border-slate-700 flex gap-2">
-                            <button onClick={() => onAddMovement(item, 'IN')} className="flex-1 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 font-black text-[10px] uppercase transition-colors hover:bg-emerald-100 flex items-center justify-center gap-1"><Plus className="w-3 h-3"/> Entrada</button>
-                            <button onClick={() => onAddMovement(item, 'OUT')} className="flex-1 p-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 font-black text-[10px] uppercase transition-colors hover:bg-red-100 flex items-center justify-center gap-1"><ArrowRight className="w-3 h-3"/> Salida</button>
+                            <button onClick={() => onAddMovement(item, 'IN')} className="flex-1 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 font-black text-[10px] uppercase transition-colors hover:bg-emerald-100">Entrada</button>
+                            <button onClick={() => onAddMovement(item, 'OUT')} className="flex-1 p-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 font-black text-[10px] uppercase transition-colors hover:bg-red-100">Salida</button>
                         </div>
                     </div>
                 );

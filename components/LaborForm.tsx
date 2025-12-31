@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Personnel, CostCenter, Activity, LaborLog } from '../types';
-import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle, Users, CheckSquare, Square, Gauge, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
-import { formatCurrency } from '../services/inventoryService';
+import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle, Users, CheckSquare, Square } from 'lucide-react';
 
 interface LaborFormProps {
   personnel: Personnel[];
@@ -18,37 +17,15 @@ export const LaborForm: React.FC<LaborFormProps> = ({
   costCenters, 
   activities, 
   onSave, 
-  onCancel, 
+  onCancel,
   onOpenSettings
 }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedPersonnelIds, setSelectedPersonnelIds] = useState<string[]>([]);
   const [costCenterId, setCostCenterId] = useState('');
   const [activityId, setActivityId] = useState('');
-  
-  // Basic Mode State
   const [value, setValue] = useState('');
-  
-  // Hourly Mode State
-  const [isHourlyMode, setIsHourlyMode] = useState(false);
-  const [hoursWorked, setHoursWorked] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('');
-
-  const [technicalYield, setTechnicalYield] = useState('');
   const [notes, setNotes] = useState('');
-
-  // Auto-Calculate Total when in Hourly Mode
-  useEffect(() => {
-      if (isHourlyMode) {
-          const h = parseFloat(hoursWorked);
-          const r = parseFloat(hourlyRate);
-          if (!isNaN(h) && !isNaN(r)) {
-              setValue((h * r).toString());
-          } else {
-              setValue('');
-          }
-      }
-  }, [hoursWorked, hourlyRate, isHourlyMode]);
 
   const togglePerson = (id: string) => {
     setSelectedPersonnelIds(prev => 
@@ -86,9 +63,6 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                 activityId,
                 activityName: selectedActivity.name,
                 value: parseFloat(value),
-                technicalYield: technicalYield ? parseFloat(technicalYield) : undefined,
-                hoursWorked: isHourlyMode ? parseFloat(hoursWorked) : undefined,
-                hourlyRate: isHourlyMode ? parseFloat(hourlyRate) : undefined,
                 notes: notes.trim()
             });
         }
@@ -108,8 +82,8 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                 <Users className="w-5 h-5 text-amber-600 dark:text-amber-500" />
              </div>
              <div>
-                <h3 className="text-slate-800 dark:text-white font-black text-lg leading-none">Registrar Labor</h3>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-1">Cuadrilla / Individual</p>
+                <h3 className="text-slate-800 dark:text-white font-black text-lg leading-none">Registrar Jornal</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-1">Modo Cuadrilla / Individual</p>
              </div>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
@@ -195,7 +169,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                     {selectedPersonnelIds.length === personnel.length ? 'Deseleccionar' : 'Todos'}
                  </button>
              </div>
-             <div className="max-h-32 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 space-y-1">
+             <div className="max-h-40 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 space-y-1">
                  {personnel.map(p => {
                      const isSelected = selectedPersonnelIds.includes(p.id);
                      return (
@@ -213,98 +187,34 @@ export const LaborForm: React.FC<LaborFormProps> = ({
              </div>
           </div>
 
-          {/* MODE TOGGLE - JORNAL VS HOURLY */}
-          <div className="flex justify-center py-2">
-              <button 
-                type="button"
-                onClick={() => setIsHourlyMode(!isHourlyMode)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${isHourlyMode ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}
-              >
-                  {isHourlyMode ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-                  <span className="text-xs font-bold uppercase">{isHourlyMode ? 'Banco de Horas (Flores)' : 'Jornal / Día (Tradicional)'}</span>
-              </button>
-          </div>
-
-          {/* Financials Logic */}
-          <div className={`p-4 rounded-2xl border transition-all ${isHourlyMode ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700'}`}>
-              {isHourlyMode ? (
-                  <div className="grid grid-cols-2 gap-3">
-                      <div>
-                          <label className="text-[10px] font-black text-blue-500 uppercase block mb-1">Horas Trabajadas</label>
-                          <div className="relative">
-                              <input 
-                                  type="number" 
-                                  step="0.5"
-                                  value={hoursWorked}
-                                  onChange={e => setHoursWorked(e.target.value)}
-                                  className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl p-3 pl-8 text-blue-600 font-black focus:ring-2 focus:ring-blue-500 outline-none"
-                                  placeholder="0.0"
-                              />
-                              <Clock className="w-4 h-4 text-blue-400 absolute left-3 top-3.5" />
-                          </div>
-                      </div>
-                      <div>
-                          <label className="text-[10px] font-black text-blue-500 uppercase block mb-1">Valor Hora</label>
-                          <input 
-                              type="number" 
-                              value={hourlyRate}
-                              onChange={e => setHourlyRate(e.target.value)}
-                              className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-blue-600 font-black focus:ring-2 focus:ring-blue-500 outline-none"
-                              placeholder="$"
-                          />
-                      </div>
-                  </div>
-              ) : (
-                  <div>
-                      <label className="block text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1 flex items-center gap-1">
-                          <DollarSign className="w-3 h-3" /> Costo Total Jornal / Contrato
-                      </label>
-                      <input 
-                          type="number" 
-                          value={value}
-                          onChange={e => setValue(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-800 border border-emerald-500/30 rounded-xl p-3 text-slate-800 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-colors font-mono text-lg font-black"
-                          placeholder="0"
-                          required
-                      />
-                  </div>
-              )}
-
-              {/* Total Calculation Display */}
-              {isHourlyMode && (
-                  <div className="mt-3 flex justify-between items-center border-t border-blue-200 dark:border-blue-800 pt-2">
-                      <span className="text-[10px] font-bold text-blue-400 uppercase">Costo Total Calculado:</span>
-                      <span className="text-lg font-black text-blue-600 font-mono">{value ? formatCurrency(parseFloat(value)) : '$ 0'}</span>
-                  </div>
-              )}
-          </div>
-
-          {/* Optional Performance */}
-          <div>
-                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
-                    <Gauge className="w-3 h-3 text-slate-400" /> Rendimiento Técnico (Opcional)
+          {/* Value & Notes */}
+          <div className="space-y-3">
+             <div>
+                <label className="block text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" /> Costo Unitario (Por Persona)
                 </label>
                 <input 
-                    type="number"
-                    step="0.01"
-                    value={technicalYield}
-                    onChange={e => setTechnicalYield(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white outline-none text-sm font-bold transition-colors"
-                    placeholder={isHourlyMode ? "Ej: Camas/Hora" : "Ej: Ha/Jornal"}
+                    type="number" 
+                    value={value}
+                    onChange={e => setValue(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-500/30 rounded-xl p-3 text-slate-800 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-colors font-mono text-lg font-black"
+                    placeholder="0"
+                    required
                 />
-          </div>
+             </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1">
-                Notas (Opcional)
-            </label>
-            <textarea 
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white outline-none text-xs font-medium resize-none"
-                placeholder="Detalles adicionales..."
-                rows={2}
-            />
+             <div>
+                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1">
+                    Notas (Opcional)
+                </label>
+                <textarea 
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white outline-none text-xs font-medium resize-none"
+                    placeholder="Detalles adicionales..."
+                    rows={2}
+                />
+             </div>
           </div>
 
         </form>
@@ -316,7 +226,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                 className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-900/20 active:scale-95"
             >
                 <Save className="w-5 h-5" />
-                {selectedPersonnelIds.length > 1 ? `REGISTRAR (${selectedPersonnelIds.length}) PERSONAS` : 'GUARDAR REGISTRO'}
+                {selectedPersonnelIds.length > 1 ? `REGISTRAR (${selectedPersonnelIds.length}) JORNALES` : 'GUARDAR REGISTRO'}
             </button>
         </div>
 

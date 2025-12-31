@@ -305,7 +305,7 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                             <div className="flex justify-between items-center bg-slate-950/50 p-3 rounded-xl">
                                 <div>
                                     <p className="text-[9px] text-slate-400 font-black uppercase">Costo por Kilo</p>
-                                    <p className="text-lg font-mono font-black text-white">{formatCurrency(bench.actualCup || 0)} <span className="text-[10px] text-slate-500">/Kg</span></p>
+                                    <p className="text-lg font-mono font-black text-white">{formatCurrency(bench.actualCup)} <span className="text-[10px] text-slate-500">/Kg</span></p>
                                 </div>
                                 <DollarSign className="w-5 h-5 text-emerald-600 opacity-50" />
                             </div>
@@ -314,7 +314,7 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                             <div className="flex justify-between items-center border-b border-slate-800 pb-2">
                                 <span className="text-[10px] text-slate-500 uppercase font-bold">Rendimiento (Kg/Ha)</span>
                                 <div className="text-right">
-                                    <span className="text-sm font-black text-white">{(bench.actualYield || 0).toFixed(0)}</span>
+                                    <span className="text-sm font-black text-white">{bench.actualYield.toFixed(0)}</span>
                                     <span className="text-[9px] text-slate-500 ml-2">Esperado: {bench.benchYield}</span>
                                 </div>
                             </div>
@@ -324,9 +324,9 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                                 <span className="text-[10px] text-slate-500 uppercase font-bold">Participación Mano de Obra</span>
                                 <div className="text-right">
                                     <span className={`text-sm font-black ${(bench.actualLaborPart > bench.benchLabor) ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                        {((bench.actualLaborPart || 0) * 100).toFixed(1)}%
+                                        {(bench.actualLaborPart * 100).toFixed(1)}%
                                     </span>
-                                    <span className="text-[9px] text-slate-500 ml-2">Ref: {((bench.benchLabor || 0) * 100).toFixed(1)}%</span>
+                                    <span className="text-[9px] text-slate-500 ml-2">Ref: {(bench.benchLabor * 100).toFixed(1)}%</span>
                                 </div>
                             </div>
                         </div>
@@ -339,16 +339,16 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
         <div className="space-y-4">
             <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest"><Scale className="w-5 h-5 text-blue-500" /> KPIs Financieros Globales</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <KPI_Card title="Punto de Equilibrio" value={isFinite(kpiData.breakEvenKg) ? `${(kpiData.breakEvenKg || 0).toFixed(0)} Kg` : 'N/A'} subvalue="Para cubrir costos fijos" color="text-emerald-400" icon={Landmark} />
-                <KPI_Card title="Tasa de Gasto Mensual" value={formatCurrency(kpiData.burnRate || 0)} subvalue="Burn Rate Operativo" color="text-red-400" icon={Timer} />
+                <KPI_Card title="Punto de Equilibrio" value={isFinite(kpiData.breakEvenKg) ? `${kpiData.breakEvenKg.toFixed(0)} Kg` : 'N/A'} subvalue="Para cubrir costos fijos" color="text-emerald-400" icon={Landmark} />
+                <KPI_Card title="Tasa de Gasto Mensual" value={formatCurrency(kpiData.burnRate)} subvalue="Burn Rate Operativo" color="text-red-400" icon={Timer} />
                 <div className="md:col-span-1 bg-slate-950/50 p-6 rounded-3xl border border-slate-800">
                      <p className="text-[10px] font-black text-indigo-400 uppercase mb-3 flex items-center gap-2"><PieChart className="w-4 h-4" /> Estructura de Costos</p>
                      <PieChartSVG data={kpiData.costStructureData} />
                 </div>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <KPI_Card title="Inversión (CAPEX)" value={formatCurrency(kpiData.totalCapex || 0)} subvalue="Costos de Levante y siembra" color="text-blue-400" icon={Briefcase} />
-                 <KPI_Card title="Operación (OPEX)" value={formatCurrency(kpiData.totalOpex || 0)} subvalue="Costos de Producción" color="text-purple-400" icon={ActivityIcon} />
+                 <KPI_Card title="Inversión (CAPEX)" value={formatCurrency(kpiData.totalCapex)} subvalue="Costos de Levante y siembra" color="text-blue-400" icon={Briefcase} />
+                 <KPI_Card title="Operación (OPEX)" value={formatCurrency(kpiData.totalOpex)} subvalue="Costos de Producción" color="text-purple-400" icon={ActivityIcon} />
             </div>
         </div>
 
@@ -356,22 +356,22 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
         <div className="space-y-4">
             <h3 className="font-black text-white flex items-center gap-2 uppercase text-sm tracking-widest"><Zap className="w-5 h-5 text-amber-500" /> KPIs Operativos y Productividad</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <KPI_Card title="Intensidad Laboral" value={`${(kpiData.laborIntensity || 0).toFixed(1)}`} subvalue="Horas-Hombre / Hectárea" color="text-indigo-400" icon={Users} />
+                <KPI_Card title="Intensidad Laboral" value={`${kpiData.laborIntensity.toFixed(1)}`} subvalue="Horas-Hombre / Hectárea" color="text-indigo-400" icon={Users} />
                 {kpiData.lotCalculations.filter(l => l.stage === 'Produccion').slice(0,1).map(lot => ( // Show only first production lot for brevity
                     <div key={lot.id} className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800 space-y-4">
                          <h4 className="font-black text-white text-base border-b border-slate-800 pb-2 mb-4">{lot.name}</h4>
                          <div className="grid grid-cols-3 gap-2 text-center">
                              <div>
                                 <p className="text-[9px] font-black text-amber-400 uppercase">Costo/Kg (CUP)</p>
-                                <p className="text-lg font-mono font-bold text-white">{formatCurrency(lot.cup || 0)}</p>
+                                <p className="text-lg font-mono font-bold text-white">{formatCurrency(lot.cup)}</p>
                              </div>
                              <div>
                                 <p className="text-[9px] font-black text-amber-400 uppercase">Rendimiento</p>
-                                <p className="text-lg font-mono font-bold text-white">{(lot.yieldHa || 0).toFixed(0)} <span className="text-xs">Kg/Ha</span></p>
+                                <p className="text-lg font-mono font-bold text-white">{lot.yieldHa.toFixed(0)} <span className="text-xs">Kg/Ha</span></p>
                              </div>
                              <div>
                                 <p className="text-[9px] font-black text-amber-400 uppercase">Costo Laboral</p>
-                                <p className="text-lg font-mono font-bold text-white">{formatCurrency(lot.laborEfficiency || 0)}<span className="text-xs">/Kg</span></p>
+                                <p className="text-lg font-mono font-bold text-white">{formatCurrency(lot.laborEfficiency)}<span className="text-xs">/Kg</span></p>
                              </div>
                          </div>
                     </div>
@@ -386,7 +386,7 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                  {kpiData.lotCalculations.map(lot => (
                     <div key={lot.id} className="flex justify-between items-center text-xs border-b border-slate-800/50 pb-2">
                         <span className="text-white font-bold">{lot.name}</span>
-                        <span className={`font-mono font-black ${lot.net >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(lot.net || 0)}</span>
+                        <span className={`font-mono font-black ${lot.net >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(lot.net)}</span>
                     </div>
                  ))}
             </div>

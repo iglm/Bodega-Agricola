@@ -1,53 +1,18 @@
 
 import React, { useState, useMemo } from 'react';
-import { Calculator, Sprout, TrendingUp, Users, DollarSign, Ruler, Clock, Briefcase, ChevronDown, PieChart, Scale, TrendingDown, AlertTriangle, BarChart3, Handshake, Target, CheckCircle2, Scissors, ShieldCheck, Warehouse, BookOpen, Info, Leaf, ArrowRight, Wallet, Coins, RefreshCw, CalendarDays, Zap, Download, FileSpreadsheet, FileText, Landmark, Activity, Table, Map, Sun, BadgeDollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Calculator, Sprout, TrendingUp, Users, DollarSign, Ruler, Clock, Briefcase, ChevronDown, PieChart, Scale, TrendingDown, AlertTriangle, BarChart3, Handshake, Target, CheckCircle2, Scissors, ShieldCheck, Warehouse, BookOpen, Info, Leaf, ArrowRight, Wallet, Coins, RefreshCw, CalendarDays, Zap, Download, FileSpreadsheet, FileText, Landmark, Activity, Table } from 'lucide-react';
 import { formatCurrency } from '../services/inventoryService';
 import { generateSimulatorPDF, generateSimulatorExcel } from '../services/reportService';
 
-// --- CONSTANTES AGRONÓMICAS REALISTAS (CENICAFÉ / COMITÉ) ---
-
-// Curvas de Producción por Región
-const REGIONAL_CURVES = {
-    'EJE_CAFETERO': {
-        name: 'Eje Cafetero (Bimodal)',
-        desc: 'Ciclo rápido con Mitaca. Inicia producción leve en Año 2.',
-        curve: [
-            { year: 1, percent: 0, fertFactor: 0.3, label: 'Siembra (Inversión)', replanting: 0.05 },
-            { year: 2, percent: 0.20, fertFactor: 0.6, label: 'Levante / Granea', replanting: 0.10 }, // Granea temprano
-            { year: 3, percent: 0.70, fertFactor: 0.9, label: 'Primera Producción', replanting: 0.03 },
-            { year: 4, percent: 1.00, fertFactor: 1.0, label: 'Pico Productivo 1', replanting: 0.02 },
-            { year: 5, percent: 0.90, fertFactor: 1.0, label: 'Estabilización', replanting: 0.02 },
-            { year: 6, percent: 0.80, fertFactor: 1.0, label: 'Pico Productivo 2', replanting: 0.02 }, // Ciclo renovado por poda
-            { year: 7, percent: 0.60, fertFactor: 1.0, label: 'Prep. Renovación', replanting: 0.0 },
-        ]
-    },
-    'SUR_HUILA': {
-        name: 'Sur - Huila/Nariño (Monomodal)',
-        desc: 'Ciclo más lento por altura. Picos más altos y concentrados.',
-        curve: [
-            { year: 1, percent: 0, fertFactor: 0.3, label: 'Siembra (Inversión)', replanting: 0.05 },
-            { year: 2, percent: 0.05, fertFactor: 0.6, label: 'Levante Tardío', replanting: 0.12 }, // Muy poco café año 2
-            { year: 3, percent: 0.60, fertFactor: 0.9, label: 'Inicio Producción', replanting: 0.03 },
-            { year: 4, percent: 1.10, fertFactor: 1.0, label: 'Crecimiento', replanting: 0.02 }, // Supera el 100% del promedio
-            { year: 5, percent: 1.20, fertFactor: 1.0, label: 'Pico Máximo', replanting: 0.02 }, 
-            { year: 6, percent: 0.90, fertFactor: 1.0, label: 'Estabilización', replanting: 0.02 },
-            { year: 7, percent: 0.70, fertFactor: 1.0, label: 'Declive', replanting: 0.0 },
-        ]
-    },
-    'SIERRA_NORTE': {
-        name: 'Sierra Nevada / Norte',
-        desc: 'Estrés hídrico marcado. Cosecha muy concentrada a fin de año.',
-        curve: [
-            { year: 1, percent: 0, fertFactor: 0.3, label: 'Siembra (Inversión)', replanting: 0.08 }, // Mayor mortalidad
-            { year: 2, percent: 0.10, fertFactor: 0.6, label: 'Levante', replanting: 0.10 },
-            { year: 3, percent: 0.60, fertFactor: 0.9, label: 'Producción', replanting: 0.03 },
-            { year: 4, percent: 0.90, fertFactor: 1.0, label: 'Pico', replanting: 0.02 },
-            { year: 5, percent: 0.80, fertFactor: 1.0, label: 'Estabilización', replanting: 0.02 },
-            { year: 6, percent: 0.65, fertFactor: 1.0, label: 'Declive Rápido', replanting: 0.02 },
-            { year: 7, percent: 0.40, fertFactor: 1.0, label: 'Agotamiento', replanting: 0.0 },
-        ]
-    }
-};
+// --- CONSTANTES AGRONÓMICAS REALISTAS ---
+const PHENOLOGY_CYCLE = [
+    { month: 'Ene-Feb', stage: 'Post-Cosecha / Floración', flow: 'out', intensity: 'high', label: 'Fase de Sostenimiento', desc: 'Pago deudas, Zoqueos, Manejo Broca.' },
+    { month: 'Mar-Abr', stage: 'Llenado Grano (Mitaca)', flow: 'out', intensity: 'critical', label: 'Alta Demanda de Caja', desc: 'Compra Fertilizante 1 + Inicio Recolección.' },
+    { month: 'May-Jun', stage: 'Cosecha Mitaca (30%)', flow: 'in', intensity: 'medium', label: 'Flujo Mitaca', desc: 'Recuperación de liquidez. Guardar caja.' },
+    { month: 'Jul-Ago', stage: 'Formación Principal', flow: 'out', intensity: 'high', label: 'Inversión Pre-Cosecha', desc: 'Control Roya/Broca, Limpias, Prep. Beneficio.' },
+    { month: 'Sep-Oct', stage: 'Inicio Cosecha Principal', flow: 'mixed', intensity: 'low', label: 'Punto de Inflexión', desc: 'Compra Fertilizante 2 + Inicio Flujo Ventas.' },
+    { month: 'Nov-Dic', stage: 'Pico Cosecha (70%)', flow: 'in', intensity: 'high', label: 'Superávit', desc: 'Maximización ingresos y Utilidad Neta.' },
+];
 
 const TECHNICAL_STANDARDS = {
     establishment: {
@@ -66,203 +31,157 @@ const TECHNICAL_STANDARDS = {
     }
 };
 
-// Helper: Calculate IRR (Newton-Raphson)
-const calculateInternalIRR = (cashFlows: number[]): number => {
-    let guess = 0.1;
-    for (let i = 0; i < 20; i++) {
-        let npv = 0;
-        let d_npv = 0;
-        for (let t = 0; t < cashFlows.length; t++) {
-            npv += cashFlows[t] / Math.pow(1 + guess, t);
-            d_npv -= (t * cashFlows[t]) / Math.pow(1 + guess, t + 1);
-        }
-        if (Math.abs(d_npv) < 0.00001) return guess;
-        const newGuess = guess - npv / d_npv;
-        if (Math.abs(newGuess - guess) < 0.00001) return newGuess;
-        guess = newGuess;
-    }
-    return guess;
-};
-
-// Helper: Calculate NPV
-const calculateNPV = (cashFlows: number[], rate: number): number => {
-    return cashFlows.reduce((acc, val, t) => acc + val / Math.pow(1 + rate, t), 0);
-};
+const PRODUCTION_CURVE = [
+    { year: 1, percent: 0, fertFactor: 0.3, label: 'Siembra (Inversión)', replanting: 0.05 }, // 5% pérdida inicial
+    { year: 2, percent: 0.15, fertFactor: 0.6, label: 'Levante (Gasto)', replanting: 0.12 }, // 12% resiembra crítica
+    { year: 3, percent: 0.60, fertFactor: 0.9, label: 'Primera Producción', replanting: 0.03 }, // 3% mortalidad natural
+    { year: 4, percent: 1.00, fertFactor: 1.0, label: 'Pico Productivo', replanting: 0.02 },
+    { year: 5, percent: 0.85, fertFactor: 1.0, label: 'Estabilización', replanting: 0.02 },
+    { year: 6, percent: 0.70, fertFactor: 1.0, label: 'Declive Productivo', replanting: 0.02 },
+    { year: 7, percent: 0.50, fertFactor: 1.0, label: 'Prep. Renovación', replanting: 0.0 },
+];
 
 export const SimulatorView: React.FC = () => {
     // --- INPUTS TÉCNICOS ---
     const [totalTrees, setTotalTrees] = useState(5000);
-    const [density, setDensity] = useState(5500); 
-    
-    // --- ESCENARIOS DE PRECIO ---
-    const [coffeeLoadPrice, setCoffeeLoadPrice] = useState(2400000); // Precio Base (Promedio)
-    const [minPrice, setMinPrice] = useState(1800000); // Pesimista
-    const [maxPrice, setMaxPrice] = useState(3000000); // Optimista
-
-    const [selectedRegion, setSelectedRegion] = useState<keyof typeof REGIONAL_CURVES>('EJE_CAFETERO');
+    const [density, setDensity] = useState(5000); 
+    const [coffeeLoadPrice, setCoffeeLoadPrice] = useState(2600000); 
     
     // --- COSTOS UNITARIOS ---
-    const [jornalValue, setJornalValue] = useState(65000); 
-    const [fertilizerPriceBulto, setFertilizerPriceBulto] = useState(145000); 
-    const [seedlingCost, setSeedlingCost] = useState(1200); 
-    const [harvestCostPerKg, setHarvestCostPerKg] = useState(1000); 
-    const [yieldConversion, setYieldConversion] = useState(5.5); // Kg Cereza por Kg Pergamino (Cenicafé 5.0 - 5.5)
+    const [jornalValue, setJornalValue] = useState(80000); 
+    const [fertilizerPriceBulto, setFertilizerPriceBulto] = useState(150000); 
+    const [seedlingCost, setSeedlingCost] = useState(1200); // Subido precio colino realista
+    const [harvestCostPerKg, setHarvestCostPerKg] = useState(1200); 
+    const [yieldConversion, setYieldConversion] = useState(5.0); // 5:1
     
     // --- COSTOS FIJOS Y OCULTOS ---
-    const [adminOverheadPct, setAdminOverheadPct] = useState(12); 
-
-    // --- ESTRATEGIA FINANCIERA (VALLE DE LA MUERTE) ---
-    const [intercroppingIncome, setIntercroppingIncome] = useState(0); // Ingreso Cultivos Transitorios Año 1-2
-    const [financingRate, setFinancingRate] = useState(1.5); // Tasa Interés Mensual M.V. (%)
+    const [adminOverheadPct, setAdminOverheadPct] = useState(15); // % de costos directos para administración/imprevistos
 
     // --- META FINANCIERA ---
-    const [monthlyGoal, setMonthlyGoal] = useState(2500000);
-    const [peakYieldPerTree, setPeakYieldPerTree] = useState(1.2); // Kilos de PERGAMINO SECO por árbol
+    const [monthlyGoal, setMonthlyGoal] = useState(2000000);
+    const [peakYieldPerTree, setPeakYieldPerTree] = useState(5); // Kg Cereza/Árbol Año Pico
 
     // --- CÁLCULOS TÉCNICOS ---
     const calculation = useMemo(() => {
         const areaHa = totalTrees / density;
-        const currentCurve = REGIONAL_CURVES[selectedRegion].curve;
 
         // 1. Costos Unitarios Detallados (Base Anual Adulta)
         const fertPricePerKg = fertilizerPriceBulto / 50;
         const totalFertKg = (TECHNICAL_STANDARDS.maintenance.fertilizacion_qty_ha * areaHa); 
         const costFertInsumo = totalFertKg * fertPricePerKg;
-        const totalFertJornales = (totalFertKg / 50) / 8; 
+        const totalFertJornales = (totalFertKg / 200); 
         const costFertLabor = totalFertJornales * jornalValue;
 
-        const culturalJornalesTotal = 55 * areaHa;
-        const culturalCostTotal = culturalJornalesTotal * jornalValue;
+        // Labores Culturales Base (Plateos, Desyerbas, Fitosanitario estimado)
+        const culturalLaborPerTree = jornalValue * (4 / 200); // Aprox 4 jornales/año por cada 200 árboles (estándar)
+        const culturalCostTotal = culturalLaborPerTree * totalTrees;
 
-        const laborEstablishment = areaHa * (30 + 15 + 10);
-        const costEstLabor = laborEstablishment * jornalValue;
-        const costEstInsumo = (totalTrees * seedlingCost); 
+        // ESTABLECIMIENTO (AÑO 1 - Inversión Inicial)
+        const costEstLabor = (totalTrees * jornalValue * ((1/700) + (1/600) + (1/950))); // Ahoyado, Siembra, Trazo
+        const costEstInsumo = (totalTrees * seedlingCost); // Colinos iniciales
+        
+        // 2. Proyección 7 Años
+        let globalAccumulated = 0;
+        let globalInvestment = 0;
+        let totalRevenue = 0;
+        let totalExpenses = 0;
+        let totalCargasProduced = 0;
+        let paybackYear = -1;
 
-        // --- FUNCIÓN GENERADORA DE ESCENARIOS ---
-        const calculateScenario = (scenarioPrice: number, label: string) => {
-            let globalAccumulated = 0;
-            let globalInvestment = 0; // Max negative accumulated (Valley)
-            let totalRevenue = 0;
-            let totalExpenses = 0;
-            let totalCargasProduced = 0;
-            let paybackYear = -1;
-            const cashFlows: number[] = []; // Annual Net Cash Flows for NPV/IRR (Year 0 is mostly initial inv)
+        const yearlyData = PRODUCTION_CURVE.map(curve => {
+            // --- INGRESOS ---
+            const yieldKgCereza = peakYieldPerTree * curve.percent * totalTrees; 
+            const yieldKgCPS = yieldKgCereza / yieldConversion; 
+            const yieldCargas = yieldKgCPS / TECHNICAL_STANDARDS.production.factor_carga;
+            const income = yieldCargas * coffeeLoadPrice;
 
-            const yearlyData = currentCurve.map((curve, index) => {
-                // INGRESOS
-                const yieldCPS_Tree = peakYieldPerTree * curve.percent;
-                const yieldKgCereza_Tree = yieldCPS_Tree * yieldConversion;
-                const totalKgCereza = yieldKgCereza_Tree * totalTrees;
-                const totalKgCPS = yieldCPS_Tree * totalTrees;
-                const yieldCargas = totalKgCPS / 125;
-                
-                const incomeCoffee = yieldCargas * scenarioPrice;
-                
-                let incomeIntercropping = 0;
-                if (curve.year <= 2) {
-                    incomeIntercropping = intercroppingIncome * areaHa;
-                }
-                const totalIncome = incomeCoffee + incomeIntercropping;
+            // --- EGRESOS DETALLADOS ---
+            
+            // 1. Costo Variable Recolección (Directamente ligado a producción)
+            const costHarvest = yieldKgCereza * harvestCostPerKg;
 
-                // EGRESOS
-                const costHarvest = totalKgCereza * harvestCostPerKg;
-                const currentFertCost = (costFertInsumo + costFertLabor) * curve.fertFactor;
-                const currentCulturalCost = culturalCostTotal * (curve.year === 1 ? 0.8 : 1.0);
+            // 2. Costo Fertilización (Ajustado por edad)
+            const currentFertCost = (costFertInsumo + costFertLabor) * curve.fertFactor;
 
-                const treesToReplant = totalTrees * curve.replanting;
-                const totalReplanting = (treesToReplant * seedlingCost) + (treesToReplant * (jornalValue / 50));
+            // 3. Costo Mantenimiento Cultural (Limpias, Fitosanitario)
+            // En levante (Año 1-2) se gasta casi lo mismo en limpias que en producción
+            const currentCulturalCost = culturalCostTotal * (curve.year === 1 ? 0.8 : 1.0);
 
-                const initialSetup = curve.year === 1 ? (costEstLabor + costEstInsumo) : 0;
+            // 4. Costo Resiembras (El "hueco" financiero del levante)
+            // Se calcula sobre el total de árboles
+            const treesToReplant = totalTrees * curve.replanting;
+            const costReplantingMaterial = treesToReplant * seedlingCost;
+            const costReplantingLabor = treesToReplant * (jornalValue / 50); // 50 árboles/jornal resiembra
+            const totalReplanting = costReplantingMaterial + costReplantingLabor;
 
-                const subtotalOperational = currentFertCost + currentCulturalCost + totalReplanting + initialSetup;
-                const overhead = subtotalOperational * (adminOverheadPct / 100);
+            // 5. Costo Establecimiento (Solo año 1)
+            const initialSetup = curve.year === 1 ? (costEstLabor + costEstInsumo) : 0;
 
-                // Costo Financiero
-                let financialCost = 0;
-                if (globalAccumulated < 0) {
-                    const annualRate = Math.pow(1 + (financingRate/100), 12) - 1;
-                    financialCost = Math.abs(globalAccumulated) * annualRate;
-                }
+            // 6. Gastos Administrativos / Imprevistos (Sobre subtotal operativo)
+            const subtotalOperational = currentFertCost + currentCulturalCost + totalReplanting + initialSetup;
+            const overhead = subtotalOperational * (adminOverheadPct / 100);
 
-                const totalCost = subtotalOperational + costHarvest + overhead + financialCost;
-                const profit = totalIncome - totalCost;
+            // TOTAL EGRESOS AÑO
+            const totalCost = subtotalOperational + costHarvest + overhead;
+            const profit = income - totalCost;
 
-                globalAccumulated += profit;
-                if (globalAccumulated < 0 && Math.abs(globalAccumulated) > globalInvestment) {
-                    globalInvestment = Math.abs(globalAccumulated);
-                }
-                if (paybackYear === -1 && globalAccumulated > 0) paybackYear = curve.year;
+            globalAccumulated += profit;
+            if (globalAccumulated < 0) {
+                // Track max negative cash flow needed
+                if (Math.abs(globalAccumulated) > globalInvestment) globalInvestment = Math.abs(globalAccumulated);
+            }
+            
+            if (paybackYear === -1 && globalAccumulated > 0) paybackYear = curve.year;
 
-                totalRevenue += totalIncome;
-                totalExpenses += totalCost;
-                totalCargasProduced += yieldCargas;
-
-                // Push Cash Flow for this year
-                // Note: Standard financial models usually have Y0 as investment. Here Y1 includes setup.
-                cashFlows.push(profit);
-
-                return {
-                    year: curve.year,
-                    label: curve.label,
-                    yieldCargas,
-                    income: totalIncome,
-                    incomeCoffee,
-                    incomeIntercropping,
-                    totalCost,
-                    financialCost,
-                    profit,
-                    marginPct: totalIncome > 0 ? (profit / totalIncome) * 100 : -100,
-                    accumulated: globalAccumulated,
-                    replantingCount: treesToReplant
-                };
-            });
-
-            // Financial Metrics
-            const annualDiscountRate = Math.pow(1 + (financingRate / 100), 12) - 1;
-            // Add initial year 0 cash flow (conceptually 0 or initial setup if separated, here setup is in Y1)
-            // For correct IRR/NPV, usually we assume Year 1 is the first period.
-            const npv = calculateNPV(cashFlows, annualDiscountRate); 
-            const irr = calculateInternalIRR([-globalInvestment * 0.5, ...cashFlows]); // Approximation for IRR base
-
-            const totalProfit = totalRevenue - totalExpenses;
-            const netMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-            const annualProfitAvg = totalProfit / 7;
-            const annualizedROI = globalInvestment > 0 ? (annualProfitAvg / globalInvestment) * 100 : 0;
-            const costPerCarga = totalCargasProduced > 0 ? totalExpenses / totalCargasProduced : 0;
-            const avgMonthlyTotal = annualProfitAvg / 12;
+            totalRevenue += income;
+            totalExpenses += totalCost;
+            totalCargasProduced += yieldCargas;
 
             return {
-                label,
-                price: scenarioPrice,
-                yearlyData,
-                globalAccumulated,
-                avgMonthlyTotal,
-                paybackYear,
-                maxInvestment: globalInvestment,
-                annualizedROI,
-                netMargin,
-                costPerCarga,
-                totalRevenue,
-                totalExpenses,
-                totalCargas: totalCargasProduced,
-                npv,
-                irr: annualizedROI // Using ROI as proxy for IRR in this simplified view to match user expectation of "Rentabilidad"
+                year: curve.year,
+                label: curve.label,
+                yieldKg: yieldKgCereza / totalTrees,
+                income,
+                totalCost,
+                profit,
+                marginPct: income > 0 ? (profit / income) * 100 : -100,
+                accumulated: globalAccumulated,
+                replantingCount: treesToReplant // For debugging/display
             };
-        };
+        });
 
-        // --- EJECUCIÓN DE ESCENARIOS ---
-        const baseScenario = calculateScenario(coffeeLoadPrice, 'Probable');
-        const pessimisticScenario = calculateScenario(minPrice, 'Pesimista');
-        const optimisticScenario = calculateScenario(maxPrice, 'Optimista');
+        // --- FINANCIAL METRICS REFINADAS ---
+        const totalProfit = totalRevenue - totalExpenses;
+        
+        // Net Margin (Real world profitability metric)
+        const netMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+        
+        // Annualized ROI (CAGR approximate)
+        // (Valor Final / Inversión)^ (1/n) - 1. 
+        // Here we use a simpler Average Annual Return over Investment for clarity in agro.
+        // Investment = Max cash exposure (Capital de Trabajo Máximo)
+        const annualProfitAvg = totalProfit / 7;
+        const annualizedROI = globalInvestment > 0 ? (annualProfitAvg / globalInvestment) * 100 : 0;
+
+        const costPerCarga = totalCargasProduced > 0 ? totalExpenses / totalCargasProduced : 0;
+        const avgMonthlyTotal = annualProfitAvg / 12;
 
         return {
-            ...baseScenario, // Keep base scenario as primary for charts
-            sensitivity: [pessimisticScenario, baseScenario, optimisticScenario], // Array for comparison
-            areaHa
+            yearlyData,
+            globalAccumulated,
+            avgMonthlyTotal,
+            paybackYear,
+            maxInvestment: globalInvestment,
+            annualizedROI,
+            netMargin,
+            costPerCarga,
+            totalRevenue,
+            totalExpenses,
+            totalCargas: totalCargasProduced
         };
-    }, [totalTrees, density, coffeeLoadPrice, minPrice, maxPrice, jornalValue, fertilizerPriceBulto, seedlingCost, harvestCostPerKg, peakYieldPerTree, yieldConversion, adminOverheadPct, selectedRegion, intercroppingIncome, financingRate]);
+    }, [totalTrees, density, coffeeLoadPrice, jornalValue, fertilizerPriceBulto, seedlingCost, harvestCostPerKg, peakYieldPerTree, yieldConversion, adminOverheadPct]);
 
-    // --- CÁLCULO INVERSO ---
+    // --- CÁLCULO INVERSO (META) ---
     const reverseCalc = useMemo(() => {
         const profitPerTreeMonth = calculation.avgMonthlyTotal / totalTrees;
         if (profitPerTreeMonth <= 0) return { trees: 0, area: 0 };
@@ -271,19 +190,21 @@ export const SimulatorView: React.FC = () => {
     }, [monthlyGoal, calculation.avgMonthlyTotal, totalTrees, density]);
 
     const handleExportPDF = () => {
-        generateSimulatorPDF({
+        const simData = {
             parameters: { totalTrees, density, coffeeLoadPrice, jornalValue, fertilizerPriceBulto, harvestCostPerKg, yieldConversion },
             calculation,
             reverseCalc: { ...reverseCalc, goal: monthlyGoal }
-        });
+        };
+        generateSimulatorPDF(simData);
     };
 
     const handleExportExcel = () => {
-        generateSimulatorExcel({
+        const simData = {
             parameters: { totalTrees, density, coffeeLoadPrice, jornalValue, fertilizerPriceBulto, harvestCostPerKg, yieldConversion },
             calculation,
             reverseCalc: { ...reverseCalc, goal: monthlyGoal }
-        });
+        };
+        generateSimulatorExcel(simData);
     };
 
     return (
@@ -294,9 +215,9 @@ export const SimulatorView: React.FC = () => {
                 <div className="relative z-10">
                     <div className="flex items-center justify-center gap-3 mb-2">
                         <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg"><Calculator className="w-6 h-6 text-white" /></div>
-                        <h2 className="text-white font-black text-xl uppercase tracking-tighter">Simulador Financiero Cafetero</h2>
+                        <h2 className="text-white font-black text-xl uppercase tracking-tighter">Simulador Financiero Realista</h2>
                     </div>
-                    <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-[0.2em]">Modelo de Viabilidad con Flujo de Caja Real</p>
+                    <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-[0.2em]">Modelo Conservador con Resiembras y Costos Ocultos</p>
                     
                     <div className="flex justify-center gap-3 mt-6">
                         <button onClick={handleExportPDF} className="flex items-center gap-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all"><FileText className="w-4 h-4" /> PDF</button>
@@ -305,176 +226,89 @@ export const SimulatorView: React.FC = () => {
                 </div>
             </div>
 
-            {/* ZONA DE CONTROL */}
+            {/* INPUTS PRINCIPALES */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* COLUMNA 1: PARÁMETROS BÁSICOS */}
-                <div className="space-y-4">
+                <div className="lg:col-span-1 space-y-4">
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl">
                         <h3 className="font-black text-slate-700 dark:text-white uppercase text-xs flex items-center gap-2 tracking-widest mb-4">
-                            <Map className="w-4 h-4 text-emerald-500" /> Configuración Regional
+                            <Ruler className="w-4 h-4 text-emerald-500" /> Variables de Ajuste
                         </h3>
                         
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Región Productiva</label>
-                                <select 
-                                    value={selectedRegion} 
-                                    onChange={e => setSelectedRegion(e.target.value as any)}
-                                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white text-xs font-bold outline-none"
-                                >
-                                    {Object.entries(REGIONAL_CURVES).map(([key, data]) => (
-                                        <option key={key} value={key}>{data.name}</option>
-                                    ))}
-                                </select>
-                                <p className="text-[9px] text-slate-400 mt-1 italic">{REGIONAL_CURVES[selectedRegion].desc}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase">Árboles</label>
-                                    <input type="number" value={totalTrees} onChange={e => setTotalTrees(Number(e.target.value))} className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-xl p-3 text-slate-800 dark:text-white font-mono font-black text-sm" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase">Densidad</label>
-                                    <input type="number" value={density} onChange={e => setDensity(Number(e.target.value))} className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-xl p-3 text-slate-800 dark:text-white font-mono font-black text-sm" />
-                                </div>
+                                <label className="text-[9px] font-black text-slate-500 uppercase">Cantidad Árboles</label>
+                                <input type="number" value={totalTrees} onChange={e => setTotalTrees(Number(e.target.value))} className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-xl p-3 text-slate-800 dark:text-white font-mono font-black text-lg" />
                             </div>
                             
-                            {/* RANGO DE PRECIOS - ANÁLISIS DE SENSIBILIDAD */}
-                            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                                <h4 className="text-[9px] font-black text-indigo-500 uppercase flex items-center gap-1"><TrendingUp className="w-3 h-3"/> Escenarios de Precio (Carga)</h4>
-                                
-                                <div>
-                                    <label className="text-[8px] font-bold text-red-400 uppercase">Pesimista (Mín)</label>
-                                    <input type="number" value={minPrice} onChange={e => setMinPrice(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-red-500/20 text-red-500 font-mono font-bold" />
-                                </div>
-                                
-                                <div>
-                                    <label className="text-[8px] font-bold text-emerald-500 uppercase flex items-center gap-2">
-                                        <DollarSign className="w-3 h-3" /> Promedio / Base
-                                    </label>
-                                    <input type="number" value={coffeeLoadPrice} onChange={e => setCoffeeLoadPrice(Number(e.target.value))} className="w-full bg-emerald-500/10 border border-emerald-500 rounded-xl p-3 text-emerald-600 font-mono font-black text-lg outline-none" />
-                                </div>
-
-                                <div>
-                                    <label className="text-[8px] font-bold text-blue-400 uppercase">Optimista (Máx)</label>
-                                    <input type="number" value={maxPrice} onChange={e => setMaxPrice(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-blue-500/20 text-blue-500 font-mono font-bold" />
-                                </div>
+                            <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800">
+                                <label className="text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase flex items-center gap-2 mb-1">
+                                    <DollarSign className="w-3 h-3" /> Precio Carga Hoy
+                                </label>
+                                <input type="number" value={coffeeLoadPrice} onChange={e => setCoffeeLoadPrice(Number(e.target.value))} className="w-full bg-transparent border-none p-0 text-emerald-600 dark:text-emerald-400 font-mono font-black text-2xl outline-none" />
                             </div>
+
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <label className="text-[9px] font-black text-slate-500 uppercase mb-2 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3 text-amber-500" /> Gastos Admin / Imprevistos
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="range" 
+                                        min="5" 
+                                        max="30" 
+                                        value={adminOverheadPct} 
+                                        onChange={e => setAdminOverheadPct(Number(e.target.value))} 
+                                        className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                    />
+                                    <span className="text-xs font-black text-slate-700 dark:text-white w-8">{adminOverheadPct}%</span>
+                                </div>
+                                <p className="text-[8px] text-slate-400 mt-1 italic">Incluye herramientas, transporte y administración.</p>
+                            </div>
+
+                            <details className="group">
+                                <summary className="flex justify-between items-center cursor-pointer text-[9px] font-black text-slate-400 uppercase py-2 hover:text-slate-600 dark:hover:text-slate-200">
+                                    <span>Costos Unitarios Detallados</span>
+                                    <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform"/>
+                                </summary>
+                                <div className="grid grid-cols-2 gap-2 pt-2 animate-fade-in-down">
+                                    <div><label className="text-[8px] font-bold text-slate-500">Jornal ($)</label><input type="number" value={jornalValue} onChange={e => setJornalValue(Number(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-900 rounded-lg p-2 text-xs" /></div>
+                                    <div><label className="text-[8px] font-bold text-slate-500">Bulto Fert ($)</label><input type="number" value={fertilizerPriceBulto} onChange={e => setFertilizerPriceBulto(Number(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-900 rounded-lg p-2 text-xs" /></div>
+                                    <div><label className="text-[8px] font-bold text-slate-500">Recolección/Kg</label><input type="number" value={harvestCostPerKg} onChange={e => setHarvestCostPerKg(Number(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-900 rounded-lg p-2 text-xs" /></div>
+                                    <div><label className="text-[8px] font-bold text-slate-500">Colino ($)</label><input type="number" value={seedlingCost} onChange={e => setSeedlingCost(Number(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-900 rounded-lg p-2 text-xs" /></div>
+                                    <div className="col-span-2 bg-amber-50 dark:bg-amber-900/10 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+                                        <label className="text-[8px] font-bold text-amber-600 dark:text-amber-400 block mb-1">Factor Rendimiento (Kilos)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input type="number" step="0.1" value={peakYieldPerTree} onChange={e => setPeakYieldPerTree(Number(e.target.value))} className="w-full bg-white dark:bg-slate-900 rounded-md p-1 text-xs text-center font-bold" />
+                                            <span className="text-[9px] font-black text-slate-400">Kg/Árbol (Pico)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
                         </div>
                     </div>
 
-                    {/* VALLE DE LA MUERTE - ESTRATEGIA */}
+                    {/* KPI CARD */}
                     <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-700 shadow-xl">
-                        <h4 className="text-white font-black text-xs uppercase flex items-center gap-2 mb-3">
-                            <ShieldCheck className="w-4 h-4 text-amber-500" /> Estrategia: Valle de la Muerte
+                        <h4 className="text-white font-black text-xs uppercase flex items-center gap-2 mb-2">
+                            <Coins className="w-4 h-4 text-amber-500" /> Promedio Mensual Libre
                         </h4>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Ingreso Cultivos Transitorios / Ha</label>
-                                <div className="flex items-center bg-slate-800 rounded-xl p-2 border border-slate-600">
-                                    <span className="text-emerald-500 font-black mr-2">$</span>
-                                    <input 
-                                        type="number" 
-                                        value={intercroppingIncome} 
-                                        onChange={e => setIntercroppingIncome(Number(e.target.value))} 
-                                        className="bg-transparent border-none text-white text-sm w-full outline-none font-mono"
-                                        placeholder="0"
-                                    />
-                                </div>
-                                <p className="text-[8px] text-slate-500 mt-1">Ingreso neto anual por maíz/frijol durante años 1 y 2.</p>
-                            </div>
-
-                            <div>
-                                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Tasa Interés Crédito (M.V.)</label>
-                                <div className="flex items-center gap-2">
-                                    <input 
-                                        type="number" 
-                                        step="0.1" 
-                                        value={financingRate} 
-                                        onChange={e => setFinancingRate(Number(e.target.value))} 
-                                        className="w-16 bg-slate-800 border border-slate-600 rounded-lg p-2 text-center text-white text-sm font-bold"
-                                    />
-                                    <span className="text-[10px] text-slate-400">% Mes Vencido</span>
-                                </div>
-                                <p className="text-[8px] text-slate-500 mt-1">Costo del dinero para cubrir déficits de caja.</p>
-                            </div>
-                        </div>
+                        <p className="text-[10px] text-slate-400 mb-3 leading-tight">
+                            Promedio real descontando pérdidas de levante y gastos administrativos anuales.
+                        </p>
+                        <p className={`text-3xl font-mono font-black ${calculation.avgMonthlyTotal > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {formatCurrency(calculation.avgMonthlyTotal)}
+                        </p>
                     </div>
                 </div>
 
-                {/* COLUMNA 2 Y 3: RESULTADOS */}
+                {/* TABLA DE DETALLE ANUAL */}
                 <div className="lg:col-span-2 space-y-6">
-                    
-                    {/* INDICADORES CLAVE */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700 group hover:border-red-500/50 transition-all">
-                            <p className="text-[9px] font-black text-slate-400 uppercase">Inversión Máxima</p>
-                            <p className="text-lg font-mono font-black text-red-500">{formatCurrency(calculation.maxInvestment)}</p>
-                            <p className="text-[8px] text-slate-500">Peak Funding (Valle)</p>
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700">
-                            <p className="text-[9px] font-black text-slate-400 uppercase">Punto Equilibrio</p>
-                            <p className="text-lg font-mono font-black text-amber-500">{calculation.paybackYear > 0 ? `Año ${calculation.paybackYear}` : '> 7 Años'}</p>
-                            <p className="text-[8px] text-slate-500">Recuperación Inversión</p>
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700">
-                            <p className="text-[9px] font-black text-slate-400 uppercase">Utilidad Mensual</p>
-                            <p className={`text-lg font-mono font-black ${calculation.avgMonthlyTotal > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(calculation.avgMonthlyTotal)}</p>
-                            <p className="text-[8px] text-slate-500">Promedio Ciclo 7 Años</p>
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700">
-                            <p className="text-[9px] font-black text-slate-400 uppercase">Rentabilidad (EA)</p>
-                            <p className={`text-lg font-mono font-black ${calculation.annualizedROI > 15 ? 'text-indigo-500' : 'text-slate-500'}`}>{(calculation.annualizedROI || 0).toFixed(1)}%</p>
-                            <p className="text-[8px] text-slate-500">Retorno Efectivo Anual</p>
-                        </div>
-                    </div>
-
-                    {/* NEW: SENSITIVITY ANALYSIS CARD */}
-                    <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-700 shadow-xl overflow-hidden relative">
-                        <div className="flex justify-between items-center mb-6 relative z-10">
-                            <h4 className="text-white font-black uppercase text-sm flex items-center gap-2">
-                                <Scale className="w-5 h-5 text-indigo-500" /> Análisis de Sensibilidad Financiera
-                            </h4>
-                            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold uppercase border border-indigo-500/30">
-                                Impacto del Precio
-                            </span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4 relative z-10">
-                            {calculation.sensitivity.map((scen, idx) => (
-                                <div key={scen.label} className={`p-4 rounded-2xl border flex flex-col justify-between h-full ${idx === 1 ? 'bg-slate-800 border-indigo-500/50 shadow-lg scale-105 z-10' : 'bg-slate-950/50 border-slate-800 opacity-80'}`}>
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase mb-1 ${idx === 0 ? 'text-red-400' : idx === 2 ? 'text-blue-400' : 'text-emerald-400'}`}>{scen.label}</p>
-                                        <p className="text-xs text-slate-400 font-mono mb-3">{formatCurrency(scen.price)}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[8px] text-slate-500 uppercase font-bold">TIR (EA)</span>
-                                            <span className={`text-sm font-black font-mono ${scen.annualizedROI > 15 ? 'text-white' : 'text-slate-400'}`}>{scen.annualizedROI.toFixed(1)}%</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[8px] text-slate-500 uppercase font-bold">VPN</span>
-                                            <span className={`text-[10px] font-black font-mono ${scen.npv > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(scen.npv)}</span>
-                                        </div>
-                                        <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden mt-1">
-                                            <div className={`h-full ${scen.maxInvestment > calculation.maxInvestment ? 'bg-red-500' : 'bg-indigo-500'}`} style={{width: `${Math.min((scen.maxInvestment/calculation.maxInvestment)*100, 100)}%`}}></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* TABLA FLUJO DE CAJA */}
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
                             <h4 className="text-slate-800 dark:text-white font-black uppercase text-sm flex items-center gap-2">
-                                <Wallet className="w-5 h-5 text-indigo-500" /> Flujo de Caja (Escenario Base)
+                                <Wallet className="w-5 h-5 text-indigo-500" /> Flujo de Caja Realista (7 Años)
                             </h4>
-                            <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 px-3 py-1 rounded-full font-bold uppercase">Incluye Costos Financieros</span>
+                            <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 px-3 py-1 rounded-full font-bold uppercase">Ciclo Completo</span>
                         </div>
 
                         <div className="overflow-x-auto">
@@ -482,11 +316,10 @@ export const SimulatorView: React.FC = () => {
                                 <thead>
                                     <tr className="border-b border-slate-200 dark:border-slate-700 text-[9px] font-black text-slate-400 uppercase tracking-wider">
                                         <th className="p-3 text-center">Año</th>
-                                        <th className="p-3">Etapa</th>
-                                        <th className="p-3 text-right text-emerald-500">Ingresos Totales</th>
-                                        <th className="p-3 text-right text-red-500">Egresos + Interés</th>
-                                        <th className="p-3 text-right">Flujo Neto</th>
-                                        <th className="p-3 text-right text-indigo-500">Acumulado</th>
+                                        <th className="p-3">Etapa / Resiembra</th>
+                                        <th className="p-3 text-right text-emerald-500">Ingreso</th>
+                                        <th className="p-3 text-right text-red-500">Egreso Total</th>
+                                        <th className="p-3 text-right text-indigo-500">Margen Neto</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-xs font-medium text-slate-600 dark:text-slate-300">
@@ -499,24 +332,17 @@ export const SimulatorView: React.FC = () => {
                                             </td>
                                             <td className="p-3">
                                                 <span className="font-bold text-slate-800 dark:text-white block">{row.label}</span>
-                                                {row.incomeIntercropping > 0 && (
-                                                    <span className="text-[8px] text-emerald-500 block">+ {formatCurrency(row.incomeIntercropping)} Transitorios</span>
-                                                )}
-                                                {row.financialCost > 0 && (
-                                                    <span className="text-[8px] text-red-400 block">- {formatCurrency(row.financialCost)} Intereses</span>
-                                                )}
+                                                <span className="text-[9px] text-slate-400">Resiembra: {row.replantingCount.toFixed(0)} arb.</span>
                                             </td>
                                             <td className="p-3 text-right font-mono">{formatCurrency(row.income)}</td>
                                             <td className="p-3 text-right font-mono">{formatCurrency(row.totalCost)}</td>
                                             <td className="p-3 text-right">
-                                                <span className={`font-mono font-bold ${row.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                    {formatCurrency(row.profit)}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-right">
-                                                <span className={`font-mono font-black ${row.accumulated >= 0 ? 'text-indigo-500' : 'text-red-500'}`}>
-                                                    {formatCurrency(row.accumulated)}
-                                                </span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className={`font-mono font-black ${row.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                        {formatCurrency(row.profit)}
+                                                    </span>
+                                                    <span className="text-[8px] text-slate-400">{row.marginPct.toFixed(0)}%</span>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -525,24 +351,33 @@ export const SimulatorView: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* COSTOS UNITARIOS EXPANDIBLES */}
-                    <div className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 p-4">
-                        <details className="group">
-                            <summary className="flex justify-between items-center cursor-pointer text-[10px] font-black text-slate-400 uppercase py-2 hover:text-slate-600 dark:hover:text-slate-200">
-                                <span>Ajustar Costos Unitarios Detallados</span>
-                                <ChevronDown className="w-4 h-4 group-open:rotate-180 transition-transform"/>
-                            </summary>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 animate-fade-in-down border-t border-slate-200 dark:border-slate-800 mt-2">
-                                <div><label className="text-[8px] font-bold text-slate-500">Jornal ($)</label><input type="number" value={jornalValue} onChange={e => setJornalValue(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-slate-200 dark:border-slate-700" /></div>
-                                <div><label className="text-[8px] font-bold text-slate-500">Bulto Fert ($)</label><input type="number" value={fertilizerPriceBulto} onChange={e => setFertilizerPriceBulto(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-slate-200 dark:border-slate-700" /></div>
-                                <div><label className="text-[8px] font-bold text-slate-500">Recolección/Kg</label><input type="number" value={harvestCostPerKg} onChange={e => setHarvestCostPerKg(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-slate-200 dark:border-slate-700" /></div>
-                                <div><label className="text-[8px] font-bold text-slate-500">Colino ($)</label><input type="number" value={seedlingCost} onChange={e => setSeedlingCost(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-slate-200 dark:border-slate-700" /></div>
-                                <div><label className="text-[8px] font-bold text-slate-500">Factor Conv. (Cereza:CPS)</label><input type="number" step="0.1" value={yieldConversion} onChange={e => setYieldConversion(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-slate-200 dark:border-slate-700" /></div>
-                                <div><label className="text-[8px] font-bold text-slate-500">Prod. Pico (Kg CPS/Arb)</label><input type="number" step="0.1" value={peakYieldPerTree} onChange={e => setPeakYieldPerTree(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-slate-200 dark:border-slate-700" /></div>
-                            </div>
-                        </details>
+                    {/* KPI GRID FINANCIERO */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700 group hover:border-emerald-500/50 transition-all">
+                            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Margen Neto Real</p>
+                            <p className={`text-2xl font-mono font-black ${calculation.netMargin >= 10 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {calculation.netMargin.toFixed(1)}%
+                            </p>
+                            <p className="text-[8px] text-slate-500 mt-1">Utilidad sobre Ventas. (Ideal {'>'} 20%)</p>
+                        </div>
+                        <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700 group hover:border-indigo-500/50 transition-all">
+                            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Rentabilidad Anual</p>
+                            <p className={`text-2xl font-mono font-black ${calculation.annualizedROI > 10 ? 'text-indigo-400' : 'text-slate-200'}`}>
+                                {calculation.annualizedROI.toFixed(1)}%
+                            </p>
+                            <p className="text-[8px] text-slate-500 mt-1">Retorno efectivo sobre capital invertido.</p>
+                        </div>
+                        <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700">
+                            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Costo Prod. / Carga</p>
+                            <p className="text-xl font-mono font-black text-white">{formatCurrency(calculation.costPerCarga)}</p>
+                            <p className="text-[8px] text-slate-500 mt-1">Incluye Admin y Resiembras.</p>
+                        </div>
+                        <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700">
+                            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Capital Máximo Req.</p>
+                            <p className="text-xl font-mono font-black text-red-400">{formatCurrency(calculation.maxInvestment)}</p>
+                            <p className="text-[8px] text-slate-500 mt-1">Flujo de caja negativo acumulado.</p>
+                        </div>
                     </div>
-
                 </div>
             </div>
 
