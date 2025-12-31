@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Movement, Supplier, CostCenter, LaborLog, HarvestLog, MaintenanceLog, RainLog, FinanceLog, Machine, BudgetPlan } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark, MousePointer2, Scale, AlertCircle, AlertTriangle, Leaf, Info, HelpCircle, Gauge, Timer, Globe, Tractor, ZapOff, CheckCircle, Calculator, ChevronRight } from 'lucide-react';
+import { PieChart, TrendingUp, BarChart3, MapPin, Users, Ruler, Sprout, Pickaxe, Package, Wrench, Wallet, CalendarRange, Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark, MousePointer2, Scale, AlertCircle, AlertTriangle, Leaf, Info, HelpCircle, Gauge, Timer, Globe, Tractor, ZapOff, CheckCircle, Calculator, ChevronRight, PieChart as PieIcon } from 'lucide-react';
 
 interface StatsViewProps {
   laborFactor: number;
@@ -118,6 +118,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
       return stats.filter(s => s.totalPlanned > 0);
   }, [budgets, costCenters, laborLogs, movements, currentYear, laborFactor]);
 
+  // Calculate Global Budget Health
+  const globalBudgetHealth = useMemo(() => {
+      const totalPlanned = budgetExecution.reduce((acc, curr) => acc + curr.totalPlanned, 0);
+      const totalReal = budgetExecution.reduce((acc, curr) => acc + curr.totalReal, 0);
+      const percent = totalPlanned > 0 ? (totalReal / totalPlanned) * 100 : 0;
+      return { totalPlanned, totalReal, percent };
+  }, [budgetExecution]);
+
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
@@ -129,7 +137,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Monitor de Eficiencia Técnica y Financiera</p>
        </div>
 
-       <div className="grid grid-cols-2 gap-4">
+       {/* Top Metrics Grid - Updated to include Budget */}
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. Labor Efficiency */}
             <div className={`p-6 rounded-[2.5rem] border shadow-xl transition-all ${laborEfficiency > laborAlertThreshold ? 'bg-red-950/20 border-red-500/50' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
                 <p className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"><Timer className="w-4 h-4 text-indigo-400"/> Intensidad Laboral</p>
                 <p className={`text-2xl font-mono font-black ${laborEfficiency > laborAlertThreshold ? 'text-red-500' : 'text-slate-800 dark:text-white'}`}>{laborEfficiency.toFixed(1)} <span className="text-[10px] opacity-60">HH/Ha</span></p>
@@ -139,17 +149,37 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </div>
                 )}
             </div>
+
+            {/* 2. Budget Health (NEW INTEGRATION) */}
+            <div className={`p-6 rounded-[2.5rem] border shadow-xl transition-all ${globalBudgetHealth.percent > 100 ? 'bg-red-950/20 border-red-500/50' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
+                <p className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"><Target className="w-4 h-4 text-blue-400"/> Salud Presupuestal</p>
+                <div className="flex items-end justify-between">
+                    <p className={`text-2xl font-mono font-black ${globalBudgetHealth.percent > 100 ? 'text-red-500' : 'text-emerald-500'}`}>
+                        {globalBudgetHealth.percent.toFixed(0)}%
+                    </p>
+                    <p className="text-[9px] text-slate-500 font-bold mb-1 uppercase">Ejecutado</p>
+                </div>
+                
+                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-900 rounded-full mt-3 overflow-hidden">
+                    <div 
+                        className={`h-full ${globalBudgetHealth.percent > 100 ? 'bg-red-500' : 'bg-emerald-500'}`} 
+                        style={{width: `${Math.min(globalBudgetHealth.percent, 100)}%`}}
+                    ></div>
+                </div>
+            </div>
+
+            {/* 3. Labor Factor */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl">
-                <p className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"><Wallet className="w-4 h-4 text-emerald-500"/> Factor {laborFactor}</p>
-                <p className="text-2xl font-mono font-black text-emerald-600">{((laborFactor - 1) * 100).toFixed(0)}% <span className="text-[10px] opacity-60">Extra</span></p>
-                <p className="text-[8px] text-slate-500 font-bold mt-3 uppercase">{laborFactor > 1 ? 'Provisiones de Ley CST' : 'Costo Directo Pagado'}</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"><Wallet className="w-4 h-4 text-amber-500"/> Factor {laborFactor}</p>
+                <p className="text-2xl font-mono font-black text-amber-600">{((laborFactor - 1) * 100).toFixed(0)}% <span className="text-[10px] opacity-60">Carga</span></p>
+                <p className="text-[8px] text-slate-500 font-bold mt-3 uppercase">{laborFactor > 1 ? 'Provisiones Legales (CST)' : 'Sin Carga Prestacional'}</p>
             </div>
        </div>
 
        <div className="flex p-1.5 bg-slate-200 dark:bg-slate-900 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
            <button onClick={() => setReportMode('global')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'global' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Balance Real</button>
            <button onClick={() => setReportMode('benchmarking')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'benchmarking' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Insumos</button>
-           <button onClick={() => setReportMode('budget')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'budget' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Presupuesto</button>
+           <button onClick={() => setReportMode('budget')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'budget' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Detalle Presupuesto</button>
        </div>
 
        {reportMode === 'global' && (
