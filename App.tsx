@@ -17,7 +17,8 @@ import { ManagementView } from './components/ManagementView';
 import { AgendaView } from './components/AgendaView';
 import { StrategicView } from './components/StrategicView';
 import { BiologicalAssetsView } from './components/BiologicalAssetsView';
-import { BudgetView } from './components/BudgetView'; // NEW IMPORT
+import { BudgetView } from './components/BudgetView'; 
+import { SimulatorView } from './components/SimulatorView'; // NEW IMPORT
 import { HistoryModal } from './components/HistoryModal';
 import { DeleteModal } from './components/DeleteModal';
 import { PayrollModal } from './components/PayrollModal';
@@ -29,7 +30,7 @@ import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, CostClas
 import { processInventoryMovement, generateId, getBaseUnitType, convertToBase, loadDataFromLocalStorage, saveDataToLocalStorage } from './services/inventoryService';
 import { dbService } from './services/db'; 
 import { getDemoData, generateExcel, generatePDF, generateExecutiveReport, generateLaborReport, generateHarvestReport, generateFinancialReport, generateBudgetReport } from './services/reportService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Loader2, AlertTriangle, ShieldCheck, Sprout, Calculator } from 'lucide-react';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Loader2, AlertTriangle, ShieldCheck, Sprout, Calculator, Lightbulb } from 'lucide-react'; // Added Lightbulb icon
 
 function App() {
   const [session, setSession] = useState<User | null>(null);
@@ -330,9 +331,10 @@ function App() {
                         { id: 'labor', label: 'Personal', icon: Pickaxe },
                         { id: 'scheduler', label: 'Programar', icon: CalendarRange }, 
                         { id: 'harvest', label: 'Ventas', icon: Target },
+                        { id: 'simulator', label: 'Simulador', icon: Lightbulb }, // NEW TAB ICON
                         { id: 'management', label: 'Campo', icon: Tractor },
                         { id: 'assets', label: 'Activos Bio', icon: Sprout },
-                        { id: 'budget', label: 'Presupuesto', icon: Calculator }, // NEW TAB
+                        { id: 'budget', label: 'Presupuesto', icon: Calculator }, 
                         { id: 'agenda', label: 'Agenda', icon: Calendar },
                         { id: 'strategic', label: 'Estrategia', icon: TrendingUp },
                         { id: 'stats', label: 'KPIs', icon: Database }
@@ -359,9 +361,9 @@ function App() {
                 laborFactor={data.laborFactor}
             />}
             {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} isAdmin={true} allMovements={data.movements} />}
+            {currentTab === 'simulator' && <SimulatorView />} {/* NEW TAB RENDER */}
             {currentTab === 'management' && <ManagementView machines={data.machines.filter(m=>m.warehouseId===activeId)} onUpdateMachine={handleUpdateMachine} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} soilAnalyses={data.soilAnalyses.filter(s=>s.warehouseId===activeId)} ppeLogs={data.ppeLogs.filter(p=>p.warehouseId===activeId)} wasteLogs={data.wasteLogs.filter(w=>w.warehouseId===activeId)} assets={data.assets.filter(a=>a.warehouseId===activeId)} bpaChecklist={data.bpaChecklist} onAddMachine={(m)=>setData(prev=>({...prev, machines:[...prev.machines,{...m, id:generateId(), warehouseId:activeId}]}))} onAddMaintenance={handleAddMaintenance} onDeleteMachine={(id)=>setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r)=>setData(prev=>({...prev, rainLogs:[...prev.rainLogs,{...r, id:generateId(), warehouseId:activeId}]}))} onDeleteRain={(id)=>setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s)=>setData(prev=>({...prev, soilAnalyses:[...prev.soilAnalyses,{...s, id:generateId(), warehouseId:activeId}]}))} onDeleteSoilAnalysis={(id)=>setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p)=>setData(prev=>({...prev, ppeLogs:[...prev.ppeLogs,{...p, id:generateId(), warehouseId:activeId}]}))} onDeletePPE={(id)=>setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w)=>setData(prev=>({...prev, wasteLogs:[...prev.wasteLogs,{...w, id:generateId(), warehouseId:activeId}]}))} onDeleteWaste={(id)=>setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={handleAddAsset} onDeleteAsset={handleDeleteAsset} onToggleBpa={handleToggleBpa} isAdmin={true} phenologyLogs={data.phenologyLogs.filter(p=>p.warehouseId===activeId)} onAddPhenologyLog={handleAddPhenologyLog} onDeletePhenologyLog={handleDeletePhenologyLog} pestLogs={data.pestLogs.filter(p=>p.warehouseId===activeId)} onAddPestLog={handleAddPestLog} onDeletePestLog={handleDeletePestLog} />}
             {currentTab === 'assets' && <BiologicalAssetsView costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} onUpdateLot={handleUpdateCostCenter} />}
-            {/* NEW TAB RENDER WITH REAL DATA FOR CONTROL */}
             {currentTab === 'budget' && <BudgetView 
                 budgets={data.budgets || []} 
                 costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} 
