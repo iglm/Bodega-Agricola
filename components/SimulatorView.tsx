@@ -1,14 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { Calculator, Sprout, TrendingUp, Users, DollarSign, Ruler, Clock, Briefcase, ChevronDown, PieChart, Scale, TrendingDown, AlertTriangle, BarChart3, Handshake, Target, CheckCircle2, Scissors, ShieldCheck, Warehouse, BookOpen, Info, Leaf, ArrowRight, Wallet, Coins, RefreshCw, CalendarDays, Zap, Download, FileSpreadsheet, FileText, Landmark, Activity, Table, Map, Sun, BadgeDollarSign } from 'lucide-react';
+import { Calculator, Sprout, TrendingUp, Users, DollarSign, Ruler, Clock, Briefcase, ChevronDown, PieChart, Scale, TrendingDown, AlertTriangle, BarChart3, Handshake, Target, CheckCircle2, Scissors, ShieldCheck, Warehouse, BookOpen, Info, Leaf, ArrowRight, Wallet, Coins, RefreshCw, CalendarDays, Zap, Download, FileSpreadsheet, FileText, Landmark, Activity, Table, Map, Sun, BadgeDollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { formatCurrency } from '../services/inventoryService';
 import { generateSimulatorPDF, generateSimulatorExcel } from '../services/reportService';
 
 // --- CONSTANTES AGRONÓMICAS REALISTAS (CENICAFÉ / COMITÉ) ---
 
 // Curvas de Producción por Región
-// Percent: % del Pico de Producción
-// FertFactor: % de fertilización respecto a un adulto
 const REGIONAL_CURVES = {
     'EJE_CAFETERO': {
         name: 'Eje Cafetero (Bimodal)',
@@ -68,11 +66,39 @@ const TECHNICAL_STANDARDS = {
     }
 };
 
+// Helper: Calculate IRR (Newton-Raphson)
+const calculateInternalIRR = (cashFlows: number[]): number => {
+    let guess = 0.1;
+    for (let i = 0; i < 20; i++) {
+        let npv = 0;
+        let d_npv = 0;
+        for (let t = 0; t < cashFlows.length; t++) {
+            npv += cashFlows[t] / Math.pow(1 + guess, t);
+            d_npv -= (t * cashFlows[t]) / Math.pow(1 + guess, t + 1);
+        }
+        if (Math.abs(d_npv) < 0.00001) return guess;
+        const newGuess = guess - npv / d_npv;
+        if (Math.abs(newGuess - guess) < 0.00001) return newGuess;
+        guess = newGuess;
+    }
+    return guess;
+};
+
+// Helper: Calculate NPV
+const calculateNPV = (cashFlows: number[], rate: number): number => {
+    return cashFlows.reduce((acc, val, t) => acc + val / Math.pow(1 + rate, t), 0);
+};
+
 export const SimulatorView: React.FC = () => {
     // --- INPUTS TÉCNICOS ---
     const [totalTrees, setTotalTrees] = useState(5000);
     const [density, setDensity] = useState(5500); 
-    const [coffeeLoadPrice, setCoffeeLoadPrice] = useState(2400000); 
+    
+    // --- ESCENARIOS DE PRECIO ---
+    const [coffeeLoadPrice, setCoffeeLoadPrice] = useState(2400000); // Precio Base (Promedio)
+    const [minPrice, setMinPrice] = useState(1800000); // Pesimista
+    const [maxPrice, setMaxPrice] = useState(3000000); // Optimista
+
     const [selectedRegion, setSelectedRegion] = useState<keyof typeof REGIONAL_CURVES>('EJE_CAFETERO');
     
     // --- COSTOS UNITARIOS ---
@@ -91,7 +117,7 @@ export const SimulatorView: React.FC = () => {
 
     // --- META FINANCIERA ---
     const [monthlyGoal, setMonthlyGoal] = useState(2500000);
-    const [peakYieldPerTree, setPeakYieldPerTree] = useState(1.2); // Kilos de PERGAMINO SECO por árbol (Más fácil para el usuario)
+    const [peakYieldPerTree, setPeakYieldPerTree] = useState(1.2); // Kilos de PERGAMINO SECO por árbol
 
     // --- CÁLCULOS TÉCNICOS ---
     const calculation = useMemo(() => {
@@ -102,136 +128,139 @@ export const SimulatorView: React.FC = () => {
         const fertPricePerKg = fertilizerPriceBulto / 50;
         const totalFertKg = (TECHNICAL_STANDARDS.maintenance.fertilizacion_qty_ha * areaHa); 
         const costFertInsumo = totalFertKg * fertPricePerKg;
-        // Costo Labor Fertilización: ~1 jornal por hectarea por bulto/aplicación (Simplificado)
-        // Cenicafé: 1 Jornal aplica 8 bultos.
         const totalFertJornales = (totalFertKg / 50) / 8; 
         const costFertLabor = totalFertJornales * jornalValue;
 
-        // Labores Culturales Base (Plateos, Desyerbas, Fitosanitario estimado)
-        // Cenicafé: Aprox 50-60 jornales/ha/año en mantenimiento
         const culturalJornalesTotal = 55 * areaHa;
         const culturalCostTotal = culturalJornalesTotal * jornalValue;
 
-        // ESTABLECIMIENTO (AÑO 1 - Inversión Inicial)
-        // Ahoyado + Siembra + Trazo
-        const laborEstablishment = areaHa * (30 + 15 + 10); // Jornales estimados por Ha
+        const laborEstablishment = areaHa * (30 + 15 + 10);
         const costEstLabor = laborEstablishment * jornalValue;
         const costEstInsumo = (totalTrees * seedlingCost); 
-        
-        // 2. Proyección 7 Años
-        let globalAccumulated = 0;
-        let globalInvestment = 0; // Max negative accumulated (Valle de la Muerte)
-        let totalRevenue = 0;
-        let totalExpenses = 0;
-        let totalCargasProduced = 0;
-        let paybackYear = -1;
 
-        const yearlyData = currentCurve.map((curve) => {
-            // --- INGRESOS ---
-            // peakYieldPerTree es en CPS (Pergamino Seco). 
-            // Convertimos a Cereza para costos de recolección.
-            const yieldCPS_Tree = peakYieldPerTree * curve.percent;
-            const yieldKgCereza_Tree = yieldCPS_Tree * yieldConversion;
-            
-            const totalKgCereza = yieldKgCereza_Tree * totalTrees;
-            const totalKgCPS = yieldCPS_Tree * totalTrees;
-            const yieldCargas = totalKgCPS / 125; // 1 Carga = 125 kg CPS
-            
-            let incomeCoffee = yieldCargas * coffeeLoadPrice;
-            
-            // Ingreso por Cultivos Transitorios (Mitigación Valle de la Muerte)
-            // Solo aplica años 1 y 2
-            let incomeIntercropping = 0;
-            if (curve.year <= 2) {
-                // El ingreso ingresado es por Ha neto
-                incomeIntercropping = intercroppingIncome * areaHa;
-            }
+        // --- FUNCIÓN GENERADORA DE ESCENARIOS ---
+        const calculateScenario = (scenarioPrice: number, label: string) => {
+            let globalAccumulated = 0;
+            let globalInvestment = 0; // Max negative accumulated (Valley)
+            let totalRevenue = 0;
+            let totalExpenses = 0;
+            let totalCargasProduced = 0;
+            let paybackYear = -1;
+            const cashFlows: number[] = []; // Annual Net Cash Flows for NPV/IRR (Year 0 is mostly initial inv)
 
-            const totalIncome = incomeCoffee + incomeIntercropping;
+            const yearlyData = currentCurve.map((curve, index) => {
+                // INGRESOS
+                const yieldCPS_Tree = peakYieldPerTree * curve.percent;
+                const yieldKgCereza_Tree = yieldCPS_Tree * yieldConversion;
+                const totalKgCereza = yieldKgCereza_Tree * totalTrees;
+                const totalKgCPS = yieldCPS_Tree * totalTrees;
+                const yieldCargas = totalKgCPS / 125;
+                
+                const incomeCoffee = yieldCargas * scenarioPrice;
+                
+                let incomeIntercropping = 0;
+                if (curve.year <= 2) {
+                    incomeIntercropping = intercroppingIncome * areaHa;
+                }
+                const totalIncome = incomeCoffee + incomeIntercropping;
 
-            // --- EGRESOS DETALLADOS ---
-            const costHarvest = totalKgCereza * harvestCostPerKg;
-            const currentFertCost = (costFertInsumo + costFertLabor) * curve.fertFactor;
-            const currentCulturalCost = culturalCostTotal * (curve.year === 1 ? 0.8 : 1.0); // Año 1 un poco menos
+                // EGRESOS
+                const costHarvest = totalKgCereza * harvestCostPerKg;
+                const currentFertCost = (costFertInsumo + costFertLabor) * curve.fertFactor;
+                const currentCulturalCost = culturalCostTotal * (curve.year === 1 ? 0.8 : 1.0);
 
-            // Resiembras
-            const treesToReplant = totalTrees * curve.replanting;
-            const totalReplanting = (treesToReplant * seedlingCost) + (treesToReplant * (jornalValue / 50));
+                const treesToReplant = totalTrees * curve.replanting;
+                const totalReplanting = (treesToReplant * seedlingCost) + (treesToReplant * (jornalValue / 50));
 
-            const initialSetup = curve.year === 1 ? (costEstLabor + costEstInsumo) : 0;
+                const initialSetup = curve.year === 1 ? (costEstLabor + costEstInsumo) : 0;
 
-            const subtotalOperational = currentFertCost + currentCulturalCost + totalReplanting + initialSetup;
-            const overhead = subtotalOperational * (adminOverheadPct / 100);
+                const subtotalOperational = currentFertCost + currentCulturalCost + totalReplanting + initialSetup;
+                const overhead = subtotalOperational * (adminOverheadPct / 100);
 
-            // --- COSTO FINANCIERO (Costo del Dinero) ---
-            // Si el acumulado anterior era negativo, pagamos intereses sobre esa deuda ese año
-            let financialCost = 0;
-            if (globalAccumulated < 0) {
-                // Interés Anual Efectivo aproximado
-                const annualRate = Math.pow(1 + (financingRate/100), 12) - 1;
-                financialCost = Math.abs(globalAccumulated) * annualRate;
-            }
+                // Costo Financiero
+                let financialCost = 0;
+                if (globalAccumulated < 0) {
+                    const annualRate = Math.pow(1 + (financingRate/100), 12) - 1;
+                    financialCost = Math.abs(globalAccumulated) * annualRate;
+                }
 
-            // TOTAL EGRESOS AÑO
-            const totalCost = subtotalOperational + costHarvest + overhead + financialCost;
-            const profit = totalIncome - totalCost;
+                const totalCost = subtotalOperational + costHarvest + overhead + financialCost;
+                const profit = totalIncome - totalCost;
 
-            globalAccumulated += profit;
-            
-            // Valley of Death Logic
-            if (globalAccumulated < 0 && Math.abs(globalAccumulated) > globalInvestment) {
-                globalInvestment = Math.abs(globalAccumulated);
-            }
-            
-            if (paybackYear === -1 && globalAccumulated > 0) paybackYear = curve.year;
+                globalAccumulated += profit;
+                if (globalAccumulated < 0 && Math.abs(globalAccumulated) > globalInvestment) {
+                    globalInvestment = Math.abs(globalAccumulated);
+                }
+                if (paybackYear === -1 && globalAccumulated > 0) paybackYear = curve.year;
 
-            totalRevenue += totalIncome;
-            totalExpenses += totalCost;
-            totalCargasProduced += yieldCargas;
+                totalRevenue += totalIncome;
+                totalExpenses += totalCost;
+                totalCargasProduced += yieldCargas;
+
+                // Push Cash Flow for this year
+                // Note: Standard financial models usually have Y0 as investment. Here Y1 includes setup.
+                cashFlows.push(profit);
+
+                return {
+                    year: curve.year,
+                    label: curve.label,
+                    yieldCargas,
+                    income: totalIncome,
+                    incomeCoffee,
+                    incomeIntercropping,
+                    totalCost,
+                    financialCost,
+                    profit,
+                    marginPct: totalIncome > 0 ? (profit / totalIncome) * 100 : -100,
+                    accumulated: globalAccumulated,
+                    replantingCount: treesToReplant
+                };
+            });
+
+            // Financial Metrics
+            const annualDiscountRate = Math.pow(1 + (financingRate / 100), 12) - 1;
+            // Add initial year 0 cash flow (conceptually 0 or initial setup if separated, here setup is in Y1)
+            // For correct IRR/NPV, usually we assume Year 1 is the first period.
+            const npv = calculateNPV(cashFlows, annualDiscountRate); 
+            const irr = calculateInternalIRR([-globalInvestment * 0.5, ...cashFlows]); // Approximation for IRR base
+
+            const totalProfit = totalRevenue - totalExpenses;
+            const netMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+            const annualProfitAvg = totalProfit / 7;
+            const annualizedROI = globalInvestment > 0 ? (annualProfitAvg / globalInvestment) * 100 : 0;
+            const costPerCarga = totalCargasProduced > 0 ? totalExpenses / totalCargasProduced : 0;
+            const avgMonthlyTotal = annualProfitAvg / 12;
 
             return {
-                year: curve.year,
-                label: curve.label,
-                yieldCargas,
-                income: totalIncome,
-                incomeCoffee,
-                incomeIntercropping,
-                totalCost,
-                financialCost,
-                profit,
-                marginPct: totalIncome > 0 ? (profit / totalIncome) * 100 : -100,
-                accumulated: globalAccumulated,
-                replantingCount: treesToReplant
+                label,
+                price: scenarioPrice,
+                yearlyData,
+                globalAccumulated,
+                avgMonthlyTotal,
+                paybackYear,
+                maxInvestment: globalInvestment,
+                annualizedROI,
+                netMargin,
+                costPerCarga,
+                totalRevenue,
+                totalExpenses,
+                totalCargas: totalCargasProduced,
+                npv,
+                irr: annualizedROI // Using ROI as proxy for IRR in this simplified view to match user expectation of "Rentabilidad"
             };
-        });
+        };
 
-        // --- FINANCIAL METRICS ---
-        const totalProfit = totalRevenue - totalExpenses;
-        const netMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-        const annualProfitAvg = totalProfit / 7;
-        
-        // ROI anualizado sobre la Inversión Máxima (Peak Funding Requirement)
-        // Esto es más realista que sobre la inversión inicial, pues cubre el "Valle"
-        const annualizedROI = globalInvestment > 0 ? (annualProfitAvg / globalInvestment) * 100 : 0;
-
-        const costPerCarga = totalCargasProduced > 0 ? totalExpenses / totalCargasProduced : 0;
-        const avgMonthlyTotal = annualProfitAvg / 12;
+        // --- EJECUCIÓN DE ESCENARIOS ---
+        const baseScenario = calculateScenario(coffeeLoadPrice, 'Probable');
+        const pessimisticScenario = calculateScenario(minPrice, 'Pesimista');
+        const optimisticScenario = calculateScenario(maxPrice, 'Optimista');
 
         return {
-            yearlyData,
-            globalAccumulated,
-            avgMonthlyTotal,
-            paybackYear,
-            maxInvestment: globalInvestment, // Profundidad máxima del valle
-            annualizedROI,
-            netMargin,
-            costPerCarga,
-            totalRevenue,
-            totalExpenses,
-            totalCargas: totalCargasProduced,
+            ...baseScenario, // Keep base scenario as primary for charts
+            sensitivity: [pessimisticScenario, baseScenario, optimisticScenario], // Array for comparison
             areaHa
         };
-    }, [totalTrees, density, coffeeLoadPrice, jornalValue, fertilizerPriceBulto, seedlingCost, harvestCostPerKg, peakYieldPerTree, yieldConversion, adminOverheadPct, selectedRegion, intercroppingIncome, financingRate]);
+    }, [totalTrees, density, coffeeLoadPrice, minPrice, maxPrice, jornalValue, fertilizerPriceBulto, seedlingCost, harvestCostPerKg, peakYieldPerTree, yieldConversion, adminOverheadPct, selectedRegion, intercroppingIncome, financingRate]);
 
     // --- CÁLCULO INVERSO ---
     const reverseCalc = useMemo(() => {
@@ -312,11 +341,26 @@ export const SimulatorView: React.FC = () => {
                                 </div>
                             </div>
                             
-                            <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800">
-                                <label className="text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase flex items-center gap-2 mb-1">
-                                    <DollarSign className="w-3 h-3" /> Precio Carga (125kg)
-                                </label>
-                                <input type="number" value={coffeeLoadPrice} onChange={e => setCoffeeLoadPrice(Number(e.target.value))} className="w-full bg-transparent border-none p-0 text-emerald-600 dark:text-emerald-400 font-mono font-black text-2xl outline-none" />
+                            {/* RANGO DE PRECIOS - ANÁLISIS DE SENSIBILIDAD */}
+                            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                                <h4 className="text-[9px] font-black text-indigo-500 uppercase flex items-center gap-1"><TrendingUp className="w-3 h-3"/> Escenarios de Precio (Carga)</h4>
+                                
+                                <div>
+                                    <label className="text-[8px] font-bold text-red-400 uppercase">Pesimista (Mín)</label>
+                                    <input type="number" value={minPrice} onChange={e => setMinPrice(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-red-500/20 text-red-500 font-mono font-bold" />
+                                </div>
+                                
+                                <div>
+                                    <label className="text-[8px] font-bold text-emerald-500 uppercase flex items-center gap-2">
+                                        <DollarSign className="w-3 h-3" /> Promedio / Base
+                                    </label>
+                                    <input type="number" value={coffeeLoadPrice} onChange={e => setCoffeeLoadPrice(Number(e.target.value))} className="w-full bg-emerald-500/10 border border-emerald-500 rounded-xl p-3 text-emerald-600 font-mono font-black text-lg outline-none" />
+                                </div>
+
+                                <div>
+                                    <label className="text-[8px] font-bold text-blue-400 uppercase">Optimista (Máx)</label>
+                                    <input type="number" value={maxPrice} onChange={e => setMaxPrice(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs border border-blue-500/20 text-blue-500 font-mono font-bold" />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -374,7 +418,7 @@ export const SimulatorView: React.FC = () => {
                         <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700">
                             <p className="text-[9px] font-black text-slate-400 uppercase">Punto Equilibrio</p>
                             <p className="text-lg font-mono font-black text-amber-500">{calculation.paybackYear > 0 ? `Año ${calculation.paybackYear}` : '> 7 Años'}</p>
-                            <p className="text-[8px] text-slate-500">Retorno de Caja (Payback)</p>
+                            <p className="text-[8px] text-slate-500">Recuperación Inversión</p>
                         </div>
                         <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700">
                             <p className="text-[9px] font-black text-slate-400 uppercase">Utilidad Mensual</p>
@@ -388,11 +432,47 @@ export const SimulatorView: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* NEW: SENSITIVITY ANALYSIS CARD */}
+                    <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-700 shadow-xl overflow-hidden relative">
+                        <div className="flex justify-between items-center mb-6 relative z-10">
+                            <h4 className="text-white font-black uppercase text-sm flex items-center gap-2">
+                                <Scale className="w-5 h-5 text-indigo-500" /> Análisis de Sensibilidad Financiera
+                            </h4>
+                            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold uppercase border border-indigo-500/30">
+                                Impacto del Precio
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 relative z-10">
+                            {calculation.sensitivity.map((scen, idx) => (
+                                <div key={scen.label} className={`p-4 rounded-2xl border flex flex-col justify-between h-full ${idx === 1 ? 'bg-slate-800 border-indigo-500/50 shadow-lg scale-105 z-10' : 'bg-slate-950/50 border-slate-800 opacity-80'}`}>
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase mb-1 ${idx === 0 ? 'text-red-400' : idx === 2 ? 'text-blue-400' : 'text-emerald-400'}`}>{scen.label}</p>
+                                        <p className="text-xs text-slate-400 font-mono mb-3">{formatCurrency(scen.price)}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[8px] text-slate-500 uppercase font-bold">TIR (EA)</span>
+                                            <span className={`text-sm font-black font-mono ${scen.annualizedROI > 15 ? 'text-white' : 'text-slate-400'}`}>{scen.annualizedROI.toFixed(1)}%</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[8px] text-slate-500 uppercase font-bold">VPN</span>
+                                            <span className={`text-[10px] font-black font-mono ${scen.npv > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{formatCurrency(scen.npv)}</span>
+                                        </div>
+                                        <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden mt-1">
+                                            <div className={`h-full ${scen.maxInvestment > calculation.maxInvestment ? 'bg-red-500' : 'bg-indigo-500'}`} style={{width: `${Math.min((scen.maxInvestment/calculation.maxInvestment)*100, 100)}%`}}></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* TABLA FLUJO DE CAJA */}
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
                             <h4 className="text-slate-800 dark:text-white font-black uppercase text-sm flex items-center gap-2">
-                                <Wallet className="w-5 h-5 text-indigo-500" /> Flujo de Caja Detallado
+                                <Wallet className="w-5 h-5 text-indigo-500" /> Flujo de Caja (Escenario Base)
                             </h4>
                             <span className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 px-3 py-1 rounded-full font-bold uppercase">Incluye Costos Financieros</span>
                         </div>

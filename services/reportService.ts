@@ -125,12 +125,13 @@ export const generateSimulatorPDF = (data: any): void => {
     doc.text("2. Proyección a 7 Años (Ciclo Completo)", 14, y);
     y += 5;
 
+    // FIX: data values are already totals, do NOT multiply by totalTrees again
     const rows = data.calculation.yearlyData.map((row: any) => [
         `Año ${row.year}`,
         row.label,
-        formatCurrency(row.income * data.parameters.totalTrees),
-        formatCurrency(row.totalCost * data.parameters.totalTrees),
-        formatCurrency(row.profit * data.parameters.totalTrees)
+        formatCurrency(row.income), 
+        formatCurrency(row.totalCost),
+        formatCurrency(row.profit)
     ]);
 
     autoTable(doc, {
@@ -144,8 +145,9 @@ export const generateSimulatorPDF = (data: any): void => {
             3: { halign: 'right', textColor: [220, 38, 38] }, // Red
             4: { halign: 'right', fontStyle: 'bold' } 
         },
-        foot: [['', 'TOTAL ACUMULADO', formatCurrency(data.calculation.yearlyData.reduce((a:number, b:any) => a + b.income * data.parameters.totalTrees, 0)), 
-               formatCurrency(data.calculation.yearlyData.reduce((a:number, b:any) => a + b.totalCost * data.parameters.totalTrees, 0)), 
+        // FIX: Summing raw totals directly
+        foot: [['', 'TOTAL ACUMULADO', formatCurrency(data.calculation.yearlyData.reduce((a:number, b:any) => a + b.income, 0)), 
+               formatCurrency(data.calculation.yearlyData.reduce((a:number, b:any) => a + b.totalCost, 0)), 
                formatCurrency(data.calculation.globalAccumulated)]],
         footStyles: { fillColor: BRAND_COLORS.slate, textColor: 255, fontStyle: 'bold' }
     });
@@ -157,11 +159,12 @@ export const generateSimulatorPDF = (data: any): void => {
     doc.text("3. Indicadores Financieros Estratégicos", 14, y);
     y += 5;
 
+    // FIX: Changed data.calculation.roi to data.calculation.annualizedROI
     autoTable(doc, {
         startY: y,
         head: [['Indicador', 'Valor', 'Interpretación']],
         body: [
-            ['Retorno Inversión (ROI)', `${data.calculation.roi.toFixed(1)} %`, `Gana $${data.calculation.roi.toFixed(0)} por cada $100 invertidos`],
+            ['Retorno Inversión (ROI)', `${data.calculation.annualizedROI.toFixed(1)} %`, `Retorno efectivo anual proyectado`],
             ['Margen Neto Global', `${data.calculation.netMargin.toFixed(1)} %`, 'Porcentaje de utilidad sobre ventas totales'],
             ['Costo Producción (Carga)', formatCurrency(data.calculation.costPerCarga), 'Punto de equilibrio por carga producida'],
             ['Año Recuperación (Payback)', data.calculation.paybackYear > 0 ? `Año ${data.calculation.paybackYear}` : 'N/A', 'Momento en que la inversión se paga sola'],
@@ -213,20 +216,21 @@ export const generateSimulatorExcel = (data: any): void => {
         ["Factor Conversión", data.parameters.yieldConversion, "Kg Cereza / Kg CPS"],
         [""],
         ["PROYECCIÓN DE FLUJO DE CAJA (7 AÑOS)"],
-        ["Año", "Etapa Fenológica", "Producción (Kg/Arb)", "Ingreso Global ($)", "Egreso Global ($)", "Utilidad Neta ($)", "Margen (%)"],
+        ["Año", "Etapa Fenológica", "Producción (Cargas)", "Ingreso Global ($)", "Egreso Global ($)", "Utilidad Neta ($)", "Margen (%)"],
     ];
 
     // Add Table Rows
     data.calculation.yearlyData.forEach((row: any) => {
-        const income = row.income * data.parameters.totalTrees;
-        const cost = row.totalCost * data.parameters.totalTrees;
-        const profit = row.profit * data.parameters.totalTrees;
+        // FIX: data values are already totals, do NOT multiply by totalTrees again
+        const income = row.income;
+        const cost = row.totalCost;
+        const profit = row.profit;
         const margin = income > 0 ? (profit / income) : 0;
         
         ws_data.push([
             row.year,
             row.label,
-            row.yieldKg.toFixed(2),
+            row.yieldCargas.toFixed(1), // yieldCargas is total
             income,
             cost,
             profit,
@@ -238,7 +242,8 @@ export const generateSimulatorExcel = (data: any): void => {
     ws_data.push(["", "", "", "", "", "", ""]);
     ws_data.push(["RESUMEN DE INDICADORES"]);
     ws_data.push(["Utilidad Total Ciclo", data.calculation.globalAccumulated]);
-    ws_data.push(["ROI (Retorno s/ Inversión)", data.calculation.roi / 100]); // Percent format
+    // FIX: roi -> annualizedROI
+    ws_data.push(["ROI (Retorno s/ Inversión)", data.calculation.annualizedROI / 100]); // Percent format
     ws_data.push(["Margen Neto Global", data.calculation.netMargin / 100]); // Percent format
     ws_data.push(["Costo Producción / Carga", data.calculation.costPerCarga]);
     ws_data.push(["Año Recuperación (Payback)", data.calculation.paybackYear]);
