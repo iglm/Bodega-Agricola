@@ -81,6 +81,24 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // --- VALIDACIÓN ROBUSTA DE STOCK ---
+    const qtyInput = parseFloat(quantity);
+    if (isNaN(qtyInput) || qtyInput <= 0) {
+        setError("Ingrese una cantidad válida mayor a 0.");
+        return;
+    }
+
+    if (isOut) {
+        const reqBaseQty = convertToBase(qtyInput, unit);
+        // Usamos una pequeña tolerancia para errores de punto flotante
+        if (reqBaseQty > (item.currentQuantity + 0.0001)) {
+            setError(`Stock insuficiente. Disponible: ${formatBaseQuantity(item.currentQuantity, item.baseUnit)}`);
+            return;
+        }
+    }
+    // -----------------------------------
+
     if (error) return;
     const supplierName = suppliers.find(s => s.id === selectedSupplierId)?.name;
     const costCenterName = costCenters.find(c => c.id === selectedCostCenterId)?.name;
@@ -192,4 +210,3 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     </div>
   );
 };
-    

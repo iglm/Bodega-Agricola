@@ -149,6 +149,11 @@ export interface CostCenter {
   budget?: number;
   coordinates?: { lat: number; lng: number };
   plantCount?: number;
+  // Biological Asset Fields
+  accumulatedCapex?: number; // Costo acumulado durante etapa de levante
+  assetValue?: number; // Valor final activado al pasar a producción
+  amortizationDuration?: number; // Vida útil contable en años
+  activationDate?: string; // Fecha en que pasó a producción
 }
 
 export interface InventoryItem { 

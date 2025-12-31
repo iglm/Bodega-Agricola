@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AppState, SWOT, CostCenter, Activity } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { InvestmentCalculatorView } from './InvestmentCalculatorView'; // NEW IMPORT
+import { InvestmentCalculatorView } from './InvestmentCalculatorView';
 import { Target, TrendingUp, DollarSign, PieChart, Landmark, Timer, ArrowRightLeft, Lightbulb, ShieldCheck, Briefcase, Activity as ActivityIcon, Info, Users, AlertTriangle, Scale, Database, BarChart3, Search, Zap, CheckCircle, BrainCircuit, Sprout, Split, BookOpen, ArrowDown, ArrowUp } from 'lucide-react';
 
 interface StrategicViewProps {
@@ -10,11 +10,12 @@ interface StrategicViewProps {
   onUpdateSWOT: (swot: SWOT) => void;
 }
 
+// Datos de referencia extraídos del Informe Ejecutivo (Promedios Técnicos Caldas/Eje Cafetero)
 const CALDAS_BENCHMARKS = [
-  { crop: 'Banano', laborPart: 0.76, yield: 31790 },
   { crop: 'Café', laborPart: 0.68, yield: 2800 }, 
   { crop: 'Plátano', laborPart: 0.576, yield: 14000 },
   { crop: 'Aguacate', laborPart: 0.441, yield: 12000 },
+  { crop: 'Banano', laborPart: 0.76, yield: 31790 },
 ];
 
 const KPI_Card: React.FC<{title: string, value: string, subvalue?: string, color: string, icon: React.ElementType}> = ({title, value, subvalue, color, icon: Icon}) => (
@@ -303,7 +304,7 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                             {/* Costo Por Kilo */}
                             <div className="flex justify-between items-center bg-slate-950/50 p-3 rounded-xl">
                                 <div>
-                                    <p className="text-[9px] text-slate-400 font-black uppercase">Costo Prod. Unitario</p>
+                                    <p className="text-[9px] text-slate-400 font-black uppercase">Costo por Kilo</p>
                                     <p className="text-lg font-mono font-black text-white">{formatCurrency(bench.actualCup)} <span className="text-[10px] text-slate-500">/Kg</span></p>
                                 </div>
                                 <DollarSign className="w-5 h-5 text-emerald-600 opacity-50" />
@@ -314,13 +315,13 @@ export const StrategicView: React.FC<StrategicViewProps> = ({ data, onUpdateSWOT
                                 <span className="text-[10px] text-slate-500 uppercase font-bold">Rendimiento (Kg/Ha)</span>
                                 <div className="text-right">
                                     <span className="text-sm font-black text-white">{bench.actualYield.toFixed(0)}</span>
-                                    <span className="text-[9px] text-slate-500 ml-2">Meta: {bench.benchYield}</span>
+                                    <span className="text-[9px] text-slate-500 ml-2">Esperado: {bench.benchYield}</span>
                                 </div>
                             </div>
 
                             {/* Participacion Laboral */}
                             <div className="flex justify-between items-center">
-                                <span className="text-[10px] text-slate-500 uppercase font-bold">Participación Laboral</span>
+                                <span className="text-[10px] text-slate-500 uppercase font-bold">Participación Mano de Obra</span>
                                 <div className="text-right">
                                     <span className={`text-sm font-black ${(bench.actualLaborPart > bench.benchLabor) ? 'text-amber-500' : 'text-emerald-500'}`}>
                                         {(bench.actualLaborPart * 100).toFixed(1)}%
