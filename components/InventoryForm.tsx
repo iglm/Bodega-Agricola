@@ -1,6 +1,5 @@
 
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Category, Unit, InventoryItem, Supplier } from '../types';
 import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle, Info, Tag, Bookmark, ShieldCheck, Loader2 } from 'lucide-react';
 import { convertToBase, getBaseUnitType } from '../services/inventoryService';
@@ -36,6 +35,33 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
 
+  // Solo mostramos campos de seguridad (Carencia/Vencimiento) para agroquímicos puros
+  const showSafetyFields = [Category.INSECTICIDA, Category.FUNGICIDA, Category.HERBICIDA].includes(category);
+
+  // --- LÓGICA INTELIGENTE DE UNIDADES ---
+  const availableUnits = useMemo(() => {
+      if (category === Category.FERTILIZANTE) {
+          // Fertilizantes: Solo Bulto, Kilo, Gramo
+          return [Unit.BULTO_50KG, Unit.KILO, Unit.GRAMO];
+      } else {
+          // Otros (Agroquímicos): Todo MENOS Bulto
+          return Object.values(Unit).filter(u => u !== Unit.BULTO_50KG);
+      }
+  }, [category]);
+
+  // Efecto para cambiar la unidad por defecto cuando cambia la categoría
+  useEffect(() => {
+      if (category === Category.FERTILIZANTE) {
+          setPurchaseUnit(Unit.BULTO_50KG);
+      } else {
+          // Si cambiamos a agroquímicos y estaba en bulto, pasamos a Litro (común en venenos)
+          if (purchaseUnit === Unit.BULTO_50KG) {
+              setPurchaseUnit(Unit.LITRO);
+          }
+      }
+  }, [category]);
+
+  // Efecto para sincronizar la unidad inicial con la unidad de compra
   useEffect(() => {
       const baseType = getBaseUnitType(purchaseUnit);
       // Ensure initialUnit is compatible with the selected purchaseUnit's base type
@@ -68,8 +94,9 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
       lastPurchasePrice: Number(purchasePrice),
       minStock: minStockBase, minStockUnit: minStock ? purchaseUnit : undefined,
       description: '', 
-      expirationDate: expirationDate || undefined, 
-      safetyIntervalDays: safetyDays ? parseInt(safetyDays) : undefined,
+      // Solo guardamos datos de seguridad si la categoría lo requiere
+      expirationDate: showSafetyFields ? (expirationDate || undefined) : undefined, 
+      safetyIntervalDays: showSafetyFields ? (safetyDays ? parseInt(safetyDays) : undefined) : undefined,
       image
     }, initQty, {
         supplierId: selectedSupplierId || undefined,
@@ -114,13 +141,13 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => handleImageSelect(e, false)} />
                   </div>
                   <div className="flex-1 space-y-4">
-                      <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-800 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="Nombre (Ej: Amistar Top)" required autoFocus />
+                      <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-800 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all" placeholder="Nombre (Ej: Urea / 10-30-10)" required autoFocus />
                       <div className="grid grid-cols-2 gap-3">
                           <select value={category} onChange={e => setCategory(e.target.value as Category)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none">
                               {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                           <select value={purchaseUnit} onChange={e => setPurchaseUnit(e.target.value as Unit)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none">
-                              {Object.values(Unit).map(u => <option key={u} value={u}>{u}</option>)}
+                              {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
                       </div>
                   </div>
@@ -137,20 +164,29 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Precio Compra</label>
                       <input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-emerald-600 font-mono font-black outline-none focus:ring-2 focus:ring-emerald-500" placeholder="$ 0" required />
                   </div>
-                  <div className="space-y-1">
-                      <label className="text-[10px] font-black text-blue-500 uppercase ml-2">Días Carencia (BPA)</label>
-                      <input type="number" value={safetyDays} onChange={e => setSafetyDays(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 text-blue-600 font-mono font-black outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: 15" />
-                  </div>
+                  
+                  {/* SOLO MOSTRAR DÍAS DE CARENCIA PARA AGROQUÍMICOS (INSECTICIDAS, FUNGICIDAS, HERBICIDAS) */}
+                  {showSafetyFields && (
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-blue-500 uppercase ml-2">Días Carencia (BPA)</label>
+                        <input type="number" value={safetyDays} onChange={e => setSafetyDays(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 text-blue-600 font-mono font-black outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: 15" />
+                    </div>
+                  )}
               </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Stock Mínimo</label>
                       <input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-orange-500 font-mono font-black outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ej: 5" />
                   </div>
-                  <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Vencimiento</label>
-                      <input type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-600 dark:text-white font-bold outline-none" />
-                  </div>
+                  
+                  {/* SOLO MOSTRAR VENCIMIENTO PARA AGROQUÍMICOS */}
+                  {showSafetyFields && (
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Vencimiento</label>
+                        <input type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-600 dark:text-white font-bold outline-none" />
+                    </div>
+                  )}
               </div>
           </div>
           
