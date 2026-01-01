@@ -42,6 +42,91 @@ const addFooter = (doc: jsPDF) => {
     }
 };
 
+/**
+ * GENERA EL INFORME DE FACTIBILIDAD PDF PARA EL SIMULADOR 360
+ */
+export const generateSimulationPDF = (sim: any, params: any): void => {
+    const doc = new jsPDF();
+    let y = addHeader(doc, "Estudio de Factibilidad Agronómica", "Proyección Financiera de Ciclo de Cultivo", "SIMULADOR 360", BRAND_COLORS.slate);
+    
+    // 1. Parámetros del Proyecto
+    doc.setFontSize(10);
+    doc.setTextColor(...BRAND_COLORS.slate);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. PARÁMETROS TÉCNICOS DEL PROYECTO", 14, y);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const paramData = [
+        ["Variedad Seleccionada:", params.varietyLabel, "Árboles Totales:", params.numTrees.toLocaleString()],
+        ["Nivel Tecnológico:", params.techLabel, "Densidad Siembra:", `${params.density} á/Ha`],
+        ["Área Proyectada:", `${sim.hectares.toFixed(2)} Ha`, "Factor Calidad:", `Base ${params.qualityFactor}`],
+        ["Precio de Venta Base:", formatCurrency(parseFloat(params.marketPrice)), "Costo Recolección:", `${formatCurrency(parseFloat(params.harvestCostKg))}/Kg`]
+    ];
+
+    autoTable(doc, {
+        startY: y + 5,
+        body: paramData,
+        theme: 'plain',
+        styles: { fontSize: 8, cellPadding: 1 }
+    });
+
+    // 2. Dashboard de Resultados Financieros
+    y = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("2. INDICADORES DE RENTABILIDAD (KPIs)", 14, y);
+
+    autoTable(doc, {
+        startY: y + 5,
+        head: [['Indicador Económico', 'Valor Proyectado', 'Estado']],
+        body: [
+            ['Valor Presente Neto (VPN)', formatCurrency(sim.vpn), sim.vpn > 0 ? 'VIABLE' : 'NO VIABLE'],
+            ['Índice de Retorno (ROI)', `${sim.roi.toFixed(1)}%`, sim.roi > 15 ? 'ALTO' : sim.roi > 0 ? 'MODERADO' : 'CRÍTICO'],
+            ['Punto de Equilibrio (Payback)', sim.paybackYear ? `Año ${sim.paybackYear}` : 'Indeterminado', '-'],
+            ['Inversión de Establecimiento', formatCurrency(sim.totalCapex), 'Capex Levante']
+        ],
+        headStyles: { fillColor: BRAND_COLORS.indigo },
+        theme: 'grid'
+    });
+
+    // 3. Tabla de Flujo de Caja Maestro
+    y = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("3. MATRIZ DE FLUJO DE CAJA ANUALIZADO (6 AÑOS)", 14, y);
+
+    autoTable(doc, {
+        startY: y + 5,
+        head: [['Año', 'Prod. Kg', 'Ingreso Bruto', 'Recolección', 'Renovación', 'Sost+Deuda', 'Caja Neta']],
+        body: sim.yearlyData.map((d: any) => [
+            `Año ${d.year}`,
+            Math.round(d.totalProductionKg).toLocaleString(),
+            formatCurrency(d.totalIncome),
+            `-${formatCurrency(d.harvestCost)}`,
+            `-${formatCurrency(d.renovationReserve)}`,
+            `-${formatCurrency(d.capex + d.opex + d.debtService)}`,
+            formatCurrency(d.netCashFlow)
+        ]),
+        headStyles: { fillColor: BRAND_COLORS.slate },
+        columnStyles: {
+            6: { fontStyle: 'bold' }
+        },
+        alternateRowStyles: { fillColor: [245, 247, 250] }
+    });
+
+    // 4. Nota Técnica
+    y = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100);
+    const note = "Este informe es una proyección matemática determinista basada en los algoritmos de AgroBodega Pro. Los resultados dependen de la estabilidad climática y de mercado. El 'Fondo de Renovación' es una provisión contable para garantizar la sostenibilidad biológica del lote en el Año 5/6.";
+    doc.text(note, 14, y, { maxWidth: 180 });
+
+    addFooter(doc);
+    doc.save(`Factibilidad_Agro_${params.varietyLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
 export const generateExcel = (data: AppState): void => {
     const wb = XLSX.utils.book_new();
     const dateStr = new Date().toISOString().split('T')[0];
@@ -408,13 +493,13 @@ export const getDemoData = (): AppState => {
     const totalDemoBudget = 100000000;
 
     const distributions = [
-        { act: activities[0], perc: 0.49, val: 49000000 }, 
-        { act: activities[2], perc: 0.14, val: 14000000 }, 
-        { act: activities[4], perc: 0.11, val: 11000000 }, 
-        { act: activities[5], perc: 0.08, val: 8000000 },  
-        { act: activities[3], perc: 0.07, val: 7000000 },  
-        { act: activities[6], perc: 0.07, val: 7000000 },  
-        { act: activities[1], perc: 0.04, val: 4000000 }   
+        { act: activities[0], px: 0.49, val: 49000000 }, 
+        { act: activities[2], px: 0.14, val: 14000000 }, 
+        { act: activities[4], px: 0.11, val: 11000000 }, 
+        { act: activities[5], px: 0.08, val: 8000000 },  
+        { act: activities[3], px: 0.07, val: 7000000 },  
+        { act: activities[6], px: 0.07, val: 7000000 },  
+        { act: activities[1], px: 0.04, val: 4000000 }   
     ];
 
     distributions.forEach(d => {

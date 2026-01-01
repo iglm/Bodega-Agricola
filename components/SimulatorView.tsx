@@ -13,6 +13,7 @@ import {
   Tags, SearchCode, History
 } from 'lucide-react';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
+import { generateSimulationPDF } from '../services/reportService';
 
 interface SimulationYear {
     year: number;
@@ -200,6 +201,18 @@ export const SimulatorView: React.FC = () => {
         };
     }, [mode, numTrees, density, marketPrice, plantainPrice, jornalValue, inflation, includeCredit, loanAmount, interestRate, loanYears, techLevel, variety, activeCrisis, harvestCostPerKg, qualityFactor, reservePercent]);
 
+    const handleExportPDF = () => {
+        generateSimulationPDF(simulation, {
+            techLabel: TECH_CONFIG[techLevel].label,
+            varietyLabel: VARIETY_CONFIG[variety].label,
+            numTrees: parseNumberInput(numTrees),
+            density: parseNumberInput(density),
+            marketPrice: marketPrice,
+            harvestCostKg: harvestCostPerKg,
+            qualityFactor: simulation.currentFactor
+        });
+    };
+
     return (
         <div className="space-y-6 pb-40 animate-fade-in">
             {/* --- CABECERA TÉCNICA --- */}
@@ -215,7 +228,7 @@ export const SimulatorView: React.FC = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                    <button onClick={() => window.print()} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border border-emerald-500 shadow-lg active:scale-95 transition-all">
+                    <button onClick={handleExportPDF} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border border-emerald-500 shadow-lg active:scale-95 transition-all">
                         <FileDown className="w-3.5 h-3.5" /> Generar Factibilidad PDF
                     </button>
                 </div>
