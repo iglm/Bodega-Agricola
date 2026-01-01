@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck, Calculator } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck, Calculator, Briefcase, FileCheck, Landmark, Thermometer, CloudRain, Shield, Recycle, FlaskConical, Map, ArrowRight } from 'lucide-react';
 import { AppState } from '../types';
-import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateBudgetReport } from '../services/reportService';
+import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateExcel, generatePDF, generateLaborReport, generateHarvestReport, generateAgronomicDossier, generateSafetyReport } from '../services/reportService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -19,13 +19,6 @@ interface ExportModalProps {
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
-    onExportPDF, 
-    onExportExcel, 
-    onGenerateOrder, 
-    onExportLaborPDF,
-    onExportLaborExcel,
-    onExportHarvestPDF,
-    onExportMachineryPDF,
     onClose,
     activeData,
     onShowSupport,
@@ -42,108 +35,125 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh]">
+      <div className="bg-slate-800 w-full max-w-xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh]">
         
-        <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 p-6 relative flex-shrink-0">
+        <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 p-8 relative flex-shrink-0">
           <button onClick={onClose} className="absolute top-4 right-4 text-emerald-200/70 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
           
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/20">
-              <Download className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-4 mb-2">
+            <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg">
+              <Download className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Centro de Reportes</h3>
-              <p className="text-emerald-100/80 text-xs mt-0.5">Gestión Documental de Finca</p>
+              <h3 className="text-2xl font-black text-white leading-tight">Centro de Reportes</h3>
+              <p className="text-emerald-100/80 text-[10px] font-bold uppercase tracking-widest mt-1 italic">Gestión Documental Pro - Lucas Mateo Tabares Franco</p>
             </div>
           </div>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar bg-slate-900/30">
             
-            <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <FileText className="w-3 h-3" /> Reportes Básicos (Gratis)
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={onExportPDF} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors group">
-                        <FileText className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-bold text-white">Stock Bodega</span>
-                    </button>
-                    <button onClick={onGenerateOrder} className="p-3 bg-slate-700 hover:bg-slate-600 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors group">
-                        <ShoppingCart className="w-5 h-5 text-red-400 group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-bold text-white">Pedido Sugerido</span>
-                    </button>
+            {/* PAQUETE DE DATOS MAESTROS */}
+            <div className="bg-emerald-950/20 p-5 rounded-[2.5rem] border border-emerald-500/20 relative overflow-hidden">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <FileSpreadsheet className="w-3 h-3" /> Base de Datos Completa (Excel)
+                    </h4>
+                    {!isSupporter && <Crown className="w-4 h-4 text-amber-500 animate-pulse" />}
                 </div>
-            </div>
-
-            <div className="space-y-3 bg-emerald-900/10 p-4 rounded-2xl border border-emerald-500/20 relative">
-                {!isSupporter && (
-                    <div className="absolute -top-2 -right-2">
-                         <div className="bg-amber-500 text-amber-950 p-1 rounded-full shadow-lg border-2 border-slate-900 animate-bounce">
-                             <Crown className="w-4 h-4" />
-                         </div>
-                    </div>
-                )}
                 
-                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
-                    <Crown className="w-3 h-3" /> Reportes Gerenciales (Pro)
-                </h4>
-                
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => handleProAction(onExportExcel)} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden group">
-                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
-                        <FileSpreadsheet className={`w-5 h-5 ${isSupporter ? 'text-emerald-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Exportar Excel</span>
-                    </button>
-                    
-                    <button onClick={() => handleProAction(() => generateGlobalReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
-                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
-                        <PieChart className={`w-5 h-5 ${isSupporter ? 'text-purple-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Informe Global</span>
-                    </button>
-
-                    <button onClick={() => handleProAction(() => generateBudgetReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
-                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
-                        <Calculator className={`w-5 h-5 ${isSupporter ? 'text-indigo-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Control Presupuesto</span>
-                    </button>
-
-                    <button onClick={() => handleProAction(() => generateExecutiveReport(activeData!))} className="p-3 bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-1 border border-slate-700 relative overflow-hidden">
-                        {!isSupporter && <Lock className="absolute top-2 right-2 w-3 h-3 text-slate-600" />}
-                        <ShieldCheck className={`w-5 h-5 ${isSupporter ? 'text-blue-400' : 'text-slate-500'}`} />
-                        <span className={`text-[10px] font-bold ${isSupporter ? 'text-white' : 'text-slate-500'}`}>Dossier Técnico</span>
-                    </button>
-                </div>
-
-                {!isSupporter && (
-                    <button 
-                        onClick={onShowSupport}
-                        className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase py-2 rounded-lg transition-all"
-                    >
-                        Desbloquear Funciones Pro
-                    </button>
-                )}
-            </div>
-
-            <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <Clipboard className="w-3 h-3" /> Auxiliares de Campo
-                </h4>
                 <button 
-                    onClick={() => handleProAction(() => generateFieldTemplates(activeData!, false))}
-                    className="w-full p-4 bg-slate-800 rounded-xl border border-slate-700 flex items-center gap-4 group"
+                    onClick={() => handleProAction(() => generateExcel(activeData!))}
+                    className="w-full p-5 bg-emerald-600 hover:bg-emerald-500 rounded-[2rem] flex items-center justify-between transition-all shadow-xl shadow-emerald-900/40 active:scale-95 group"
                 >
-                    <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20 transition-colors">
-                        <FileText className="w-6 h-6 text-amber-500" />
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-2xl group-hover:scale-110 transition-transform">
+                            <FileSpreadsheet className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-sm font-black text-white uppercase">Descargar Libro Maestro</p>
+                            <p className="text-[9px] text-emerald-100 uppercase font-bold italic">Bitácora Total (10 Pestañas)</p>
+                        </div>
                     </div>
-                    <div className="text-left">
-                        <p className="text-xs font-bold text-white">Imprimir Planillas Físicas</p>
-                        <p className="text-[9px] text-slate-500">Para llevar registro a mano en el lote.</p>
-                    </div>
-                    {!isSupporter && <Lock className="ml-auto w-4 h-4 text-slate-600" />}
+                    <ArrowRight className="w-5 h-5 text-white opacity-50" />
                 </button>
+            </div>
+
+            {/* REPORTES TÉCNICOS POR MÓDULO */}
+            <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-4 flex items-center gap-2">
+                    <FlaskConical className="w-3 h-3" /> Reportes Administrativos y Técnicos
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => generatePDF(activeData!)} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
+                        <FileCheck className="w-5 h-5 text-emerald-400" />
+                        <span className="text-[9px] font-black text-white uppercase text-left">Bodega Valorizada</span>
+                    </button>
+                    <button onClick={() => generateLaborReport(activeData!)} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
+                        <Briefcase className="w-5 h-5 text-amber-400" />
+                        <span className="text-[9px] font-black text-white uppercase text-left">Libro de Nómina</span>
+                    </button>
+                    <button onClick={() => generateHarvestReport(activeData!)} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
+                        <Sprout className="w-5 h-5 text-indigo-400" />
+                        <span className="text-[9px] font-black text-white uppercase text-left">Bitácora Ventas</span>
+                    </button>
+                    <button onClick={() => handleProAction(() => generateGlobalReport(activeData!))} className="p-4 bg-indigo-900/20 hover:bg-indigo-900/30 rounded-3xl border border-indigo-500/30 flex flex-col gap-2 transition-all">
+                        <Crown className="w-5 h-5 text-amber-400" />
+                        <span className="text-[9px] font-black text-white uppercase text-left">Balance Gerencial</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* REPORTES DE CUMPLIMIENTO Y CAMPO */}
+            <div className="space-y-3 pt-2">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-4 flex items-center gap-2">
+                    <ShieldCheck className="w-3 h-3" /> Documentación para Auditorías
+                </h4>
+                
+                <div className="grid grid-cols-1 gap-3">
+                    <button 
+                        onClick={() => handleProAction(() => generateAgronomicDossier(activeData!))}
+                        className="w-full p-4 bg-blue-900/20 hover:bg-blue-900/30 rounded-3xl border border-blue-500/30 flex items-center gap-4 group transition-all"
+                    >
+                        <div className="p-3 bg-blue-500/20 rounded-2xl"><Thermometer className="w-6 h-6 text-blue-400" /></div>
+                        <div className="text-left">
+                            <p className="text-[11px] font-black text-white uppercase">Dossier Agronómico</p>
+                            <p className="text-[8px] text-blue-300 font-bold uppercase italic">Suelos, Lluvias y Plagas</p>
+                        </div>
+                        {!isSupporter && <Lock className="ml-auto w-4 h-4 text-slate-600" />}
+                    </button>
+
+                    <button 
+                        onClick={() => handleProAction(() => generateSafetyReport(activeData!))}
+                        className="w-full p-4 bg-red-900/20 hover:bg-red-900/30 rounded-3xl border border-red-500/30 flex items-center gap-4 group transition-all"
+                    >
+                        <div className="p-3 bg-red-500/20 rounded-2xl"><Shield className="w-6 h-6 text-red-400" /></div>
+                        <div className="text-left">
+                            <p className="text-[11px] font-black text-white uppercase">Auditoría SST & Ambiental</p>
+                            <p className="text-[8px] text-red-300 font-bold uppercase italic">EPP y Triple Lavado</p>
+                        </div>
+                        {!isSupporter && <Lock className="ml-auto w-4 h-4 text-slate-600" />}
+                    </button>
+
+                    <button 
+                        onClick={() => handleProAction(() => generateFieldTemplates(activeData!))}
+                        className="w-full p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex items-center gap-4 group transition-all"
+                    >
+                        <div className="p-3 bg-slate-700 rounded-2xl"><Clipboard className="w-6 h-6 text-slate-400" /></div>
+                        <div className="text-left">
+                            <p className="text-[11px] font-black text-white uppercase">Planillas Físicas de Campo</p>
+                            <p className="text-[8px] text-slate-500 font-bold uppercase italic">Para registro manual (12 formatos)</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-3xl border border-slate-800 text-center">
+                <p className="text-[9px] text-slate-500 leading-tight italic">
+                    Todos los reportes cumplen con la normativa ICA y estándares internacionales GlobalG.A.P. y Código 4C.
+                </p>
             </div>
 
         </div>
