@@ -9,15 +9,19 @@ import {
   CheckCircle2, ShieldX, ShieldCheck, Landmark as Bank, CloudRain, 
   TrendingUp as Trend, Coins, Repeat, LayoutGrid, ArrowDownRight, 
   Split, MapPin, Sun, Save, Copy, Trash2, ZapOff, Flame, Wind, 
-  FileDown, Microscope, GraduationCap, Briefcase, Settings
+  FileDown, Microscope, GraduationCap, Briefcase, Settings, 
+  Tags, SearchCode, History
 } from 'lucide-react';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 
 interface SimulationYear {
     year: number;
     productionPerc: number;
+    totalProductionKg: number;
     capex: number;
-    opex: number;
+    opex: number; // Sostenimiento
+    harvestCost: number; // Recolección
+    renovationReserve: number; // Fondo de reserva
     debtService: number;
     incomeCoffee: number;
     incomePlantain: number;
@@ -59,12 +63,18 @@ export const SimulatorView: React.FC = () => {
     const [plantainPrice, setPlantainPrice] = useState('2500');
     const [jornalValue, setJornalValue] = useState('75000');
     const [inflation, setInflation] = useState('5'); 
+
+    // --- NUEVAS VARIABLES AGRONÓMICAS DE PRECISIÓN ---
+    const [harvestCostPerKg, setHarvestCostPerKg] = useState('750'); // COP por Kg recolectado
+    const [qualityFactor, setQualityFactor] = useState('94'); // Factor de rendimiento (Base 94)
+    const [reservePercent, setReservePercent] = useState('8'); // % para fondo de renovación
+
     const [includeCredit, setIncludeCredit] = useState(false);
     const [loanAmount, setLoanAmount] = useState('50000000');
     const [interestRate, setInterestRate] = useState('14'); 
     const [loanYears, setLoanYears] = useState('5');
 
-    // --- MOTOR DE CÁLCULO FINANCIERO AGRO ---
+    // --- MOTOR DE CÁLCULO FINANCIERO AGRO v2.7 ---
     const simulation = useMemo(() => {
         const totalPlants = parseNumberInput(numTrees) || 1;
         const dens = parseNumberInput(density) || 1;
@@ -74,13 +84,21 @@ export const SimulatorView: React.FC = () => {
         const pPlantain = parseNumberInput(plantainPrice);
         const infl = (parseNumberInput(inflation) / 100) + 1;
         
+        const hCostKg = parseNumberInput(harvestCostPerKg);
+        const qFactorBase = parseNumberInput(qualityFactor);
+        const resPerc = parseNumberInput(reservePercent) / 100;
+
         const tech = TECH_CONFIG[techLevel];
         const varConfig = VARIETY_CONFIG[variety];
         
         let crisisYieldImpact = 1.0;
         let crisisPriceImpact = 1.0;
+        let crisisQualityImpact = 0; // Incremento en el factor (más factor = peor calidad)
         
-        if (activeCrisis === 'NINO') crisisYieldImpact = 0.65; 
+        if (activeCrisis === 'NINO') {
+            crisisYieldImpact = 0.65; // -35% producción
+            crisisQualityImpact = 11; // Sube factor de 94 a 105 (Broca/Pasilla)
+        }
         if (activeCrisis === 'PRICE_CRISIS') crisisPriceImpact = 0.70; 
         if (activeCrisis === 'BONANZA') crisisPriceImpact = 1.40; 
 
@@ -102,7 +120,7 @@ export const SimulatorView: React.FC = () => {
             let prodPercCoffee = 0;
             let prodKgPlantain = 0;
             let yearCapex = 0;
-            let yearOpex = 0;
+            let yearOpex = 0; // Sostenimiento (fertilizantes + limpias)
             let debtService = 0;
             let isExhaustionYear = false;
 
@@ -111,6 +129,7 @@ export const SimulatorView: React.FC = () => {
                 debtService = annualPrincipal + (remainingPrincipal * rate);
             }
 
+            // Lógica Biológica de Crecimiento
             if (i === 1) { 
                 yearCapex = (230 * jVal * tech.costFactor) * hectares * currentInflFactor; 
                 if (mode === 'COMBINED') prodKgPlantain = 3800 * hectares; 
@@ -134,20 +153,39 @@ export const SimulatorView: React.FC = () => {
                 }
             }
 
-            const currentPrice = pCoffeeBase * crisisPriceImpact;
-            const incCoffee = (22 * (dens/7000) * tech.yieldFactor) * hectares * prodPercCoffee * currentPrice * crisisYieldImpact * interferenceFactor;
+            // Cálculo de Producción Real en Kg (CPS)
+            // Base: 22 cargas/Ha en pico (aprox 2750 kg/Ha)
+            const baseProductionKg = (2750 * (dens/7000) * tech.yieldFactor) * hectares * prodPercCoffee * crisisYieldImpact * interferenceFactor;
+            
+            // AJUSTE POR CALIDAD (FACTOR DE RENDIMIENTO)
+            // El precio de bolsa/federación es para Factor 94. 
+            const currentFactor = qFactorBase + crisisQualityImpact;
+            const priceQualityMultiplier = 94 / currentFactor;
+            const currentPricePerKg = (pCoffeeBase / 125) * crisisPriceImpact * priceQualityMultiplier;
+
+            // COSTO DE RECOLECCIÓN (Variable según producción)
+            const yearHarvestCost = baseProductionKg * hCostKg * currentInflFactor;
+
+            const incCoffee = baseProductionKg * currentPricePerKg;
             const incPlantain = prodKgPlantain * pPlantain * crisisYieldImpact;
             const totalIncome = incCoffee + incPlantain;
-            const netCashFlow = totalIncome - (yearCapex + yearOpex + debtService);
+
+            // FONDO DE RENOVACIÓN (Reserva para Zoca Año 5/6)
+            const renovationReserve = i >= 3 ? totalIncome * resPerc : 0;
+
+            const totalYearExpenses = yearCapex + yearOpex + yearHarvestCost + renovationReserve + debtService;
+            const netCashFlow = totalIncome - totalYearExpenses;
             
             cumulativeFlow += netCashFlow;
             if (paybackYear === null && cumulativeFlow >= 0) paybackYear = i;
             if (i <= 2) totalCapex += yearCapex;
 
             yearlyData.push({ 
-                year: i, productionPerc: prodPercCoffee * 100, capex: yearCapex, opex: yearOpex, 
-                debtService, incomeCoffee: incCoffee, incomePlantain: incPlantain,
-                totalIncome, netCashFlow, cumulativeFlow, isExhaustionYear
+                year: i, productionPerc: prodPercCoffee * 100, totalProductionKg: baseProductionKg,
+                capex: yearCapex, opex: yearOpex, harvestCost: yearHarvestCost, 
+                renovationReserve, debtService, incomeCoffee: incCoffee, 
+                incomePlantain: incPlantain, totalIncome, netCashFlow, 
+                cumulativeFlow, isExhaustionYear
             });
         }
 
@@ -157,9 +195,10 @@ export const SimulatorView: React.FC = () => {
             hectares, vpn, yearlyData, paybackYear, totalCapex,
             isHealthy: vpn > 0,
             roi: (vpn / (principal || 1)) * 100,
-            hasCrisis: activeCrisis !== 'NONE'
+            hasCrisis: activeCrisis !== 'NONE',
+            currentFactor: qFactorBase + crisisQualityImpact
         };
-    }, [mode, numTrees, density, marketPrice, plantainPrice, jornalValue, inflation, includeCredit, loanAmount, interestRate, loanYears, techLevel, variety, activeCrisis]);
+    }, [mode, numTrees, density, marketPrice, plantainPrice, jornalValue, inflation, includeCredit, loanAmount, interestRate, loanYears, techLevel, variety, activeCrisis, harvestCostPerKg, qualityFactor, reservePercent]);
 
     return (
         <div className="space-y-6 pb-40 animate-fade-in">
@@ -170,22 +209,19 @@ export const SimulatorView: React.FC = () => {
                         <Calculator className="w-5 h-5 text-emerald-500" />
                     </div>
                     <div>
-                        <h2 className="text-white font-black text-lg uppercase tracking-tighter">Terminal de Modelado Financiero</h2>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Lucas Mateo Tabares Franco • v2.6 Técnico</p>
+                        <h2 className="text-white font-black text-lg uppercase tracking-tighter">Terminal de Ingeniería Agro-Financiera</h2>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Lucas Mateo Tabares Franco • v2.7 PRO Agronómico</p>
                     </div>
                 </div>
                 
                 <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border border-slate-700 hover:bg-slate-700 transition-all active:scale-95">
-                        <Save className="w-3.5 h-3.5 text-emerald-400" /> Guardar
-                    </button>
                     <button onClick={() => window.print()} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border border-emerald-500 shadow-lg active:scale-95 transition-all">
-                        <FileDown className="w-3.5 h-3.5" /> Informe Ejecutivo
+                        <FileDown className="w-3.5 h-3.5" /> Generar Factibilidad PDF
                     </button>
                 </div>
             </div>
 
-            {/* --- DASHBOARD DE RESULTADOS DETERMINISTAS --- */}
+            {/* --- DASHBOARD DE RESULTADOS --- */}
             <div className={`p-8 rounded-[3.5rem] border-4 shadow-2xl relative overflow-hidden transition-all duration-700 ${simulation.isHealthy ? 'bg-slate-900 border-emerald-500/30' : 'bg-slate-900 border-red-500/30'}`}>
                 <div className="absolute top-0 right-0 p-8 opacity-5"><Landmark className="w-64 h-64 text-white" /></div>
                 
@@ -193,18 +229,18 @@ export const SimulatorView: React.FC = () => {
                     <div className="flex-1 space-y-6">
                         <div className="flex flex-wrap gap-2 mb-4">
                             <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-slate-400 border border-white/10 uppercase tracking-widest">{TECH_CONFIG[techLevel].label}</span>
-                            <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-slate-400 border border-white/10 uppercase tracking-widest">{VARIETY_CONFIG[variety].label}</span>
-                            {activeCrisis !== 'NONE' && <span className="px-3 py-1 bg-red-600 text-white rounded-full text-[9px] font-black border border-red-500 uppercase tracking-widest">Evento: {activeCrisis}</span>}
+                            <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-slate-400 border border-white/10 uppercase tracking-widest">Calidad: Factor {simulation.currentFactor}</span>
+                            {activeCrisis !== 'NONE' && <span className="px-3 py-1 bg-red-600 text-white rounded-full text-[9px] font-black border border-red-500 uppercase tracking-widest">Evento Activo: {activeCrisis}</span>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-950/50 p-6 rounded-[2.5rem] border border-slate-800">
-                                <p className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500"/> VPN (Valor Presente Neto)</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500"/> VPN del Proyecto</p>
                                 <p className={`text-3xl font-black font-mono tracking-tighter ${simulation.vpn > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{formatCurrency(simulation.vpn)}</p>
                             </div>
                             <div className="bg-slate-950/50 p-6 rounded-[2.5rem] border border-slate-800">
-                                <p className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500"/> Retorno Inversión</p>
-                                <p className="text-3xl font-black text-white font-mono tracking-tighter">{simulation.paybackYear ? `Año ${simulation.paybackYear}` : 'Indeterminado'}</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500"/> Punto de Equilibrio</p>
+                                <p className="text-3xl font-black text-white font-mono tracking-tighter">{simulation.paybackYear ? `Año ${simulation.paybackYear}` : 'Inválido'}</p>
                             </div>
                         </div>
                     </div>
@@ -213,9 +249,42 @@ export const SimulatorView: React.FC = () => {
                         <div className={`w-20 h-20 rounded-3xl mx-auto mb-4 flex items-center justify-center border-2 transition-all ${simulation.isHealthy ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500' : 'bg-red-500/20 border-red-500/40 text-red-500'}`}>
                             {simulation.isHealthy ? <ShieldCheck className="w-10 h-10" /> : <ShieldAlert className="w-10 h-10" />}
                         </div>
-                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Ratio de Rentabilidad (ROI)</p>
+                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Índice ROI Real</p>
                         <p className={`text-6xl font-black font-mono tracking-tighter ${simulation.isHealthy ? 'text-emerald-500' : 'text-red-500'}`}>{simulation.roi.toFixed(1)}%</p>
-                        <p className="text-[9px] text-slate-500 mt-4 uppercase font-bold italic tracking-tighter">Cálculo actuarial basado en flujo de caja descontado.</p>
+                        <p className="text-[9px] text-slate-500 mt-4 uppercase font-bold italic">Análisis que incluye depreciación biológica y castigo por calidad.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- CONFIGURACIÓN DE VARIABLES CRÍTICAS --- */}
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-700 shadow-xl space-y-6">
+                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-indigo-500" /> Parámetros Agronómicos y Sensibilidad
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2">
+                            <Pickaxe className="w-4 h-4 text-amber-500" /> Recolección ($/Kg)
+                        </label>
+                        <input type="text" value={formatNumberInput(harvestCostPerKg)} onChange={e => setHarvestCostPerKg(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl p-4 text-xl font-black text-slate-800 dark:text-white font-mono" />
+                        <p className="text-[8px] text-slate-400 px-2 italic">Costo variable por volumen cosechado.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2">
+                            <Tags className="w-4 h-4 text-indigo-500" /> Calidad (Factor Rend.)
+                        </label>
+                        <input type="number" value={qualityFactor} onChange={e => setQualityFactor(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl p-4 text-xl font-black text-slate-800 dark:text-white font-mono" />
+                        <p className="text-[8px] text-slate-400 px-2 italic">Ajusta el precio: Base 94. A mayor factor, menor precio.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2">
+                            <History className="w-4 h-4 text-emerald-500" /> Fondo Renovación (%)
+                        </label>
+                        <input type="number" value={reservePercent} onChange={e => setReservePercent(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl p-4 text-xl font-black text-slate-800 dark:text-white font-mono" />
+                        <p className="text-[8px] text-slate-400 px-2 italic">Provisión anual para financiar la zoca/renovación.</p>
                     </div>
                 </div>
             </div>
@@ -223,9 +292,9 @@ export const SimulatorView: React.FC = () => {
             {/* --- NAVEGACIÓN --- */}
             <div className="flex bg-slate-200 dark:bg-slate-900 p-1.5 rounded-[2rem] gap-1 shadow-inner border dark:border-slate-800">
                 {[
-                    { id: 'PROJECTION', label: 'Flujos Netos', icon: Trend },
+                    { id: 'PROJECTION', label: 'Flujos Netos (Realistas)', icon: Trend },
                     { id: 'INVESTMENT', label: 'Matriz CAPEX', icon: Coins },
-                    { id: 'STRESS', label: 'Simulación de Riesgo', icon: Flame }
+                    { id: 'STRESS', label: 'Laboratorio de Riesgo', icon: Flame }
                 ].map(tab => (
                     <button 
                         key={tab.id} 
@@ -241,11 +310,11 @@ export const SimulatorView: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up">
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-white dark:bg-slate-800 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-700 shadow-xl space-y-6">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><GraduationCap className="w-5 h-5 text-indigo-500" /> Parámetros Técnicos</h4>
+                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><GraduationCap className="w-5 h-5 text-indigo-500" /> Configuración Biológica</h4>
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-2 block">Variedad de Semilla</label>
+                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-2 block">Variedad</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {Object.entries(VARIETY_CONFIG).map(([key, cfg]) => (
                                             <button key={key} onClick={() => setVariety(key as any)} className={`p-3 rounded-xl text-[9px] font-black uppercase border transition-all ${variety === key ? 'bg-slate-900 text-emerald-400 border-slate-800 shadow-lg' : 'bg-slate-50 dark:bg-slate-950 text-slate-500 border-slate-200 dark:border-slate-800'}`}>{cfg.label}</button>
@@ -254,7 +323,7 @@ export const SimulatorView: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-2 block">Nivel Tecnológico</label>
+                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-2 block">Tecnificación</label>
                                     <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl">
                                         {(Object.keys(TECH_CONFIG) as TechLevel[]).map(lvl => (
                                             <button key={lvl} onClick={() => setTechLevel(lvl)} className={`flex-1 py-3 rounded-xl text-[8px] font-black uppercase transition-all ${techLevel === lvl ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-md border border-slate-200 dark:border-slate-700' : 'text-slate-500'}`}>{TECH_CONFIG[lvl].label}</button>
@@ -263,7 +332,7 @@ export const SimulatorView: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Árboles Totales del Proyecto</label>
+                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Número de Árboles</label>
                                     <input type="text" value={formatNumberInput(numTrees)} onChange={e => setNumTrees(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-100 dark:bg-slate-950 border-none rounded-xl p-4 text-xl font-black text-slate-800 dark:text-white font-mono" />
                                 </div>
                             </div>
@@ -272,7 +341,7 @@ export const SimulatorView: React.FC = () => {
 
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white dark:bg-slate-800 p-8 rounded-[3.5rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
-                            <h3 className="text-slate-800 dark:text-white font-black text-xs uppercase flex items-center gap-3 tracking-[0.3em] mb-8"><Trend className="w-5 h-5 text-emerald-500" /> Flujo Maestro Consolidado</h3>
+                            <h3 className="text-slate-800 dark:text-white font-black text-xs uppercase flex items-center gap-3 tracking-[0.3em] mb-8"><Trend className="w-5 h-5 text-emerald-500" /> Flujo de Caja Maestro</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {simulation.yearlyData.map(y => {
                                     const isProfit = y.netCashFlow >= 0;
@@ -280,15 +349,18 @@ export const SimulatorView: React.FC = () => {
                                         <div key={y.year} className={`p-6 rounded-[2.5rem] border transition-all ${y.year === simulation.paybackYear ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-500/20 shadow-lg' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
                                             <div className="flex justify-between items-center mb-4">
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Año {y.year}</span>
-                                                {y.year === simulation.paybackYear && <span className="text-[8px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1"><Timer className="w-3 h-3"/> Punto Equilibrio</span>}
+                                                {y.year === simulation.paybackYear && <span className="text-[8px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1"><Timer className="w-3 h-3"/> Retorno Capital</span>}
                                             </div>
                                             <div className="space-y-2">
-                                                <div className="flex justify-between"><span className="text-[10px] text-slate-500 font-bold uppercase">Ingresos Estimados</span><span className="text-xs font-black text-slate-700 dark:text-slate-300">{formatCurrency(y.totalIncome)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[10px] text-slate-500 font-bold uppercase">Egresos Totales</span><span className="text-xs font-black text-red-400">-{formatCurrency(y.capex + y.opex + y.debtService)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-[10px] text-slate-500 font-bold uppercase">Prod. Estimada</span><span className="text-[11px] font-black text-slate-700 dark:text-slate-300">{Math.round(y.totalProductionKg).toLocaleString()} Kg CPS</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-[10px] text-slate-500 font-bold uppercase">Ingreso Bruto</span><span className="text-[11px] font-black text-emerald-600">{formatCurrency(y.totalIncome)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-[10px] text-amber-600 font-bold uppercase">Costo Recolección</span><span className="text-[11px] font-black text-amber-600">-{formatCurrency(y.harvestCost)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-[10px] text-indigo-400 font-bold uppercase">Fondo Renovación</span><span className="text-[11px] font-black text-indigo-400">-{formatCurrency(y.renovationReserve)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-[10px] text-red-500 font-bold uppercase">Sostenimiento+Deuda</span><span className="text-[11px] font-black text-red-500">-{formatCurrency(y.capex + y.opex + y.debtService)}</span></div>
                                             </div>
                                             <div className="h-px bg-slate-200 dark:bg-slate-800 my-4" />
                                             <div className="flex justify-between items-center">
-                                                <span className="text-[10px] font-black text-slate-800 dark:text-white uppercase">Caja Neta</span>
+                                                <span className="text-[10px] font-black text-slate-800 dark:text-white uppercase">Utilidad Neta</span>
                                                 <span className={`text-lg font-black font-mono ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>{isProfit ? '+' : ''}{formatCurrency(y.netCashFlow)}</span>
                                             </div>
                                         </div>
@@ -307,19 +379,19 @@ export const SimulatorView: React.FC = () => {
                             <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-emerald-500 mb-4 border border-slate-700">
                                 <Wallet className="w-8 h-8" />
                             </div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Capital de Establecimiento</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Inversión de Establecimiento</p>
                             <p className="text-3xl font-black text-white font-mono">{formatCurrency(simulation.totalCapex)}</p>
-                            <p className="text-[9px] text-slate-500 mt-2">Inversión requerida para los primeros 24 meses.</p>
+                            <p className="text-[9px] text-slate-500 mt-2 italic">Capital requerido para los años 1 y 2 (Levante).</p>
                         </div>
                         
                         <div className="md:col-span-2 bg-white dark:bg-slate-800 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-700 shadow-xl">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Layers className="w-5 h-5 text-indigo-500" /> Distribución de Recursos</h4>
+                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Layers className="w-5 h-5 text-indigo-500" /> Distribución Estratégica del Capital</h4>
                             <div className="space-y-4">
                                 {[
-                                    { label: 'Semillas y Germinadores', percent: 15, color: 'bg-emerald-500' },
-                                    { label: 'Adecuación y Ahoyado', percent: 25, color: 'bg-amber-500' },
-                                    { label: 'Plan de Nutrición Inicial', percent: 35, color: 'bg-indigo-500' },
-                                    { label: 'Sostenimiento y Mano de Obra', percent: 25, color: 'bg-blue-500' }
+                                    { label: 'Germinador y Semilla Pro', percent: 15, color: 'bg-emerald-500' },
+                                    { label: 'Adecuación de Terreno y Enmiendas', percent: 25, color: 'bg-amber-500' },
+                                    { label: 'Nutrición de Levante (Etapa Crítica)', percent: 35, color: 'bg-indigo-500' },
+                                    { label: 'Administración y Mano de Obra', percent: 25, color: 'bg-blue-500' }
                                 ].map((item, i) => (
                                     <div key={i}>
                                         <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500 mb-1">
@@ -342,17 +414,17 @@ export const SimulatorView: React.FC = () => {
                     <div className="bg-slate-900 p-10 rounded-[3.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-8 opacity-5"><Flame className="w-48 h-48 text-red-500" /></div>
                         <div className="relative z-10 text-center max-w-2xl mx-auto space-y-6">
-                            <h3 className="text-white font-black text-2xl uppercase tracking-tighter">Laboratorio de Análisis de Riesgo</h3>
+                            <h3 className="text-white font-black text-2xl uppercase tracking-tighter">Pruebas de Estrés Agronómico</h3>
                             <p className="text-sm text-slate-400 font-medium leading-relaxed">
-                                Modele el impacto de variables externas sobre la rentabilidad neta. Este análisis permite prever la capacidad de pago del servicio de deuda en condiciones adversas.
+                                Evalúe la supervivencia financiera ante variables externas incontrolables. Un modelo exitoso debe resistir al menos un escenario de crisis de precios o clima.
                             </p>
                             
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
                                 {[
                                     { id: 'NONE', label: 'Escenario Base', icon: ShieldCheck, color: 'bg-slate-800', sub: 'Normalidad' },
-                                    { id: 'NINO', label: 'Fenómeno Niño', icon: CloudRain, color: 'bg-orange-950 border-orange-500/30', sub: '-35% Producción' },
+                                    { id: 'NINO', label: 'Fenómeno Niño', icon: CloudRain, color: 'bg-orange-950 border-orange-500/30', sub: 'Menos Volumen + Castigo Factor' },
                                     { id: 'PRICE_CRISIS', label: 'Crisis Precios', icon: TrendingDown, color: 'bg-red-950 border-red-500/30', sub: '-30% Mercado' },
-                                    { id: 'BONANZA', label: 'Bonanza Export', icon: Gem, color: 'bg-emerald-950 border-emerald-500/30', sub: '+40% Precio' }
+                                    { id: 'BONANZA', label: 'Bonanza Export', icon: Gem, color: 'bg-emerald-950 border-emerald-500/30', sub: '+40% Precio Premium' }
                                 ].map(evt => (
                                     <button 
                                         key={evt.id} 
@@ -381,15 +453,15 @@ export const SimulatorView: React.FC = () => {
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                                         {simulation.isHealthy 
-                                            ? "El modelo técnico resiste el stress test. La estructura de costos permite absorber la caída en ingresos sin entrar en zona de descapitalización." 
-                                            : "Inviabilidad bajo este escenario. La crisis destruye el flujo de caja neto. Se requiere inyección de capital propio o reducción del nivel tecnológico para sobrevivir."}
+                                            ? "El modelo resiste la crisis. La estructura de reserva (Fondo de Renovación) y los costos controlados permiten absorber el impacto sin entrar en insolvencia." 
+                                            : "INVIABILIDAD DETECTADA. El costo de recolección y la caída en calidad destruyen el margen. Se requiere tecnificar para subir productividad por encima de 18 cargas/Ha."}
                                     </p>
                                 </div>
                             </div>
                             <div className="bg-slate-950 p-6 rounded-full border-4 border-slate-800 flex flex-col items-center justify-center w-40 h-40 shadow-inner">
-                                <p className="text-[8px] font-black text-slate-500 uppercase">Margen Seguridad</p>
-                                <p className={`text-3xl font-black ${simulation.isHealthy ? 'text-emerald-500' : 'text-red-500'}`}>{simulation.isHealthy ? 'ALTO' : 'CRÍTICO'}</p>
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Probabilidad Éxito</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase">Supervivencia</p>
+                                <p className={`text-3xl font-black ${simulation.isHealthy ? 'text-emerald-500' : 'text-red-500'}`}>{simulation.isHealthy ? 'ALTA' : 'CRÍTICA'}</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Score Técnico</p>
                             </div>
                          </div>
                     </div>
