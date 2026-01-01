@@ -148,73 +148,73 @@ export const generateBudgetReport = (data: AppState) => {};
 export const generateSimulatorPDF = (data: any) => {};
 export const generateSimulatorExcel = (data: any) => {};
 
-// --- MOTOR DE SIMULACIÓN DE 7 AÑOS (RENOVACIÓN ANUAL 15-20%) ---
+// --- MOTOR DE SIMULACIÓN DE 7 AÑOS (RENOVACIÓN ANUAL 14.2% - CICLO COMPLETO) ---
 export const getDemoData = (): AppState => {
     const warehouseId = generateId();
     const supplierId = generateId();
     
-    // DEFINICIÓN DE LOTES (7 Lotes para rotación perfecta de 7 años)
-    const lotSize = 14.28; // 100 / 7
-    const lots = [1, 2, 3, 4, 5, 6, 7].map(i => ({
+    // 1. DEFINICIÓN DE 7 LOTES (100 Ha / 7 = 14.2 Ha por lote para rotación anual)
+    const lotSize = 14.28;
+    const lotModels = [1, 2, 3, 4, 5, 6, 7].map(i => ({
         id: generateId(), 
         warehouseId, 
-        name: `Lote ${i} (Fase ${i} de Ciclo)`, 
+        name: `Lote ${i} (Etapa ${i})`, 
         area: lotSize, 
         stage: (i <= 2 ? 'Levante' : 'Produccion') as any,
         cropType: 'Café',
-        age: i // Edad teórica al inicio de la simulación
+        startAge: i // Edad relativa al inicio de la simulación
     }));
 
     const workers = ["Alberto Páez", "Carlos Ruiz", "Dora Cano", "Wilson Tabares", "Héctor Gómez"].map(name => ({
         id: generateId(), warehouseId, name, role: 'Operario'
     }));
 
+    const activityId = generateId();
+    const activities = [
+        { id: activityId, warehouseId, name: 'Mantenimiento General', costClassification: 'COFFEE' as CostClassification },
+        { id: generateId(), warehouseId, name: 'Cosecha', costClassification: 'COFFEE' as CostClassification }
+    ];
+
     const itemData = [
         { name: 'Urea 46%', cat: Category.FERTILIZANTE, unit: Unit.BULTO_50KG, price: 155000, base: 'g' },
         { name: 'DAP 18-46-0', cat: Category.FERTILIZANTE, unit: Unit.BULTO_50KG, price: 215000, base: 'g' },
-        { name: 'Amistar Top', cat: Category.FUNGICIDA, unit: Unit.LITRO, price: 198000, base: 'ml' },
-        { name: 'Roundup', cat: Category.HERBICIDA, unit: Unit.LITRO, price: 45000, base: 'ml' }
+        { name: 'Amistar Top', cat: Category.FUNGICIDA, unit: Unit.LITRO, price: 198000, base: 'ml' }
     ];
 
     const inventory = itemData.map(d => ({
         id: generateId(), warehouseId, name: d.name, category: d.cat, currentQuantity: 0,
-        baseUnit: d.base as any, averageCost: 0, lastPurchasePrice: d.price, lastPurchaseUnit: d.unit
+        baseUnit: d.base as any, averageCost: 0, lastPurchasePrice: d.price, lastPurchaseUnit: d.unit, minStock: 500000
     }));
 
     const today = new Date();
     const startOfSimulation = new Date();
-    startOfSimulation.setFullYear(today.getFullYear() - 7); // IR ATRÁS 7 AÑOS
+    startOfSimulation.setFullYear(today.getFullYear() - 7); 
 
     const demoState: AppState = {
         warehouses: [{ id: warehouseId, name: 'Hacienda Los Andes (100 Ha - 7 Años)', created: startOfSimulation.toISOString(), ownerId: 'demo' }],
         activeWarehouseId: warehouseId,
         inventory: inventory,
         movements: [],
-        suppliers: [{ id: supplierId, warehouseId, name: 'Distribuidora Cafetera', phone: '3101234567' }],
-        costCenters: lots.map(({age, ...rest}) => rest),
+        suppliers: [{ id: supplierId, warehouseId, name: 'Central de Insumos', phone: '3101234567' }],
+        costCenters: lotModels.map(({startAge, ...rest}) => rest),
         personnel: workers,
-        activities: [
-            { id: generateId(), warehouseId, name: 'Fertilización', costClassification: 'COFFEE' },
-            { id: generateId(), warehouseId, name: 'Cosecha', costClassification: 'COFFEE' }
-        ],
-        laborLogs: [],
-        harvests: [],
-        machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], bpaChecklist: {}, assets: [], laborFactor: 1.52
+        activities,
+        laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], bpaChecklist: {}, assets: [], laborFactor: 1.52
     };
 
-    // --- MOTOR DE TIEMPO (7 AÑOS PASO A PASO) ---
+    // --- MOTOR DE TIEMPO (PASO A PASO 7 AÑOS) ---
+    const yieldCurve: Record<number, number> = { 1: 0, 2: 0, 3: 0.40, 4: 0.90, 5: 1.05, 6: 0.85, 7: 0.60 };
     let curr = new Date(startOfSimulation);
-    const yieldCurve: Record<number, number> = { 1: 0, 2: 0, 3: 0.35, 4: 0.85, 5: 1.0, 6: 0.80, 7: 0.55 };
 
     while (curr <= today) {
         const dStr = curr.toISOString().split('T')[0];
         const month = curr.getMonth();
-        const day = curr.getDate();
+        const year = curr.getFullYear();
 
-        // 1. COMPRAS (ENTRADAS) - Una vez por trimestre
-        if (day === 1 && [0, 3, 6, 9].includes(month)) {
+        // 1. COMPRAS TRIMESTRALES (ENTRADAS BODEGA)
+        if (curr.getDate() === 1 && [0, 3, 6, 9].includes(month)) {
             inventory.forEach(item => {
-                const qty = 50 + Math.random() * 50;
+                const qty = 80 + Math.random() * 40; 
                 const cost = qty * item.lastPurchasePrice;
                 demoState.movements.push({
                     id: generateId(), warehouseId, itemId: item.id, itemName: item.name, type: 'IN',
@@ -227,44 +227,42 @@ export const getDemoData = (): AppState => {
             });
         }
 
-        // 2. APLICACIONES (SALIDAS) - Cada mes para el mantenimiento de las 100 Ha
-        if (day === 15) {
-            inventory.slice(0, 2).forEach(item => {
-                const itm = demoState.inventory.find(i => i.id === item.id)!;
-                const qtyOut = 200000; // 200kg por mes aplicados
-                if (itm.currentQuantity > qtyOut) {
+        // 2. APLICACIONES MENSUALES (SALIDAS BODEGA VINCULADAS A LOTE)
+        if (curr.getDate() === 15) {
+            lotModels.forEach(lot => {
+                const item = demoState.inventory[0];
+                const qtyOut = 30000; // 30kg por lote al mes
+                if (item.currentQuantity > qtyOut) {
                     demoState.movements.push({
-                        id: generateId(), warehouseId, itemId: itm.id, itemName: itm.name, type: 'OUT',
-                        quantity: qtyOut, unit: Unit.GRAMO, calculatedCost: qtyOut * itm.averageCost, 
-                        date: dStr, costCenterName: 'Hacienda Completa'
+                        id: generateId(), warehouseId, itemId: item.id, itemName: item.name, type: 'OUT',
+                        quantity: qtyOut, unit: Unit.GRAMO, calculatedCost: qtyOut * item.averageCost, 
+                        date: dStr, costCenterId: lot.id, costCenterName: lot.name
                     });
-                    itm.currentQuantity -= qtyOut;
+                    item.currentQuantity -= qtyOut;
                 }
             });
         }
 
-        // 3. COSECHAS Y VENTAS (Excelso + Pasilla) - Mitaca (Mayo) y Principal (Noviembre)
-        if (day === 28 && [4, 10].includes(month)) {
-            lots.forEach(lot => {
-                // Actualizar edad del lote según el año de simulación
-                const simulationYear = curr.getFullYear() - startOfSimulation.getFullYear() + 1;
-                const currentAge = ((lot.age + simulationYear - 2) % 7) + 1; 
-                
+        // 3. COSECHAS SEMESTRALES (EXCELSO + PASILLA)
+        if (curr.getDate() === 28 && [4, 10].includes(month)) {
+            lotModels.forEach(lot => {
+                const simYear = year - startOfSimulation.getFullYear() + 1;
+                const currentAge = ((lot.startAge + simYear - 2) % 7) + 1;
                 const factor = yieldCurve[currentAge] || 0;
+
                 if (factor > 0) {
-                    const qtyExcelso = (3500 * lot.area * factor) / 2; // Media cosecha semestral
-                    const priceExcelso = 1800000 + (Math.random() * 500000);
+                    const qtyExcelso = (3800 * lot.area * factor) / 2; 
+                    const priceExcelso = 2350000; // Precio competitivo para que Simulator sea > 0
                     const valExcelso = (qtyExcelso / 125) * priceExcelso;
 
-                    // Venta Excelso
                     demoState.harvests.push({
                         id: generateId(), warehouseId, date: dStr, costCenterId: lot.id, costCenterName: lot.name,
                         cropName: 'Café Pergamino Seco (Excelso)', quantity: qtyExcelso, unit: 'Kg', totalValue: valExcelso
                     });
 
-                    // Venta Pasilla (6.8% del peso, 20% del valor)
+                    // Pasilla técnica (6.8% masa)
                     const qtyPasilla = qtyExcelso * 0.068;
-                    const valPasilla = (qtyPasilla / 125) * (priceExcelso * 0.20);
+                    const valPasilla = (qtyPasilla / 125) * (priceExcelso * 0.22);
                     demoState.harvests.push({
                         id: generateId(), warehouseId, date: dStr, costCenterId: lot.id, costCenterName: lot.name,
                         cropName: 'Pasilla de Finca', quantity: qtyPasilla, unit: 'Kg', totalValue: valPasilla
@@ -273,19 +271,31 @@ export const getDemoData = (): AppState => {
             });
         }
 
-        // 4. NÓMINA (JORNALES) - Últimos 2 años detallados para no romper el storage
-        if (curr > new Date(today.getFullYear() - 2, 0, 1) && curr.getDay() !== 0) {
+        // 4. JORNALES (VINCULADOS A LOTE)
+        if (curr.getDay() !== 0) {
+            const lot = lotModels[curr.getDate() % 7];
             workers.forEach(w => {
                 demoState.laborLogs.push({
                     id: generateId(), warehouseId, date: dStr, personnelId: w.id, personnelName: w.name,
-                    activityId: 'ACT_DEMO', activityName: 'Mantenimiento Ciclo',
-                    costCenterId: 'LOT_DEMO', costCenterName: 'Hacienda', value: 85000, paid: true
+                    activityId, activityName: 'Labores de Ciclo',
+                    costCenterId: lot.id, costCenterName: lot.name, value: 85000, paid: true
                 });
             });
         }
 
         curr.setDate(curr.getDate() + 1);
     }
+
+    // 5. POBLAR PRESUPUESTO 2025 Y 2026 (Para eliminar los ceros en 'Presupuesto')
+    [2025, 2026].forEach(y => {
+        lotModels.forEach(lot => {
+            const bItems: BudgetItem[] = [
+                { id: generateId(), type: 'LABOR', conceptId: activityId, conceptName: 'Mantenimiento', unitCost: 85000, quantityPerHa: 12, months: [1, 3, 5, 7, 9, 11] },
+                { id: generateId(), type: 'SUPPLY', conceptId: inventory[0].id, conceptName: 'Fertilizante', unitCost: 155000, quantityPerHa: 8, months: [2, 8] }
+            ];
+            demoState.budgets.push({ id: generateId(), warehouseId, year: y, costCenterId: lot.id, items: bItems });
+        });
+    });
 
     return demoState;
 };
