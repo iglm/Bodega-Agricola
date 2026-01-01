@@ -42,26 +42,125 @@ const addFooter = (doc: jsPDF) => {
     }
 };
 
+/**
+ * EXPORTACIÓN EXCEL MAESTRA (10 PESTAÑAS)
+ */
 export const generateExcel = (data: AppState): void => {
     const wb = XLSX.utils.book_new();
     const dateStr = new Date().toISOString().split('T')[0];
     
-    const wsInv = XLSX.utils.json_to_sheet(data.inventory.map(i => ({
+    // 1. Inventario
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.inventory.map(i => ({
         'Insumo': i.name, 'Categoría': i.category, 'Stock': i.currentQuantity, 'Unidad': i.baseUnit, 'Costo Prom.': i.averageCost, 'Valorización': i.currentQuantity * i.averageCost
-    })));
-    XLSX.utils.book_append_sheet(wb, wsInv, "Stock_Actual");
+    }))), "1_Inventario");
 
-    const wsMov = XLSX.utils.json_to_sheet(data.movements.map(m => ({
-        'Fecha': m.date.split('T')[0], 'Tipo': m.type, 'Insumo': m.itemName, 'Cantidad': m.quantity, 'Unidad': m.unit, 'Costo Total': m.calculatedCost, 'Lote': m.costCenterName || 'N/A'
-    })));
-    XLSX.utils.book_append_sheet(wb, wsMov, "Kardex_7_Años");
+    // 2. Kardex (Movimientos)
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.movements.map(m => ({
+        'Fecha': m.date.split('T')[0], 'Tipo': m.type, 'Insumo': m.itemName, 'Cantidad': m.quantity, 'Unidad': m.unit, 'Costo Total': m.calculatedCost, 'Lote': m.costCenterName || 'N/A', 'Proveedor': m.supplierName || ''
+    }))), "2_Kardex_Historico");
 
-    const wsHarvest = XLSX.utils.json_to_sheet(data.harvests.map(h => ({
-        'Fecha': h.date, 'Lote': h.costCenterName, 'Producto': h.cropName, 'Cantidad': h.quantity, 'Unidad': h.unit, 'Venta Total': h.totalValue
-    })));
-    XLSX.utils.book_append_sheet(wb, wsHarvest, "Ventas_Historicas");
+    // 3. Ventas (Cosechas)
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.harvests.map(h => ({
+        'Fecha': h.date, 'Lote': h.costCenterName, 'Producto': h.cropName, 'Cantidad': h.quantity, 'Unidad': h.unit, 'Venta Total': h.totalValue, 'Rendimiento': h.yieldFactor || ''
+    }))), "3_Ventas");
 
-    XLSX.writeFile(wb, `HACIENDA_7_ANOS_FULL_${dateStr}.xlsx`);
+    // 4. Personal
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.personnel.map(p => ({
+        'Nombre': p.name, 'Rol': p.role, 'ID': p.documentId, 'EPS': p.eps, 'ARL': p.arl ? 'SI' : 'NO'
+    }))), "4_Personal");
+
+    // 5. Nómina (LaborLogs)
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.laborLogs.map(l => ({
+        'Fecha': l.date, 'Trabajador': l.personnelName, 'Labor': l.activityName, 'Lote': l.costCenterName, 'Valor': l.value, 'Pagado': l.paid ? 'SI' : 'NO'
+    }))), "5_Nomina_Pagos");
+
+    // 6. Pluviometría
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.rainLogs.map(r => ({
+        'Fecha': r.date.split('T')[0], 'Milímetros (mm)': r.millimeters
+    }))), "6_Lluvias");
+
+    // 7. Maquinaria
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.machines.map(m => ({
+        'Nombre': m.name, 'Marca': m.brand, 'Fecha Compra': m.purchaseDate, 'Valor': m.purchaseValue
+    }))), "7_Maquinaria");
+
+    // 8. Mantenimientos
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.maintenanceLogs.map(m => ({
+        'Fecha': m.date.split('T')[0], 'Máquina': m.machineId, 'Descripción': m.description, 'Costo': m.cost
+    }))), "8_Mantenimientos");
+
+    // 9. Lotes (Estructura)
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.costCenters.map(c => ({
+        'Nombre': c.name, 'Area (Ha)': c.area, 'Etapa': c.stage, 'Cultivo': c.cropType, 'Población': c.plantCount
+    }))), "9_Lotes_Estructura");
+
+    // 10. Análisis de Suelos
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.soilAnalyses.map(s => ({
+        'Fecha': s.date, 'Lote': s.costCenterName, 'pH': s.ph, 'N': s.nitrogen, 'P': s.phosphorus, 'K': s.potassium
+    }))), "10_Suelos");
+
+    XLSX.writeFile(wb, `LIBRO_MAESTRO_10_TABS_${dateStr}.xlsx`);
+};
+
+/**
+ * GENERACIÓN DE LIBRO MAESTRO PDF (CONSOLIDADO TOTAL)
+ */
+export const generateMasterPDF = (data: AppState): void => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    const warehouseName = activeW?.name || "Sin Sede";
+
+    // PÁGINA 1: PORTADA Y BALANCE
+    let y = addHeader(doc, "Libro Maestro Consolidado", "Reporte Integral de Gestión 360", warehouseName, BRAND_COLORS.slate);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(...BRAND_COLORS.primary);
+    doc.text("Resumen Financiero de Ciclo", 14, y);
+    
+    const totalSales = data.harvests.reduce((a,b) => a + b.totalValue, 0);
+    const totalExpenses = data.movements.filter(m => m.type === 'OUT').reduce((a,b) => a + b.calculatedCost, 0) + 
+                          data.laborLogs.reduce((a,b) => a + b.value, 0) * data.laborFactor;
+
+    autoTable(doc, {
+        startY: y + 5,
+        head: [['Concepto', 'Valor Acumulado']],
+        body: [
+            ['(+) Ventas Totales', formatCurrency(totalSales)],
+            ['(-) Costo Producción (Insumos + Nómina)', formatCurrency(totalExpenses)],
+            ['(=) Margen de Contribución', formatCurrency(totalSales - totalExpenses)]
+        ],
+        theme: 'striped'
+    });
+
+    // PÁGINA 2: INVENTARIO VALORIZADO
+    doc.addPage();
+    y = addHeader(doc, "Estado de Bodega", "Inventario Actual Valorizado", warehouseName);
+    autoTable(doc, {
+        startY: y,
+        head: [['Producto', 'Categoría', 'Stock', 'Unidad', 'Valorización']],
+        body: data.inventory.map(i => [i.name, i.category, i.currentQuantity, i.baseUnit, formatCurrency(i.currentQuantity * i.averageCost)]),
+    });
+
+    // PÁGINA 3: HISTORIAL DE VENTAS
+    doc.addPage();
+    y = addHeader(doc, "Bitácora de Comercialización", "Ventas de Café y Asociados", warehouseName, BRAND_COLORS.indigo);
+    autoTable(doc, {
+        startY: y,
+        head: [['Fecha', 'Lote', 'Producto', 'Cantidad', 'Venta Total']],
+        body: data.harvests.slice(-40).map(h => [h.date, h.costCenterName, h.cropName, `${h.quantity} ${h.unit}`, formatCurrency(h.totalValue)]),
+    });
+
+    // PÁGINA 4: NÓMINA Y MANO DE OBRA
+    doc.addPage();
+    y = addHeader(doc, "Libro de Nómina", "Mano de Obra Ejecutada", warehouseName, BRAND_COLORS.amber);
+    autoTable(doc, {
+        startY: y,
+        head: [['Fecha', 'Trabajador', 'Labor', 'Lote', 'Costo Real']],
+        body: data.laborLogs.slice(-40).map(l => [l.date, l.personnelName, l.activityName, l.costCenterName, formatCurrency(l.value * data.laborFactor)]),
+    });
+
+    addFooter(doc);
+    doc.save(`LIBRO_MAESTRO_PDF_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
 export const generateGlobalReport = (data: AppState): void => {

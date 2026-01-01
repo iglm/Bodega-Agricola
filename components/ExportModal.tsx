@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck, Calculator, Briefcase, FileCheck, Landmark, Thermometer, CloudRain, Shield, Recycle, FlaskConical, Map, ArrowRight } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck, Calculator, Briefcase, FileCheck, Landmark, Thermometer, CloudRain, Shield, Recycle, FlaskConical, Map, ArrowRight, FileDown, FileJson } from 'lucide-react';
 import { AppState } from '../types';
-import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateExcel, generatePDF, generateLaborReport, generateHarvestReport, generateAgronomicDossier, generateSafetyReport } from '../services/reportService';
+import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateExcel, generatePDF, generateLaborReport, generateHarvestReport, generateAgronomicDossier, generateSafetyReport, generateMasterPDF } from '../services/reportService';
 
 interface ExportModalProps {
   onExportPDF: () => void;
@@ -55,30 +55,44 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar bg-slate-900/30">
             
-            {/* PAQUETE DE DATOS MAESTROS */}
-            <div className="bg-emerald-950/20 p-5 rounded-[2.5rem] border border-emerald-500/20 relative overflow-hidden">
-                <div className="flex justify-between items-center mb-4">
+            {/* PAQUETE DE DATOS MAESTROS - INTEGRADO */}
+            <div className="bg-emerald-950/20 p-6 rounded-[2.5rem] border border-emerald-500/20 relative overflow-hidden space-y-4">
+                <div className="flex justify-between items-center">
                     <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <FileSpreadsheet className="w-3 h-3" /> Base de Datos Completa (Excel)
+                        <FileSpreadsheet className="w-3 h-3" /> Base de Datos Completa (Libro Maestro)
                     </h4>
                     {!isSupporter && <Crown className="w-4 h-4 text-amber-500 animate-pulse" />}
                 </div>
                 
-                <button 
-                    onClick={() => handleProAction(() => generateExcel(activeData!))}
-                    className="w-full p-5 bg-emerald-600 hover:bg-emerald-500 rounded-[2rem] flex items-center justify-between transition-all shadow-xl shadow-emerald-900/40 active:scale-95 group"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-3 rounded-2xl group-hover:scale-110 transition-transform">
-                            <FileSpreadsheet className="w-6 h-6 text-white" />
+                <div className="grid grid-cols-1 gap-2">
+                    <button 
+                        onClick={() => handleProAction(() => generateExcel(activeData!))}
+                        className="w-full p-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center justify-between transition-all shadow-xl active:scale-95 group"
+                    >
+                        <div className="flex items-center gap-4">
+                            <FileSpreadsheet className="w-5 h-5 text-white" />
+                            <div className="text-left">
+                                <p className="text-xs font-black text-white uppercase">Exportar EXCEL (.xlsx)</p>
+                                <p className="text-[8px] text-emerald-100 uppercase font-bold italic">Bitácora Total (10 Pestañas)</p>
+                            </div>
                         </div>
-                        <div className="text-left">
-                            <p className="text-sm font-black text-white uppercase">Descargar Libro Maestro</p>
-                            <p className="text-[9px] text-emerald-100 uppercase font-bold italic">Bitácora Total (10 Pestañas)</p>
+                        <ArrowRight className="w-4 h-4 text-white opacity-50" />
+                    </button>
+
+                    <button 
+                        onClick={() => handleProAction(() => generateMasterPDF(activeData!))}
+                        className="w-full p-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl flex items-center justify-between transition-all shadow-xl active:scale-95 group"
+                    >
+                        <div className="flex items-center gap-4">
+                            <FileDown className="w-5 h-5 text-white" />
+                            <div className="text-left">
+                                <p className="text-xs font-black text-white uppercase">Exportar PDF Consolidado</p>
+                                <p className="text-[8px] text-indigo-100 uppercase font-bold italic">Reporte Gerencial Todo-en-uno</p>
+                            </div>
                         </div>
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-white opacity-50" />
-                </button>
+                        <ArrowRight className="w-4 h-4 text-white opacity-50" />
+                    </button>
+                </div>
             </div>
 
             {/* REPORTES TÉCNICOS POR MÓDULO */}
