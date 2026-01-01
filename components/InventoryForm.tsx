@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Category, Unit, InventoryItem, Supplier } from '../types';
 import { X, Save, DollarSign, Package, Layers, AlertTriangle, Camera, Image as ImageIcon, Trash2, Calendar, Receipt, Users, FileText, Plus, CheckCircle, Info, Tag, Bookmark, ShieldCheck, Loader2 } from 'lucide-react';
-import { convertToBase, getBaseUnitType } from '../services/inventoryService';
+import { convertToBase, getBaseUnitType, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { compressImage } from '../services/imageService';
 
 interface InventoryFormProps {
@@ -35,36 +35,20 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
 
-  // Solo mostramos campos de seguridad (Carencia/Vencimiento) para agroquímicos puros
   const showSafetyFields = [Category.INSECTICIDA, Category.FUNGICIDA, Category.HERBICIDA].includes(category);
 
-  // --- LÓGICA INTELIGENTE DE UNIDADES ---
   const availableUnits = useMemo(() => {
-      if (category === Category.FERTILIZANTE) {
-          // Fertilizantes: Solo Bulto, Kilo, Gramo
-          return [Unit.BULTO_50KG, Unit.KILO, Unit.GRAMO];
-      } else {
-          // Otros (Agroquímicos): Todo MENOS Bulto
-          return Object.values(Unit).filter(u => u !== Unit.BULTO_50KG);
-      }
+      if (category === Category.FERTILIZANTE) return [Unit.BULTO_50KG, Unit.KILO, Unit.GRAMO];
+      return Object.values(Unit).filter(u => u !== Unit.BULTO_50KG);
   }, [category]);
 
-  // Efecto para cambiar la unidad por defecto cuando cambia la categoría
   useEffect(() => {
-      if (category === Category.FERTILIZANTE) {
-          setPurchaseUnit(Unit.BULTO_50KG);
-      } else {
-          // Si cambiamos a agroquímicos y estaba en bulto, pasamos a Litro (común en venenos)
-          if (purchaseUnit === Unit.BULTO_50KG) {
-              setPurchaseUnit(Unit.LITRO);
-          }
-      }
+      if (category === Category.FERTILIZANTE) setPurchaseUnit(Unit.BULTO_50KG);
+      else if (purchaseUnit === Unit.BULTO_50KG) setPurchaseUnit(Unit.LITRO);
   }, [category]);
 
-  // Efecto para sincronizar la unidad inicial con la unidad de compra
   useEffect(() => {
       const baseType = getBaseUnitType(purchaseUnit);
-      // Ensure initialUnit is compatible with the selected purchaseUnit's base type
       if (getBaseUnitType(initialUnit) !== baseType) {
         if (baseType === 'g') setInitialUnit(Unit.KILO);
         else if (baseType === 'ml') setInitialUnit(Unit.LITRO);
@@ -86,19 +70,22 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !purchasePrice) return;
-    const initQty = initialQuantity ? Number(initialQuantity) : 0;
-    let minStockBase = minStock ? convertToBase(parseFloat(minStock), purchaseUnit) : undefined;
+    
+    const priceVal = parseNumberInput(purchasePrice);
+    const initQtyVal = parseNumberInput(initialQuantity);
+    const minStockVal = parseNumberInput(minStock);
+    
+    let minStockBase = minStockVal ? convertToBase(minStockVal, purchaseUnit) : undefined;
 
     onSave({
       name, category, lastPurchaseUnit: purchaseUnit,
-      lastPurchasePrice: Number(purchasePrice),
+      lastPurchasePrice: priceVal,
       minStock: minStockBase, minStockUnit: minStock ? purchaseUnit : undefined,
       description: '', 
-      // Solo guardamos datos de seguridad si la categoría lo requiere
       expirationDate: showSafetyFields ? (expirationDate || undefined) : undefined, 
       safetyIntervalDays: showSafetyFields ? (safetyDays ? parseInt(safetyDays) : undefined) : undefined,
       image
-    }, initQty, {
+    }, initQtyVal, {
         supplierId: selectedSupplierId || undefined,
         invoiceNumber: invoiceNumber || undefined,
         invoiceImage: invoiceImage || undefined
@@ -125,7 +112,6 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
         </div>
         
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar pb-10">
-          
           <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                   <Bookmark className="w-4 h-4 text-emerald-500" />
@@ -162,10 +148,17 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Precio Compra</label>
-                      <input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-emerald-600 font-mono font-black outline-none focus:ring-2 focus:ring-emerald-500" placeholder="$ 0" required />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={purchasePrice} 
+                        onChange={e => setPurchasePrice(formatNumberInput(e.target.value))} 
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-emerald-600 font-mono font-black outline-none focus:ring-2 focus:ring-emerald-500" 
+                        placeholder="$ 0" 
+                        required 
+                      />
                   </div>
                   
-                  {/* SOLO MOSTRAR DÍAS DE CARENCIA PARA AGROQUÍMICOS (INSECTICIDAS, FUNGICIDAS, HERBICIDAS) */}
                   {showSafetyFields && (
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-blue-500 uppercase ml-2">Días Carencia (BPA)</label>
@@ -177,10 +170,16 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Stock Mínimo</label>
-                      <input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-orange-500 font-mono font-black outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ej: 5" />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={minStock} 
+                        onChange={e => setMinStock(formatNumberInput(e.target.value))} 
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-orange-500 font-mono font-black outline-none focus:ring-2 focus:ring-orange-500" 
+                        placeholder="Ej: 5" 
+                      />
                   </div>
                   
-                  {/* SOLO MOSTRAR VENCIMIENTO PARA AGROQUÍMICOS */}
                   {showSafetyFields && (
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Vencimiento</label>
@@ -196,7 +195,14 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
               </h4>
               
               <div className="flex gap-2">
-                  <input type="number" value={initialQuantity} onChange={e => setInitialQuantity(e.target.value)} className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-indigo-700 dark:text-indigo-300 font-black outline-none" placeholder="Cant. Actual" />
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    value={initialQuantity} 
+                    onChange={e => setInitialQuantity(formatNumberInput(e.target.value))} 
+                    className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-indigo-700 dark:text-indigo-300 font-black outline-none" 
+                    placeholder="Cant. Actual" 
+                  />
                   <select value={initialUnit} onChange={e => setInitialUnit(e.target.value as Unit)} className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-xs font-black text-slate-500 outline-none">
                       {Object.values(Unit).filter(u => getBaseUnitType(u) === getBaseUnitType(purchaseUnit)).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>

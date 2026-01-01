@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Crown, Lock, ShieldCheck, Calculator, Briefcase, FileCheck, Landmark, Thermometer, CloudRain, Shield, Recycle, FlaskConical, Map, ArrowRight, FileDown, FileJson } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Lock, ShieldCheck, Calculator, Briefcase, FileCheck, Landmark, Thermometer, CloudRain, Shield, Recycle, FlaskConical, Map, ArrowRight, FileDown, FileJson } from 'lucide-react';
 import { AppState } from '../types';
 import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateExcel, generatePDF, generateLaborReport, generateHarvestReport, generateAgronomicDossier, generateSafetyReport, generateMasterPDF } from '../services/reportService';
 
@@ -14,24 +14,12 @@ interface ExportModalProps {
   onExportMachineryPDF?: () => void;
   onClose: () => void;
   activeData?: AppState; 
-  onShowSupport: () => void;
-  isSupporter?: boolean;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
     onClose,
-    activeData,
-    onShowSupport,
-    isSupporter
+    activeData
 }) => {
-
-  const handleProAction = (action: () => void) => {
-      if (isSupporter) {
-          action();
-      } else {
-          onShowSupport();
-      }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
@@ -48,7 +36,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
             <div>
               <h3 className="text-2xl font-black text-white leading-tight">Centro de Reportes</h3>
-              <p className="text-emerald-100/80 text-[10px] font-bold uppercase tracking-widest mt-1 italic">Gestión Documental Pro - Lucas Mateo Tabares Franco</p>
+              <p className="text-emerald-100/80 text-[10px] font-bold uppercase tracking-widest mt-1 italic">Gestión de Fincas • Lucas Mateo Tabares Franco</p>
             </div>
           </div>
         </div>
@@ -61,12 +49,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
                         <FileSpreadsheet className="w-3 h-3" /> Base de Datos Completa (Libro Maestro)
                     </h4>
-                    {!isSupporter && <Crown className="w-4 h-4 text-amber-500 animate-pulse" />}
                 </div>
                 
                 <div className="grid grid-cols-1 gap-2">
                     <button 
-                        onClick={() => handleProAction(() => generateExcel(activeData!))}
+                        onClick={() => generateExcel(activeData!)}
                         className="w-full p-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center justify-between transition-all shadow-xl active:scale-95 group"
                     >
                         <div className="flex items-center gap-4">
@@ -80,7 +67,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
 
                     <button 
-                        onClick={() => handleProAction(() => generateMasterPDF(activeData!))}
+                        onClick={() => generateMasterPDF(activeData!)}
                         className="w-full p-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl flex items-center justify-between transition-all shadow-xl active:scale-95 group"
                     >
                         <div className="flex items-center gap-4">
@@ -113,8 +100,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         <Sprout className="w-5 h-5 text-indigo-400" />
                         <span className="text-[9px] font-black text-white uppercase text-left">Bitácora Ventas</span>
                     </button>
-                    <button onClick={() => handleProAction(() => generateGlobalReport(activeData!))} className="p-4 bg-indigo-900/20 hover:bg-indigo-900/30 rounded-3xl border border-indigo-500/30 flex flex-col gap-2 transition-all">
-                        <Crown className="w-5 h-5 text-amber-400" />
+                    <button onClick={() => generateGlobalReport(activeData!)} className="p-4 bg-indigo-900/20 hover:bg-indigo-900/30 rounded-3xl border border-indigo-500/30 flex flex-col gap-2 transition-all">
+                        <PieChart className="w-5 h-5 text-amber-400" />
                         <span className="text-[9px] font-black text-white uppercase text-left">Balance Gerencial</span>
                     </button>
                 </div>
@@ -128,7 +115,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 
                 <div className="grid grid-cols-1 gap-3">
                     <button 
-                        onClick={() => handleProAction(() => generateAgronomicDossier(activeData!))}
+                        onClick={() => generateAgronomicDossier(activeData!)}
                         className="w-full p-4 bg-blue-900/20 hover:bg-blue-900/30 rounded-3xl border border-blue-500/30 flex items-center gap-4 group transition-all"
                     >
                         <div className="p-3 bg-blue-500/20 rounded-2xl"><Thermometer className="w-6 h-6 text-blue-400" /></div>
@@ -136,11 +123,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                             <p className="text-[11px] font-black text-white uppercase">Dossier Agronómico</p>
                             <p className="text-[8px] text-blue-300 font-bold uppercase italic">Suelos, Lluvias y Plagas</p>
                         </div>
-                        {!isSupporter && <Lock className="ml-auto w-4 h-4 text-slate-600" />}
                     </button>
 
                     <button 
-                        onClick={() => handleProAction(() => generateSafetyReport(activeData!))}
+                        onClick={() => generateSafetyReport(activeData!)}
                         className="w-full p-4 bg-red-900/20 hover:bg-red-900/30 rounded-3xl border border-red-500/30 flex items-center gap-4 group transition-all"
                     >
                         <div className="p-3 bg-red-500/20 rounded-2xl"><Shield className="w-6 h-6 text-red-400" /></div>
@@ -148,11 +134,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                             <p className="text-[11px] font-black text-white uppercase">Auditoría SST & Ambiental</p>
                             <p className="text-[8px] text-red-300 font-bold uppercase italic">EPP y Triple Lavado</p>
                         </div>
-                        {!isSupporter && <Lock className="ml-auto w-4 h-4 text-slate-600" />}
                     </button>
 
                     <button 
-                        onClick={() => handleProAction(() => generateFieldTemplates(activeData!))}
+                        onClick={() => generateFieldTemplates(activeData!)}
                         className="w-full p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex items-center gap-4 group transition-all"
                     >
                         <div className="p-3 bg-slate-700 rounded-2xl"><Clipboard className="w-6 h-6 text-slate-400" /></div>

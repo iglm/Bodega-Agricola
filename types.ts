@@ -16,7 +16,7 @@ export enum Unit {
   GRAMO = 'Gramo',
   LITRO = 'Litro',
   MILILITRO = 'Mililitro',
-  GALON = 'Galón', // NEW: Added Galón unit
+  GALON = 'Galón',
   UNIDAD = 'Unidad'
 }
 
@@ -24,7 +24,6 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  isSupporter?: boolean;
   avatar?: string;
 }
 
@@ -45,11 +44,11 @@ export interface SWOT {
 
 export interface BpaCriterion {
   id:string;
-  standard: 'ICA' | 'GLOBALGAP' | 'CODE_4C'; // NEW: Added 4C Code
-  category: string; // Changed to string to support diverse modules (AF, CB, FV, etc)
+  standard: 'ICA' | 'GLOBALGAP' | 'CODE_4C';
+  category: string;
   code: string;
   label: string;
-  complianceLevel: 'MAJOR' | 'MINOR' | 'REC'; // NEW: For GlobalGap logic
+  complianceLevel: 'MAJOR' | 'MINOR' | 'REC';
   compliant: boolean;
   na?: boolean;
 }
@@ -91,25 +90,25 @@ export interface PlannedLabor {
   costCenterId: string;
   costCenterName: string;
   date: string;
-  targetArea: number; // Hectáreas a trabajar
-  technicalYield: number; // Rendimiento técnico (ej: Jornales/Ha o Ha/Jornal)
-  unitCost: number; // Costo unitario del jornal
-  efficiency: number; // Porcentaje de eficiencia (0-100)
-  calculatedPersonDays: number; // Jornales calculados
-  calculatedTotalCost: number; // Costo total calculado
+  targetArea: number;
+  technicalYield: number; // Ha/Jornal
+  unitCost: number;
+  efficiency: number;
+  calculatedPersonDays: number;
+  calculatedHours?: number;
+  calculatedTotalCost: number;
   completed: boolean;
   notes?: string;
 }
 
-// --- NEW BUDGET INTERFACES ---
 export interface BudgetItem {
   id: string;
-  conceptId: string; // ID of Activity or InventoryItem
+  conceptId: string;
   conceptName: string;
   type: 'LABOR' | 'SUPPLY';
   unitCost: number;
-  quantityPerHa: number; // The technical density (e.g., 4 jornales/Ha or 2 Liters/Ha)
-  months: number[]; // Array of months (0-11) where this expense occurs
+  quantityPerHa: number;
+  months: number[];
 }
 
 export interface BudgetPlan {
@@ -119,7 +118,6 @@ export interface BudgetPlan {
   costCenterId: string;
   items: BudgetItem[];
 }
-// -----------------------------
 
 export interface AppState {
   warehouses: Warehouse[];
@@ -143,7 +141,7 @@ export interface AppState {
   phenologyLogs: PhenologyLog[];
   pestLogs: PestLog[];
   plannedLabors: PlannedLabor[]; 
-  budgets: BudgetPlan[]; // Nuevo campo para presupuestos
+  budgets: BudgetPlan[];
   swot?: SWOT;
   bpaChecklist: Record<string, boolean>;
   assets: Asset[];
@@ -155,8 +153,8 @@ export interface Warehouse {
   id: string; 
   name: string; 
   created: string; 
-  ownerId: string; // Add ownerId to the Warehouse interface
-  sharedWith?: { userId: string; email: string; role: 'viewer' | 'editor' }[]; // For sharing functionality
+  ownerId: string;
+  sharedWith?: { userId: string; email: string; role: 'viewer' | 'editor' }[];
 }
 
 export interface CostCenter { 
@@ -171,11 +169,10 @@ export interface CostCenter {
   budget?: number;
   coordinates?: { lat: number; lng: number };
   plantCount?: number;
-  // Biological Asset Fields
-  accumulatedCapex?: number; // Costo acumulado durante etapa de levante
-  assetValue?: number; // Valor final activado al pasar a producción
-  amortizationDuration?: number; // Vida útil contable en años
-  activationDate?: string; // Fecha en que pasó a producción
+  accumulatedCapex?: number;
+  assetValue?: number;
+  amortizationDuration?: number;
+  activationDate?: string;
 }
 
 export interface InventoryItem { 
@@ -209,11 +206,15 @@ export interface LaborLog {
   value: number; 
   paid: boolean;
   notes?: string;
+  areaWorked?: number;
+  hoursWorked?: number;
+  jornalesEquivalent?: number;
+  performanceYieldHaJornal?: number;
 }
 
 export interface HarvestLog { 
   id: string; 
-  warehouseId: string; 
+  warehouseId: string;
   costCenterId: string;
   costCenterName: string;
   date: string; 

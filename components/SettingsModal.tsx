@@ -1,8 +1,7 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification } from '../types';
-import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle } from 'lucide-react';
+import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle, Ruler, Sun, CloudSun, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '../services/inventoryService';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
@@ -54,6 +53,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [lotePlants, setLotePlants] = useState('');
   const [loteCrop, setLoteCrop] = useState('Café');
   const [associatedCrop, setAssociatedCrop] = useState('');
+  
+  // Distancia de Siembra
+  const [distSurco, setDistSurco] = useState('');
+  const [distPlanta, setDistPlanta] = useState('');
+
+  // Diagnóstico Agronómico
+  const densityDiagnostic = useEffect(() => {
+      const s = parseFloat(distSurco);
+      const p = parseFloat(distPlanta);
+      const a = parseFloat(loteArea);
+      if (s > 0 && p > 0 && a > 0) {
+          const plants = Math.round((a * 10000) / (s * p));
+          setLotePlants(plants.toString());
+      }
+  }, [distSurco, distPlanta, loteArea]);
+
+  const currentDensity = parseFloat(lotePlants) / (parseFloat(loteArea) || 1);
+
+  const handleAddLote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loteName.trim()) return;
+    onAddCostCenter(
+        loteName, 
+        loteBudget ? parseFloat(loteBudget) : 0,
+        loteArea ? parseFloat(loteArea) : undefined,
+        loteStage,
+        lotePlants ? parseInt(lotePlants) : undefined,
+        loteCrop,
+        associatedCrop || undefined
+    );
+    setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); setAssociatedCrop('');
+    setDistSurco(''); setDistPlanta('');
+  };
+
+  const handleAddSupplier = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supName.trim()) return;
+    onAddSupplier(supName, supPhone, supEmail, supAddress);
+    setSupName(''); setSupPhone(''); setSupEmail(''); setSupAddress('');
+  };
 
   // Supplier State
   const [supName, setSupName] = useState('');
@@ -74,28 +113,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Activity State
   const [actName, setActName] = useState('');
   const [actClass, setActClass] = useState<CostClassification>('JOINT');
-
-  const handleAddLote = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loteName.trim()) return;
-    onAddCostCenter(
-        loteName, 
-        loteBudget ? parseFloat(loteBudget) : 0,
-        loteArea ? parseFloat(loteArea) : undefined,
-        loteStage,
-        lotePlants ? parseInt(lotePlants) : undefined,
-        loteCrop,
-        associatedCrop || undefined
-    );
-    setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); setAssociatedCrop('');
-  };
-
-  const handleAddSupplier = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supName.trim()) return;
-    onAddSupplier(supName, supPhone, supEmail, supAddress);
-    setSupName(''); setSupPhone(''); setSupEmail(''); setSupAddress('');
-  };
 
   const handleAddPersonnel = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,6 +178,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
           
+          {activeTab === 'lotes' && (
+            <div className="space-y-6 animate-fade-in">
+              <form onSubmit={handleAddLote} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
+                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Lote</h4>
+                
+                <div className="bg-slate-950 p-5 rounded-[2rem] border border-slate-800 space-y-4 shadow-inner">
+                    <h5 className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-2 tracking-widest"><Sun className="w-3 h-3"/> Optimizador de Arreglo Espacial</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Dist. Surco (m)</label>
+                            <input type="number" step="0.01" value={distSurco} onChange={e => setDistSurco(e.target.value)} placeholder="Ej: 1.5" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Dist. Planta (m)</label>
+                            <input type="number" step="0.01" value={distPlanta} onChange={e => setDistPlanta(e.target.value)} placeholder="Ej: 1.0" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none" />
+                        </div>
+                    </div>
+
+                    {/* DIAGNÓSTICO EN TIEMPO REAL */}
+                    {currentDensity > 0 && (
+                        <div className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${currentDensity < 4500 ? 'bg-red-950/20 border-red-500/30' : currentDensity > 8000 ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-emerald-950/20 border-emerald-500/30'}`}>
+                            <div className={`p-2 rounded-xl ${currentDensity < 4500 ? 'bg-red-600' : currentDensity > 8000 ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
+                                {currentDensity < 4500 ? <AlertTriangle className="w-5 h-5 text-white" /> : currentDensity > 8000 ? <Zap className="w-5 h-5 text-white" /> : <ShieldCheck className="w-5 h-5 text-white" />}
+                            </div>
+                            <div>
+                                <p className={`text-[10px] font-black uppercase ${currentDensity < 4500 ? 'text-red-400' : currentDensity > 8000 ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                                    Densidad: {currentDensity.toLocaleString()} á/Ha
+                                </p>
+                                <p className="text-[9px] text-slate-400 leading-tight mt-1">
+                                    {currentDensity < 4500 ? 'Inviabilidad Económica: El árbol no intercepta suficiente luz solar (IAF subóptimo).' : 
+                                     currentDensity > 8000 ? 'Alto Rendimiento: Ciclo de vida corto. Requiere Zoca al 5to año por cierre de calles.' : 
+                                     'Modelo Equilibrado: Recomendado para variedades de porte medio/alto.'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <input type="text" value={loteName} onChange={e => setLoteName(e.target.value)} placeholder="Nombre del Lote (Ej: La Ladera)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Área (Hectáreas)</label>
+                      <input type="number" value={loteArea} onChange={e => setLoteArea(e.target.value)} placeholder="0.0" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                  </div>
+                  <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Cultivo Principal</label>
+                      <select value={loteCrop} onChange={e => setLoteCrop(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
+                          {commonCrops.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Cultivo de Asocio (Sombra)</label>
+                        <input type="text" value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} placeholder="Ej: Plátano" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[9px] font-black text-indigo-400 uppercase ml-1">Población Total</label>
+                        <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl p-3 text-sm text-indigo-400 font-bold" readOnly />
+                    </div>
+                </div>
+
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl text-xs uppercase shadow-xl transition-all active:scale-95">Integrar Lote al Mapa</button>
+              </form>
+
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                {costCenters.map(c => (
+                  <div key={c.id} className="bg-slate-900/50 p-4 rounded-2xl flex justify-between items-center border border-slate-700/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-slate-800 rounded-xl"><MapPin className="w-4 h-4 text-slate-500" /></div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{c.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{c.area} Ha • {c.cropType} • {(c.plantCount || 0).toLocaleString()} árb</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onDeleteCostCenter(c.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'proveedores' && (
             <div className="space-y-6 animate-fade-in">
               <form onSubmit={handleAddSupplier} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
@@ -256,46 +357,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {activeTab === 'lotes' && (
-            <div className="space-y-6 animate-fade-in">
-              <form onSubmit={handleAddLote} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Lote / Centro de Costo</h4>
-                <input type="text" value={loteName} onChange={e => setLoteName(e.target.value)} placeholder="Nombre del Lote" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" value={loteArea} onChange={e => setLoteArea(e.target.value)} placeholder="Área (Ha)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                  <select value={loteCrop} onChange={e => setLoteCrop(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
-                      {commonCrops.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} placeholder="Nº de Plantas" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                  <input type="text" value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} placeholder="Cultivo Asociado" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                </div>
-                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Lote</button>
-              </form>
-              
-              <div className="mt-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-start gap-3">
-                  <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                      <strong>Guía Rápida:</strong> El registro de lluvias y mantenimientos se realiza desde la pestaña principal <strong>"Campo"</strong>. Aquí se configuran los lotes base.
-                  </p>
-              </div>
-
-              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                {costCenters.map(c => (
-                  <div key={c.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <MapPin className="w-4 h-4 text-slate-500" />
-                      <div>
-                        <p className="text-sm font-bold text-white">{c.name}</p>
-                        <p className="text-[10px] text-slate-400">{c.area} Ha • {c.cropType}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => onDeleteCostCenter(c.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {activeTab === 'legal' && (
               <div className="space-y-6 animate-fade-in">
                   <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
@@ -313,7 +374,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <FileText className="w-6 h-6 text-emerald-500" />
                               <div className="text-left">
                                   <p className="font-black text-sm text-white uppercase">Política de Privacidad</p>
-                                  <p className="text-[9px] text-slate-500 font-bold">Habeas Data & Uso de Datos 2025</p> {/* Updated text */}
+                                  <p className="text-[9px] text-slate-500 font-bold">Habeas Data & Uso de Datos 2025</p> 
                               </div>
                           </div>
                           <Zap className="w-5 h-5 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />

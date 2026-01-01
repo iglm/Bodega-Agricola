@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine, Category } from '../types';
-import { getBaseUnitType, convertToBase, formatBaseQuantity, formatCurrency } from '../services/inventoryService';
+import { getBaseUnitType, convertToBase, formatBaseQuantity, formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Image as ImageIcon, Tag, UserCheck, ShieldCheck, Calculator } from 'lucide-react';
 
 interface MovementModalProps {
@@ -21,7 +21,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 }) => {
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState<Unit>(item.lastPurchaseUnit);
-  const [manualUnitPrice, setManualUnitPrice] = useState<string>('');
+  const [manualUnitPrice, setManualUnitPrice] = useState<string>(formatNumberInput(item.lastPurchasePrice));
   const [notes, setNotes] = useState('');
   const [expirationDate, setExpirationDate] = useState<string>(item.expirationDate || '');
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
@@ -31,7 +31,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
   const isOut = type === 'OUT';
   const baseType = getBaseUnitType(item.lastPurchaseUnit);
-  
+
   const compatibleUnits = useMemo(() => 
     Object.values(Unit).filter(u => getBaseUnitType(u) === baseType), 
   [baseType]);
@@ -42,22 +42,17 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       else if (baseType === 'ml') setUnit(Unit.LITRO);
       else setUnit(Unit.UNIDAD);
     }
-    
-    if (!isOut && !manualUnitPrice) {
-        setManualUnitPrice(item.lastPurchasePrice.toString());
-    }
-  }, [compatibleUnits, baseType, isOut, item.lastPurchasePrice]);
+  }, [compatibleUnits, baseType]);
 
   const mathPreview = useMemo(() => {
-    const qtyNum = parseFloat(quantity);
-    const priceNum = parseFloat(manualUnitPrice);
-    if (isNaN(qtyNum) || qtyNum <= 0) return { total: 0, costPerBase: 0 };
+    const qtyNum = parseNumberInput(quantity);
+    const priceNum = parseNumberInput(manualUnitPrice);
+    if (qtyNum <= 0) return { total: 0, costPerBase: 0 };
 
     if (isOut) {
         const baseAmount = convertToBase(qtyNum, unit);
         return { total: baseAmount * item.averageCost, costPerBase: item.averageCost };
     } else {
-        if (isNaN(priceNum)) return { total: 0, costPerBase: 0 };
         const total = qtyNum * priceNum;
         const baseQty = convertToBase(qtyNum, unit);
         return { total, costPerBase: total / baseQty };
@@ -66,8 +61,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const qtyInput = parseFloat(quantity);
-    if (isNaN(qtyInput) || qtyInput <= 0) return;
+    const qtyInput = parseNumberInput(quantity);
+    const priceInput = parseNumberInput(manualUnitPrice);
+    
+    if (qtyInput <= 0) return;
 
     if (isOut) {
         const reqBaseQty = convertToBase(qtyInput, unit);
@@ -82,11 +79,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     const personnelName = personnel.find(p => p.id === selectedPersonnelId)?.name;
 
     onSave({
-      itemId: item.id, itemName: item.name, type, quantity: Number(quantity), unit, calculatedCost: mathPreview.total,
+      itemId: item.id, itemName: item.name, type, quantity: qtyInput, unit, calculatedCost: mathPreview.total,
       notes: notes.trim(), supplierId: selectedSupplierId || undefined, supplierName,
       costCenterId: isOut ? selectedCostCenterId : undefined, costCenterName: isOut ? costCenterName : undefined,
       personnelId: selectedPersonnelId || undefined, personnelName
-    }, !isOut ? parseFloat(manualUnitPrice) : undefined, !isOut ? expirationDate : undefined);
+    }, !isOut ? priceInput : undefined, !isOut ? expirationDate : undefined);
   };
 
   return (
@@ -111,7 +108,16 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Cantidad</label>
-              <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-mono font-black text-lg outline-none focus:ring-2 focus:ring-indigo-500" placeholder="0.0" step="0.01" required autoFocus />
+              <input 
+                type="text" 
+                inputMode="decimal"
+                value={quantity} 
+                onChange={e => setQuantity(formatNumberInput(e.target.value))} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-mono font-black text-lg outline-none focus:ring-2 focus:ring-indigo-500" 
+                placeholder="0" 
+                required 
+                autoFocus 
+              />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Unidad</label>
@@ -125,7 +131,14 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Precio por {unit}</label>
-                    <input type="number" value={manualUnitPrice} onChange={e => setManualUnitPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-500 font-mono font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="0" />
+                    <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={manualUnitPrice} 
+                        onChange={e => setManualUnitPrice(formatNumberInput(e.target.value))} 
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-500 font-mono font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500" 
+                        placeholder="0" 
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><Users className="w-3 h-3"/> Proveedor</label>
@@ -156,7 +169,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
           {error && <div className="bg-red-900/40 border border-red-500 p-3 rounded-xl text-red-200 text-[10px] font-black uppercase flex items-center gap-2 animate-shake"><AlertTriangle className="w-4 h-4" /> {error}</div>}
 
-          {/* MATEMÁTICA EN TIEMPO REAL */}
           <div className="bg-indigo-950/40 rounded-3xl p-5 border border-indigo-500/20 space-y-4">
              <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Calculator className="w-4 h-4" /> Desglose Matemático</span>
@@ -173,21 +185,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     <p className="text-sm font-mono font-black text-indigo-400">{formatCurrency(mathPreview.costPerBase, 2)}</p>
                 </div>
              </div>
-
-             {!isOut && (
-                 <div className="pt-3 border-t border-indigo-500/10 grid grid-cols-2 gap-4">
-                    <div>
-                        <p className="text-[8px] text-slate-500 font-bold uppercase">Valor Kilo / Litro</p>
-                        <p className="text-xs font-black text-slate-300 font-mono">{formatCurrency(mathPreview.costPerBase * 1000)}</p>
-                    </div>
-                    {baseType === 'g' && (
-                        <div className="text-right">
-                            <p className="text-[8px] text-slate-500 font-bold uppercase">Valor Bulto (50kg)</p>
-                            <p className="text-xs font-black text-slate-300 font-mono">{formatCurrency(mathPreview.costPerBase * 50000)}</p>
-                        </div>
-                    )}
-                 </div>
-             )}
           </div>
 
           <button type="submit" disabled={!!error || !quantity} className={`w-full py-5 rounded-[2rem] font-black text-white text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 ${isOut ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-600 hover:bg-emerald-500'} disabled:opacity-50 disabled:bg-slate-800`}>

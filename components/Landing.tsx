@@ -1,85 +1,72 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Globe, LogIn, FileText, CheckCircle2, Gavel, Zap, Lock, Award, ShieldAlert, Package, Calculator, BarChart3 } from 'lucide-react';
+import { ShieldCheck, LogIn, FileText, CheckCircle2, Gavel, Zap, Lock, Award, Package, Calculator, BarChart3, ShieldAlert, Sparkles } from 'lucide-react';
 import { User as UserType } from '../types';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
 interface LandingProps {
   onEnter: (user: UserType) => void;
   onShowManual: () => void;
-  onRestoreBackup?: () => void;
   onLoadDemoData: () => void;
 }
 
-export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onRestoreBackup, onLoadDemoData }) => {
+export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onLoadDemoData }) => {
   const [accepted, setAccepted] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
 
   const AUTHOR = "Lucas Mateo Tabares Franco";
 
-  const handleGoogleLogin = () => {
-    if (!accepted || isLoggingIn || isDemoLoading) return;
+  const handleLogin = () => {
+    if (!accepted) return;
     setIsLoggingIn(true);
     setTimeout(() => {
-      const mockUser: UserType = {
-        id: 'user_datosfinca_viva',
-        name: 'Productor DatosFinca',
-        email: 'gestor@datosfinca.com',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DatosFincaViva'
-      };
-      onEnter(mockUser);
-    }, 800);
-  };
-
-  const handleDemoLogin = () => {
-    if (!accepted || isLoggingIn || isDemoLoading) return;
-    setIsDemoLoading(true);
-    setTimeout(() => {
-      onLoadDemoData();
-    }, 800);
+      onEnter({
+        id: 'local_user',
+        name: 'Administrador de Bodega',
+        email: 'gestor@agrobodega.com',
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroPro'
+      });
+    }, 1000);
   };
 
   return (
     <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden select-none">
       <div className="absolute inset-0 opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-      
-      {/* BACKGROUND ORBS */}
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-600/20 rounded-full blur-[120px]"></div>
-      <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px]"></div>
+      <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px]"></div>
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 text-center">
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[3rem] shadow-2xl shadow-emerald-900/40 mb-8 animate-slide-up">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-8 rounded-[3rem] shadow-2xl shadow-emerald-900/40 mb-8 animate-slide-up">
               <Package className="w-16 h-16 text-white" />
           </div>
           
-          <h1 className="text-5xl font-black text-white tracking-tighter leading-none animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              AgroBodega <span className="text-emerald-500">Pro</span>
+          <h1 className="text-6xl font-black text-white tracking-tighter leading-none animate-slide-up">
+              AgroBodega <span className="text-emerald-500 italic">Pro</span>
           </h1>
-          <p className="text-[10px] text-emerald-400 font-black uppercase tracking-[0.4em] mt-4 mb-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              Software de Inteligencia de Insumos
+          <p className="text-[10px] text-emerald-400 font-black uppercase tracking-[0.4em] mt-4 mb-2 animate-slide-up">
+              Sistema de Inteligencia y Rentabilidad
           </p>
-          <div className="bg-slate-900/50 border border-slate-800 px-4 py-1.5 rounded-full inline-flex items-center gap-2 mb-12 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <div className="bg-slate-900/50 border border-slate-800 px-4 py-1.5 rounded-full inline-flex items-center gap-2 mb-12 animate-slide-up">
               <Award className="w-3 h-3 text-emerald-500" />
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest italic">Desarrollado por {AUTHOR}</span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest italic">Herramienta Privada de {AUTHOR}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-12 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-12 animate-slide-up">
               <div className="bg-slate-900/40 p-5 rounded-[2rem] border border-slate-800 flex flex-col items-center gap-2">
                   <Calculator className="w-6 h-6 text-indigo-400" />
-                  <p className="text-[10px] font-black text-white uppercase">Cálculo Atómico</p>
-                  <p className="text-[9px] text-slate-500 leading-tight">Costeo exacto por gramo y mililitro.</p>
+                  <p className="text-[10px] font-black text-white uppercase">Costo al Gramo</p>
+                  <p className="text-[9px] text-slate-500 leading-tight">Precisión en bultos de 50kg y líquidos.</p>
               </div>
               <div className="bg-slate-900/40 p-5 rounded-[2rem] border border-slate-800 flex flex-col items-center gap-2">
                   <BarChart3 className="w-6 h-6 text-emerald-400" />
-                  <p className="text-[10px] font-black text-white uppercase">Informes Excel</p>
-                  <p className="text-[9px] text-slate-500 leading-tight">Exportación total para contabilidad.</p>
+                  <p className="text-[10px] font-black text-white uppercase">Gestión 360°</p>
+                  <p className="text-[9px] text-slate-500 leading-tight">Inventarios, Nómina y Proyecciones.</p>
               </div>
               <div className="bg-slate-900/40 p-5 rounded-[2rem] border border-slate-800 flex flex-col items-center gap-2">
                   <Lock className="w-6 h-6 text-blue-400" />
                   <p className="text-[10px] font-black text-white uppercase">100% Offline</p>
-                  <p className="text-[9px] text-slate-500 leading-tight">Privacidad total bajo Ley 1581.</p>
+                  <p className="text-[9px] text-slate-500 leading-tight">Tus datos nunca salen de tu celular.</p>
               </div>
           </div>
       </div>
@@ -98,36 +85,28 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
                   </div>
                   <div className="flex-1">
                       <p className={`text-[10px] font-black uppercase tracking-tight transition-colors ${accepted ? 'text-emerald-400' : 'text-slate-500'}`}>
-                          Acepto términos, política de privacidad y derechos de autor de {AUTHOR}
+                          Acepto términos, política de privacidad y autoría de {AUTHOR}
                       </p>
                       <p className="text-[8px] text-slate-600 uppercase font-bold mt-1">
-                          Cumplimiento Ley 1581 de 2012 (Habeas Data) & Ley 23 de 1982
+                          Cumplimiento Ley 1581 (Habeas Data) & Ley 23 de 1982
                       </p>
                   </div>
               </label>
 
               <div className="flex flex-col gap-3">
                   <button 
-                      onClick={handleGoogleLogin} 
-                      disabled={!accepted || isLoggingIn || isDemoLoading} 
-                      className={`w-full py-5 rounded-[2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-2xl active:scale-95 ${ (accepted && !isLoggingIn && !isDemoLoading) ? 'bg-emerald-600 text-white shadow-emerald-900/40 hover:bg-emerald-500' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+                      onClick={handleLogin} 
+                      disabled={!accepted || isLoggingIn} 
+                      className={`w-full py-5 rounded-[2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-2xl active:scale-95 ${ (accepted && !isLoggingIn) ? 'bg-emerald-600 text-white shadow-emerald-900/40 hover:bg-emerald-500' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
                   >
-                      {isLoggingIn ? (
-                          <div className="h-6 w-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                          <><LogIn className="w-6 h-6" /> ENTRAR A LA BODEGA</>
-                      )}
+                      {isLoggingIn ? <Zap className="w-6 h-6 animate-pulse" /> : <><LogIn className="w-6 h-6" /> INICIAR ADMINISTRACIÓN</>}
                   </button>
-                  
+
                   <button 
-                    onClick={handleDemoLogin}
-                    disabled={!accepted || isLoggingIn || isDemoLoading}
-                    className={`w-full text-center py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${ (accepted && !isLoggingIn && !isDemoLoading) ? 'text-emerald-400 hover:opacity-80' : 'text-slate-600 cursor-not-allowed'}`}
+                      onClick={onLoadDemoData}
+                      className="w-full py-4 rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all active:scale-95"
                   >
-                    <span className="flex items-center justify-center gap-2">
-                        {isDemoLoading ? <Zap className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                        Explorar con Datos de Prueba
-                    </span>
+                      <Sparkles className="w-4 h-4" /> Explorar con Datos de Demostración
                   </button>
               </div>
 
@@ -136,7 +115,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onResto
                       <Gavel className="w-3 h-3" /> Marco Jurídico
                   </button>
                   <button onClick={onShowManual} className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 hover:text-white transition-colors">
-                      <FileText className="w-3 h-3" /> Guía de Usuario
+                      <FileText className="w-3 h-3" /> Manual Técnico
                   </button>
               </div>
           </div>

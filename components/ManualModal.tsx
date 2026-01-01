@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
-// Added missing icons: ClipboardList, Wrench, Landmark, FileSpreadsheet to the import list
-import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Mic, BrainCircuit, Target, Lightbulb, Scale, PieChart, Leaf, Gauge, Microscope, ShieldCheck, Signature, Recycle, Gem, Coins, Timer, Camera, Info, Loader2, FileDown, Lock, Zap, Award, Search, CheckCircle2, FlaskConical, Map, ShieldAlert, Coffee, ClipboardList, Wrench, Landmark, FileSpreadsheet } from 'lucide-react';
+import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Mic, Target, Lightbulb, Scale, PieChart, Leaf, Gauge, Microscope, ShieldCheck, Signature, Recycle, Gem, Coins, Timer, Camera, Info, Loader2, FileDown, Lock, Zap, Award, Search, CheckCircle2, FlaskConical, Map, ShieldAlert, Coffee, ClipboardList, Wrench, Landmark, FileSpreadsheet, Activity as ActivityIcon } from 'lucide-react';
 import { generateManualPDF } from '../services/reportService';
 
 interface ManualModalProps {
@@ -37,7 +36,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                   <Target className="w-5 h-5 text-indigo-400" /> Propósito del Sistema
                 </h5>
                 <p className="text-sm text-slate-300 leading-relaxed text-justify mb-6 font-medium">
-                    DatosFinca Viva ha evolucionado de ser una libreta digital a un **ERP Agrícola de Clase Mundial**. Esta herramienta está diseñada para que usted tome decisiones basadas en **datos duros**, no en suposiciones. Cada registro de bodega, cada jornal pagado y cada lluvia anotada alimenta un motor de inteligencia que calcula la rentabilidad real de su negocio.
+                    DatosFinca Viva ha evolucionado de ser una libreta digital a un **ERP Agrícola de Clase Mundial**. Esta herramienta está diseñada para que usted tome decisiones basadas en **datos duros**, no en suposiciones. Cada registro de bodega, cada jornal pagado y cada lluvia anotada alimenta un motor matemático que calcula la rentabilidad real de su negocio.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700 flex flex-col gap-2">
@@ -122,7 +121,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
         return (
             <div className="space-y-6 animate-fade-in">
                <h4 className="text-xl font-black text-white flex items-center gap-3 uppercase tracking-tighter">
-                  <BrainCircuit className="w-6 h-6 text-purple-500" /> Inteligencia Estratégica
+                  <ActivityIcon className="w-6 h-6 text-purple-500" /> Ingeniería de Decisión
                </h4>
                <div className="bg-slate-800 p-8 rounded-[2.5rem] border border-purple-500/20 space-y-8">
                   <section className="space-y-3">
@@ -163,9 +162,8 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                     <h5 className="text-blue-400 text-[10px] font-black uppercase flex items-center gap-2">
                         <FlaskConical className="w-4 h-4" /> Calibración de Boquillas y Mezcla
                     </h5>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                        En el menú <strong>Campo &gt; Herramientas</strong>, puede calibrar sus bombas.
-                        Ingrese la descarga (L/min), ancho de faja y velocidad. El sistema le dirá cuántos Litros de agua por Hectárea gasta y, lo más importante, <strong>cuánto veneno o abono exacto poner en el tanque</strong> para no desperdiciar dinero.
+                    <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        Modelos Técnicos Validados 2025: Calibre sus bombas ingresando la descarga (L/min), ancho de faja y velocidad. El sistema le dirá cuántos Litros de agua por Hectárea gasta y, lo más importante, <strong>cuánto veneno o abono exacto poner en el tanque</strong> para no desperdiciar dinero.
                     </p>
                 </section>
                 <div className="bg-slate-950 p-6 rounded-3xl border border-slate-800 flex items-start gap-4">
@@ -193,11 +191,11 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                     <div className="space-y-4">
                         <div className="flex gap-4 items-start">
                             <FileSpreadsheet className="w-6 h-6 text-emerald-500 shrink-0" />
-                            <div><p className="text-[11px] font-black text-white uppercase">Libro Maestro Excel</p><p className="text-[10px] text-slate-500">10 pestañas con TODA la información de la finca: desde plagas hasta mantenimiento de maquinaria.</p></div>
+                            <div><p className="text-[11px] font-black text-white uppercase">Libro Maestro Excel</p><p className="text-[10px] text-slate-500">10 pestañas con TODA la información de la finca: desde sanidad hasta mantenimiento de maquinaria.</p></div>
                         </div>
                         <div className="flex gap-4 items-start">
                             <Award className="w-6 h-6 text-amber-500 shrink-0" />
-                            <div><p className="text-[11px] font-black text-white uppercase">Radar BPA (ICA / GG / 4C)</p><p className="text-[10px] text-slate-500">Auto-evaluación digital para las normas ICA, GlobalG.A.P. y Código 4C.</p></div>
+                            <div><p className="text-[11px] font-black text-white uppercase">Radar BPA (Normas Nacionales)</p><p className="text-[10px] text-slate-500">Auto-evaluación digital para cumplimiento de estándares de exportación.</p></div>
                         </div>
                         <div className="flex gap-4 items-start">
                             <FileText className="w-6 h-6 text-blue-500 shrink-0" />
@@ -259,8 +257,8 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                     <span className="text-[10px] font-black uppercase tracking-widest">Costeo</span>
                 </button>
                 <button onClick={() => setActiveSection('strategic')} className={`shrink-0 w-auto md:w-full text-left px-5 py-4 rounded-2xl flex items-center gap-3 transition-all ${activeSection === 'strategic' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-slate-300'}`}>
-                    <BrainCircuit className="w-5 h-5" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Inteligencia</span>
+                    <ActivityIcon className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Estrategia</span>
                 </button>
                 <button onClick={() => setActiveSection('technical')} className={`shrink-0 w-auto md:w-full text-left px-5 py-4 rounded-2xl flex items-center gap-3 transition-all ${activeSection === 'technical' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-slate-300'}`}>
                     <Wrench className="w-5 h-5" />
@@ -301,7 +299,6 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                  </div>
              </div>
 
-             {/* Dynamic Background Decoration */}
              <div className="absolute bottom-0 right-0 p-10 opacity-5 pointer-events-none">
                  <Landmark className="w-64 h-64 text-white" />
              </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { HarvestLog, CostCenter, Movement } from '../types';
-import { formatCurrency } from '../services/inventoryService';
+import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { Sprout, Plus, Target, AlertTriangle, ShieldX, Clock, ShieldCheck, Info } from 'lucide-react';
 import { HeaderCard, EmptyState, Modal } from './UIElements';
 
@@ -30,7 +30,6 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
   const [qty2, setQty2] = useState(''); 
   const [qty3, setQty3] = useState(''); 
 
-  // --- ESCÁNER DE SEGURIDAD ALIMENTARIA (BLINDAJE BPA) ---
   const safetyRadar = useMemo(() => {
       if (!costCenterId) return null;
       
@@ -59,7 +58,11 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
   }, [costCenterId, allMovements, date]);
 
   const selectedLot = useMemo(() => costCenters.find(c => c.id === costCenterId), [costCenterId, costCenters]);
-  const totalQty = (parseFloat(qty1) || 0) + (parseFloat(qty2) || 0) + (parseFloat(qty3) || 0);
+  
+  const vQty1 = parseNumberInput(qty1);
+  const vQty2 = parseNumberInput(qty2);
+  const vQty3 = parseNumberInput(qty3);
+  const totalQty = vQty1 + vQty2 + vQty3;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,13 +76,14 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
     
     onAddHarvest({ 
         date, costCenterId, costCenterName: selectedLot.name, cropName, 
-        quantity: totalQty, unit, totalValue: parseFloat(totalValue), notes: notes.trim(),
-        quality1Qty: parseFloat(qty1) || undefined, 
-        quality2Qty: parseFloat(qty2) || undefined, 
-        wasteQty: parseFloat(qty3) || undefined,
-        yieldFactor: parseFloat(yieldFactor) || undefined
+        quantity: totalQty, unit, totalValue: parseNumberInput(totalValue), notes: notes.trim(),
+        quality1Qty: vQty1 || undefined, 
+        quality2Qty: vQty2 || undefined, 
+        wasteQty: vQty3 || undefined,
+        yieldFactor: parseNumberInput(yieldFactor) || undefined
     });
     setShowForm(false);
+    setQty1(''); setQty2(''); setQty3(''); setTotalValue(''); setYieldFactor('');
   };
 
   return (
@@ -175,15 +179,36 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
                     <div className="grid grid-cols-3 gap-2">
                         <div className="space-y-1">
                             <label className="text-[8px] text-emerald-500 font-black uppercase text-center block">Pergamino (Exportación)</label>
-                            <input type="number" value={qty1} onChange={e => setQty1(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm" />
+                            <input 
+                                type="text" 
+                                inputMode="decimal"
+                                value={formatNumberInput(qty1)} 
+                                onChange={e => setQty1(parseNumberInput(e.target.value).toString())} 
+                                placeholder="0" 
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm outline-none focus:ring-1 focus:ring-emerald-500" 
+                            />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[8px] text-amber-500 font-black uppercase text-center block">Consumo (Nacional)</label>
-                            <input type="number" value={qty2} onChange={e => setQty2(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm" />
+                            <input 
+                                type="text" 
+                                inputMode="decimal"
+                                value={formatNumberInput(qty2)} 
+                                onChange={e => setQty2(parseNumberInput(e.target.value).toString())} 
+                                placeholder="0" 
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm outline-none focus:ring-1 focus:ring-amber-500" 
+                            />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[8px] text-red-500 font-black uppercase text-center block">Pasilla (Subproducto)</label>
-                            <input type="number" value={qty3} onChange={e => setQty3(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm" />
+                            <input 
+                                type="text" 
+                                inputMode="decimal"
+                                value={formatNumberInput(qty3)} 
+                                onChange={e => setQty3(parseNumberInput(e.target.value).toString())} 
+                                placeholder="0" 
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-white font-black text-sm outline-none focus:ring-1 focus:ring-red-500" 
+                            />
                         </div>
                     </div>
                 </div>
@@ -191,11 +216,26 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-emerald-500 uppercase ml-2">Precio Total Venta</label>
-                        <input type="number" value={totalValue} onChange={e => setTotalValue(e.target.value)} placeholder="$ 0" className="w-full bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 text-emerald-500 font-mono font-black text-lg" required />
+                        <input 
+                            type="text" 
+                            inputMode="decimal"
+                            value={formatNumberInput(totalValue)} 
+                            onChange={e => setTotalValue(parseNumberInput(e.target.value).toString())} 
+                            placeholder="$ 0" 
+                            className="w-full bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 text-emerald-500 font-mono font-black text-lg outline-none" 
+                            required 
+                        />
                     </div>
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Factor Rendimiento</label>
-                        <input type="number" step="0.1" value={yieldFactor} onChange={e => setYieldFactor(e.target.value)} placeholder="Ej: 94" className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-mono font-black text-lg" />
+                        <input 
+                            type="text" 
+                            inputMode="decimal"
+                            value={formatNumberInput(yieldFactor)} 
+                            onChange={e => setYieldFactor(parseNumberInput(e.target.value).toString())} 
+                            placeholder="Ej: 94" 
+                            className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-mono font-black text-lg outline-none" 
+                        />
                         <p className="text-[9px] text-slate-500 px-2">Porcentaje de almendra sana.</p>
                     </div>
                 </div>

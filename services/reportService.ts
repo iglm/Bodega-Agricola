@@ -38,363 +38,410 @@ const addFooter = (doc: jsPDF) => {
     doc.setTextColor(150);
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.text(`DATOSFINCA VIVA - PROPIEDAD DE: ${AUTHOR} | Pág ${i} de ${pageCount}`, 105, 290, { align: 'center' });
+        doc.text(`DATOSFINCA VIVA - PROPIEDAD INTELECTUAL: ${AUTHOR} | Pág ${i} de ${pageCount}`, 105, 290, { align: 'center' });
     }
 };
 
-/**
- * EXPORTACIÓN EXCEL MAESTRA (10 PESTAÑAS)
- */
 export const generateExcel = (data: AppState): void => {
     const wb = XLSX.utils.book_new();
     const dateStr = new Date().toISOString().split('T')[0];
-    
-    // 1. Inventario
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.inventory.map(i => ({
-        'Insumo': i.name, 'Categoría': i.category, 'Stock': i.currentQuantity, 'Unidad': i.baseUnit, 'Costo Prom.': i.averageCost, 'Valorización': i.currentQuantity * i.averageCost
-    }))), "1_Inventario");
-
-    // 2. Kardex (Movimientos)
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.movements.map(m => ({
-        'Fecha': m.date.split('T')[0], 'Tipo': m.type, 'Insumo': m.itemName, 'Cantidad': m.quantity, 'Unidad': m.unit, 'Costo Total': m.calculatedCost, 'Lote': m.costCenterName || 'N/A', 'Proveedor': m.supplierName || ''
-    }))), "2_Kardex_Historico");
-
-    // 3. Ventas (Cosechas)
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.harvests.map(h => ({
-        'Fecha': h.date, 'Lote': h.costCenterName, 'Producto': h.cropName, 'Cantidad': h.quantity, 'Unidad': h.unit, 'Venta Total': h.totalValue, 'Rendimiento': h.yieldFactor || ''
-    }))), "3_Ventas");
-
-    // 4. Personal
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.personnel.map(p => ({
-        'Nombre': p.name, 'Rol': p.role, 'ID': p.documentId, 'EPS': p.eps, 'ARL': p.arl ? 'SI' : 'NO'
-    }))), "4_Personal");
-
-    // 5. Nómina (LaborLogs)
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.laborLogs.map(l => ({
-        'Fecha': l.date, 'Trabajador': l.personnelName, 'Labor': l.activityName, 'Lote': l.costCenterName, 'Valor': l.value, 'Pagado': l.paid ? 'SI' : 'NO'
-    }))), "5_Nomina_Pagos");
-
-    // 6. Pluviometría
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.rainLogs.map(r => ({
-        'Fecha': r.date.split('T')[0], 'Milímetros (mm)': r.millimeters
-    }))), "6_Lluvias");
-
-    // 7. Maquinaria
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.machines.map(m => ({
-        'Nombre': m.name, 'Marca': m.brand, 'Fecha Compra': m.purchaseDate, 'Valor': m.purchaseValue
-    }))), "7_Maquinaria");
-
-    // 8. Mantenimientos
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.maintenanceLogs.map(m => ({
-        'Fecha': m.date.split('T')[0], 'Máquina': m.machineId, 'Descripción': m.description, 'Costo': m.cost
-    }))), "8_Mantenimientos");
-
-    // 9. Lotes (Estructura)
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.costCenters.map(c => ({
-        'Nombre': c.name, 'Area (Ha)': c.area, 'Etapa': c.stage, 'Cultivo': c.cropType, 'Población': c.plantCount
-    }))), "9_Lotes_Estructura");
-
-    // 10. Análisis de Suelos
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.soilAnalyses.map(s => ({
-        'Fecha': s.date, 'Lote': s.costCenterName, 'pH': s.ph, 'N': s.nitrogen, 'P': s.phosphorus, 'K': s.potassium
-    }))), "10_Suelos");
-
-    XLSX.writeFile(wb, `LIBRO_MAESTRO_10_TABS_${dateStr}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.inventory.map(i => ({'Insumo': i.name, 'Categoría': i.category, 'Stock': i.currentQuantity, 'Unidad': i.baseUnit, 'Costo Prom.': i.averageCost, 'Valorización': i.currentQuantity * i.averageCost}))), "1_Inventario");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.movements.map(m => ({'Fecha': m.date.split('T')[0], 'Tipo': m.type, 'Insumo': m.itemName, 'Cantidad': m.quantity, 'Unidad': m.unit, 'Costo Total': m.calculatedCost, 'Lote': m.costCenterName || 'N/A', 'Proveedor': m.supplierName || ''}))), "2_Kardex_Historico");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.harvests.map(h => ({'Fecha': h.date, 'Lote': h.costCenterName, 'Producto': h.cropName, 'Cantidad': h.quantity, 'Unidad': h.unit, 'Venta Total': h.totalValue, 'Rendimiento': h.yieldFactor || ''}))), "3_Ventas");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.costCenters.map(c => ({'Nombre': c.name, 'Area (Ha)': c.area, 'Etapa': c.stage, 'Cultivo': c.cropType, 'Población': c.plantCount}))), "7_Lotes_Estructura");
+    XLSX.writeFile(wb, `LIBRO_MAESTRO_100HA_${dateStr}.xlsx`);
 };
 
-/**
- * GENERACIÓN DE LIBRO MAESTRO PDF (CONSOLIDADO TOTAL)
- */
 export const generateMasterPDF = (data: AppState): void => {
     const doc = new jsPDF();
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
-    const warehouseName = activeW?.name || "Sin Sede";
-
-    // PÁGINA 1: PORTADA Y BALANCE
-    let y = addHeader(doc, "Libro Maestro Consolidado", "Reporte Integral de Gestión 360", warehouseName, BRAND_COLORS.slate);
+    let y = addHeader(doc, "Libro Maestro Consolidado", "Reporte Integral de Gestión 360", activeW?.name || "Sede", BRAND_COLORS.slate);
     
-    doc.setFontSize(14);
-    doc.setTextColor(...BRAND_COLORS.primary);
-    doc.text("Resumen Financiero de Ciclo", 14, y);
-    
-    const totalSales = data.harvests.reduce((a,b) => a + b.totalValue, 0);
-    const totalExpenses = data.movements.filter(m => m.type === 'OUT').reduce((a,b) => a + b.calculatedCost, 0) + 
-                          data.laborLogs.reduce((a,b) => a + b.value, 0) * data.laborFactor;
+    autoTable(doc, { 
+        startY: y + 5, 
+        head: [['Concepto Gerencial', 'Valor Acumulado']], 
+        body: [
+            ['Ventas Totales (Ingresos)', formatCurrency(data.harvests.reduce((a,b)=>a+b.totalValue, 0))],
+            ['Costo Insumos Aplicados', formatCurrency(data.movements.filter(m=>m.type==='OUT').reduce((a,b)=>a+b.calculatedCost,0))],
+            ['Costo Mano de Obra (Neto)', formatCurrency(data.laborLogs.reduce((a,b)=>a+b.value, 0))],
+            ['Costo Mano de Obra (Real c/ Carga)', formatCurrency(data.laborLogs.reduce((a,b)=>a+b.value, 0) * data.laborFactor)]
+        ], 
+        theme: 'striped',
+        headStyles: { fillColor: BRAND_COLORS.slate }
+    });
 
+    addFooter(doc);
+    doc.save(`REPORTE_GERENCIAL_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+export const generateGlobalReport = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "Balance Gerencial Global", "Consolidado de Operaciones", activeW?.name || "Sede", BRAND_COLORS.amber);
+    
+    autoTable(doc, {
+        startY: y,
+        head: [['Módulo', 'Indicador', 'Valor']],
+        body: [
+            ['Inventario', 'Valorización en Bodega', formatCurrency(data.inventory.reduce((a,b)=>a+(b.currentQuantity*b.averageCost),0))],
+            ['Nómina', 'Pendiente de Pago', formatCurrency(data.laborLogs.filter(l=>!l.paid).reduce((a,b)=>a+b.value,0))],
+            ['Producción', 'Ventas Brutas Acumuladas', formatCurrency(data.harvests.reduce((a,b)=>a+b.totalValue, 0))],
+        ],
+        headStyles: { fillColor: BRAND_COLORS.amber }
+    });
+    
+    addFooter(doc);
+    doc.save("Balance_Gerencial.pdf");
+};
+
+export const generateExecutiveReport = (data: AppState) => {
+    generateMasterPDF(data);
+};
+
+export const generateAgronomicDossier = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "Dossier Agronómico", "Registros Fitosanitarios y Ambientales", activeW?.name || "Sede", BRAND_COLORS.primary);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Historial de Pluviometría (Lluvias)", 14, y);
     autoTable(doc, {
         startY: y + 5,
-        head: [['Concepto', 'Valor Acumulado']],
-        body: [
-            ['(+) Ventas Totales', formatCurrency(totalSales)],
-            ['(-) Costo Producción (Insumos + Nómina)', formatCurrency(totalExpenses)],
-            ['(=) Margen de Contribución', formatCurrency(totalSales - totalExpenses)]
-        ],
-        theme: 'striped'
+        head: [['Fecha', 'Milímetros (mm)']],
+        body: data.rainLogs.map(r => [r.date.split('T')[0], `${r.millimeters} mm`]),
     });
-
-    // PÁGINA 2: INVENTARIO VALORIZADO
-    doc.addPage();
-    y = addHeader(doc, "Estado de Bodega", "Inventario Actual Valorizado", warehouseName);
+    
+    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    doc.text("Monitoreo de Plagas y Enfermedades", 14, nextY);
     autoTable(doc, {
-        startY: y,
-        head: [['Producto', 'Categoría', 'Stock', 'Unidad', 'Valorización']],
-        body: data.inventory.map(i => [i.name, i.category, i.currentQuantity, i.baseUnit, formatCurrency(i.currentQuantity * i.averageCost)]),
+        startY: nextY + 5,
+        head: [['Fecha', 'Lote', 'Problema', 'Incidencia']],
+        body: data.pestLogs.map(p => [p.date.split('T')[0], p.costCenterId, p.pestOrDisease, p.incidence]),
     });
-
-    // PÁGINA 3: HISTORIAL DE VENTAS
-    doc.addPage();
-    y = addHeader(doc, "Bitácora de Comercialización", "Ventas de Café y Asociados", warehouseName, BRAND_COLORS.indigo);
-    autoTable(doc, {
-        startY: y,
-        head: [['Fecha', 'Lote', 'Producto', 'Cantidad', 'Venta Total']],
-        body: data.harvests.slice(-40).map(h => [h.date, h.costCenterName, h.cropName, `${h.quantity} ${h.unit}`, formatCurrency(h.totalValue)]),
-    });
-
-    // PÁGINA 4: NÓMINA Y MANO DE OBRA
-    doc.addPage();
-    y = addHeader(doc, "Libro de Nómina", "Mano de Obra Ejecutada", warehouseName, BRAND_COLORS.amber);
-    autoTable(doc, {
-        startY: y,
-        head: [['Fecha', 'Trabajador', 'Labor', 'Lote', 'Costo Real']],
-        body: data.laborLogs.slice(-40).map(l => [l.date, l.personnelName, l.activityName, l.costCenterName, formatCurrency(l.value * data.laborFactor)]),
-    });
-
+    
     addFooter(doc);
-    doc.save(`LIBRO_MAESTRO_PDF_${new Date().toISOString().split('T')[0]}.pdf`);
-};
-
-export const generateGlobalReport = (data: AppState): void => {
-    const doc = new jsPDF();
-    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
-    let y = addHeader(doc, "Informe Gerencial 7 Años", "Balance de Ciclo Cafetero Completo", activeW?.name || "Sin Sede", BRAND_COLORS.slate);
-    autoTable(doc, {
-        startY: y,
-        head: [['Indicador de Ciclo', 'Valor Acumulado (7 Años)']],
-        body: [
-            ['(+) Ingresos Brutos (Excelso + Pasilla)', formatCurrency(data.harvests.reduce((a,b)=>a+b.totalValue, 0))],
-            ['(-) Inversión en Insumos (Bodega)', formatCurrency(data.movements.filter(m=>m.type==='OUT').reduce((a,b)=>a+b.calculatedCost, 0))],
-            ['(-) Mano de Obra Estimada', formatCurrency(data.laborLogs.reduce((a,b)=>a+b.value, 0) * data.laborFactor)],
-            ['(=) Utilidad Bruta de Ciclo', formatCurrency(data.harvests.reduce((a,b)=>a+b.totalValue, 0) - (data.movements.filter(m=>m.type==='OUT').reduce((a,b)=>a+b.calculatedCost, 0) + data.laborLogs.reduce((a,b)=>a+b.value, 0) * data.laborFactor))],
-        ],
-        theme: 'grid'
-    });
-    addFooter(doc);
-    doc.save("Reporte_Ciclo_7Anos.pdf");
-};
-
-export const generatePDF = (data: AppState): void => {
-    const doc = new jsPDF();
-    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
-    let y = addHeader(doc, "Stock Bodega", "Inventario Actual", activeW?.name || "Sin Sede");
-    autoTable(doc, { startY: y, head: [['Producto', 'Stock', 'Unidad', 'Costo Unit.', 'Total']], body: data.inventory.map(i => [i.name, i.currentQuantity, i.baseUnit, formatCurrency(i.averageCost), formatCurrency(i.currentQuantity * i.averageCost)]) });
-    addFooter(doc);
-    doc.save("Stock_Bodega.pdf");
-};
-
-export const generateLaborReport = (data: AppState): void => {
-    const doc = new jsPDF();
-    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
-    let y = addHeader(doc, "Libro de Nómina", "Historial Pagos", activeW?.name || "Sin Sede", BRAND_COLORS.amber);
-    autoTable(doc, { startY: y, head: [['Fecha', 'Trabajador', 'Labor', 'Valor']], body: data.laborLogs.slice(-100).map(l => [l.date, l.personnelName, l.activityName, formatCurrency(l.value)]) });
-    doc.save("Nomina.pdf");
-};
-
-export const generateHarvestReport = (data: AppState): void => {
-    const doc = new jsPDF();
-    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
-    let y = addHeader(doc, "Reporte Cosechas", "Ventas y Producción", activeW?.name || "Sin Sede", BRAND_COLORS.indigo);
-    autoTable(doc, { startY: y, head: [['Fecha', 'Lote', 'Producto', 'Total']], body: data.harvests.slice(-60).map(h => [h.date, h.costCenterName, h.cropName, formatCurrency(h.totalValue)]) });
-    doc.save("Cosechas.pdf");
-};
-
-export const generatePaymentReceipt = (name: string, logs: LaborLog[], warehouseName: string): void => {
-    const doc = new jsPDF();
-    addHeader(doc, "RECIBO PAGO", "Comprobante Nómina", warehouseName, BRAND_COLORS.amber);
-    doc.save(`Recibo_${name}.pdf`);
-};
-
-export const generateFieldTemplates = (data: AppState): void => {
-    const doc = new jsPDF();
-    addHeader(doc, "FORMATO CAMPO", "Registro Diario", "GENERAL", BRAND_COLORS.amber);
-    doc.save("Planillas_Fisicas.pdf");
-};
-
-export const generateAgronomicDossier = (data: AppState): void => {
-    const doc = new jsPDF();
-    addHeader(doc, "DOSSIER AGRONOMICO", "Clima y Sanidad", "GENERAL", BRAND_COLORS.indigo);
     doc.save("Dossier_Agronomico.pdf");
 };
 
-export const generateSafetyReport = (data: AppState): void => {
+export const generateSafetyReport = (data: AppState) => {
     const doc = new jsPDF();
-    addHeader(doc, "AUDITORIA SST", "EPP y Residuos", "GENERAL", BRAND_COLORS.red);
-    doc.save("Auditoria_SST.pdf");
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "Auditoría SST & Ambiental", "EPP y Gestión de Residuos", activeW?.name || "Sede", BRAND_COLORS.red);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Entregas de Elementos de Protección Personal", 14, y);
+    autoTable(doc, {
+        startY: y + 5,
+        head: [['Fecha', 'Trabajador', 'Items Entregados']],
+        body: data.ppeLogs.map(p => [p.date.split('T')[0], p.personnelName, p.items.join(', ')]),
+    });
+
+    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    doc.text("Gestión de Residuos y Triple Lavado", 14, nextY);
+    autoTable(doc, {
+        startY: nextY + 5,
+        head: [['Fecha', 'Descripción', 'Cantidad', 'Triple Lavado']],
+        body: data.wasteLogs.map(w => [w.date.split('T')[0], w.itemDescription, w.quantity, w.tripleWashed ? 'SÍ' : 'NO']),
+    });
+    
+    addFooter(doc);
+    doc.save("Reporte_Seguridad_Ambiental.pdf");
 };
 
-export const generateSQLDump = (data: AppState): void => {
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `Backup_7Anos_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
+export const generateFieldTemplates = (data: AppState) => {
+    const doc = new jsPDF();
+    addHeader(doc, "Planillas de Campo", "Formatos para Registro Manual", "Hacienda VIVA", BRAND_COLORS.slate);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text("Utilice estas planillas para la recolección física de datos en lotes:", 14, 60);
+    
+    const body = [
+        ["1. Planilla de Aplicación de Insumos", "Registro de dosis, lote y operario."],
+        ["2. Planilla de Nómina / Jornales", "Para firma de asistencia diaria."],
+        ["3. Planilla de Cosecha", "Pesaje individual por recolector."],
+        ["4. Bitácora de Maquinaria", "Horómetro y consumo de combustible."],
+        ["5. Registro de Lluvias", "Control pluviométrico manual."]
+    ];
+
+    autoTable(doc, {
+        startY: 70,
+        head: [['Formato Sugerido', 'Objetivo de Trazabilidad']],
+        body: body,
+        theme: 'grid'
+    });
+    
+    addFooter(doc);
+    doc.save("Planillas_Campo_VIVA.pdf");
 };
 
-export const generateExecutiveReport = (data: AppState) => generateGlobalReport(data);
-export const generateManualPDF = () => {};
-export const generateFinancialReport = (data: AppState) => {};
-export const generateBudgetReport = (data: AppState) => {};
-export const generateSimulatorPDF = (data: any) => {};
-export const generateSimulatorExcel = (data: any) => {};
+export const generatePDF = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "Stock Bodega Valorizado", "Inventario Actual", activeW?.name || "Principal");
+    
+    autoTable(doc, { 
+        startY: y, 
+        head: [['Producto', 'Stock Actual', 'CPP', 'Total']], 
+        body: data.inventory.map(i => [
+            i.name, 
+            `${i.currentQuantity} ${i.baseUnit}`, 
+            formatCurrency(i.averageCost, 2), 
+            formatCurrency(i.currentQuantity * i.averageCost)
+        ]),
+        headStyles: { fillColor: BRAND_COLORS.primary }
+    });
+    
+    addFooter(doc);
+    doc.save("Inventario_Bodega.pdf");
+};
 
-// --- MOTOR DE SIMULACIÓN DE 7 AÑOS (RENOVACIÓN ANUAL 14.2% - CICLO COMPLETO) ---
+export const generateLaborReport = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "Consolidado de Nómina", "Historial de Pagos y Jornales", activeW?.name || "Sede", BRAND_COLORS.amber);
+    
+    autoTable(doc, {
+        startY: y,
+        head: [['Fecha', 'Trabajador', 'Labor', 'Lote', 'Valor']],
+        body: data.laborLogs.map(l => [l.date, l.personnelName, l.activityName, l.costCenterName, formatCurrency(l.value)]),
+        headStyles: { fillColor: BRAND_COLORS.amber }
+    });
+    
+    addFooter(doc);
+    doc.save("Reporte_Nomina.pdf");
+};
+
+export const generateHarvestReport = (data: AppState) => {
+    const doc = new jsPDF();
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    let y = addHeader(doc, "Bitácora de Ventas", "Producción y Salidas de Cosecha", activeW?.name || "Sede", BRAND_COLORS.indigo);
+    
+    autoTable(doc, {
+        startY: y,
+        head: [['Fecha', 'Lote', 'Producto', 'Cantidad', 'Valor Venta']],
+        body: data.harvests.map(h => [h.date, h.costCenterName, h.cropName, `${h.quantity} ${h.unit}`, formatCurrency(h.totalValue)]),
+        headStyles: { fillColor: BRAND_COLORS.indigo }
+    });
+    
+    addFooter(doc);
+    doc.save("Reporte_Ventas.pdf");
+};
+
+export const generatePaymentReceipt = (personName: string, logs: LaborLog[], warehouseName: string) => {
+    const doc = new jsPDF();
+    let y = addHeader(doc, "Comprobante de Pago", "Liquidación de Mano de Obra", warehouseName, BRAND_COLORS.primary);
+    
+    doc.setTextColor(0);
+    doc.setFontSize(12);
+    doc.text(`Páguese a: ${personName}`, 20, y);
+    doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 20, y + 10);
+    
+    const total = logs.reduce((a,b) => a + b.value, 0);
+
+    autoTable(doc, {
+        startY: y + 20,
+        head: [['Fecha', 'Labor Realizada', 'Lote', 'Valor']],
+        body: logs.map(l => [l.date, l.activityName, l.costCenterName, formatCurrency(l.value)]),
+        foot: [['', '', 'TOTAL A PAGAR:', formatCurrency(total)]],
+        theme: 'grid',
+        headStyles: { fillColor: BRAND_COLORS.primary }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY + 30;
+    doc.line(20, finalY, 90, finalY);
+    doc.text("Firma del Trabajador", 20, finalY + 5);
+    doc.text(`CC: _________________`, 20, finalY + 12);
+
+    doc.line(120, finalY, 190, finalY);
+    doc.text("Firma Empleador", 120, finalY + 5);
+    
+    addFooter(doc);
+    doc.save(`Recibo_${personName.replace(/\s/g, '_')}.pdf`);
+};
+
+export const generateSQLDump = (d: AppState) => {
+    const sql = `-- Backup AgroBodega Pro\n-- Autor: Lucas Mateo Tabares Franco\n-- Fecha: ${new Date().toISOString()}\n\n`;
+    const blob = new Blob([sql], {type: 'text/sql'});
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "Backup_Local.sql";
+    a.click();
+};
+
+/**
+ * GENERADOR DE MANUAL TÉCNICO Y DE USUARIO
+ * Diseñado específicamente para registro en la DNDA.
+ */
+export const generateManualPDF = () => {
+    const doc = new jsPDF();
+    const dateNow = new Date().toLocaleDateString();
+    
+    // PORTADA
+    doc.setFillColor(...BRAND_COLORS.slate);
+    doc.rect(0, 0, 210, 297, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(32);
+    doc.text("DATOSFINCA VIVA", 105, 100, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text("SOFTWARE DE INTELIGENCIA AGRÍCOLA 360", 105, 115, { align: 'center' });
+    
+    doc.setDrawColor(255, 255, 255);
+    doc.line(40, 130, 170, 130);
+    
+    doc.setFontSize(12);
+    doc.text(`Autor: ${AUTHOR}`, 105, 150, { align: 'center' });
+    doc.text(`Fecha de Edición: ${dateNow}`, 105, 160, { align: 'center' });
+    doc.text("Versión del Código: 2.0.0-PRO", 105, 170, { align: 'center' });
+    doc.text("Sede: Colombia - 2025", 105, 180, { align: 'center' });
+
+    // PÁGINA 2: MARCO LEGAL Y AUTORÍA
+    doc.addPage();
+    let y = addHeader(doc, "Marco Legal y Propiedad Intelectual", "Soporte para Dirección Nacional de Derechos de Autor", "VIVA CORE");
+    
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    const legalText = `
+    El presente software, denominado "DATOSFINCA VIVA", es una obra de software original protegida por la legislación nacional e internacional vigente. 
+    
+    1. TITULARIDAD: Lucas Mateo Tabares Franco es el autor y titular exclusivo de los derechos morales y patrimoniales.
+    2. LEGISLACIÓN APLICABLE: Ley 23 de 1982, Ley 1581 de 2012 (Habeas Data) y Ley 1915 de 2018.
+    3. PROTECCIÓN TECNOLÓGICA: La aplicación incorpora algoritmos de cálculo de CPP y auditoría IVE protegidos contra ingeniería inversa.
+    4. PRIVACIDAD: Los datos se almacenan bajo el paradigma "Local-First" en el dispositivo del usuario, garantizando la soberanía de la información agrícola.
+    `;
+    doc.text(legalText, 14, y + 10, { maxWidth: 180 });
+
+    // PÁGINA 3: DESCRIPCIÓN TÉCNICA
+    doc.addPage();
+    y = addHeader(doc, "Arquitectura Técnica", "Especificaciones del Sistema", "TECH STACK");
+    
+    autoTable(doc, {
+        startY: y + 10,
+        head: [['Componente', 'Tecnología / Método']],
+        body: [
+            ['Lenguaje Núcleo', 'TypeScript / React 19'],
+            ['Gestión de Estado', 'React Hooks (UseState / UseMemo)'],
+            ['Base de Datos', 'IndexedDB (Alta Capacidad) + LocalStorage (Relay)'],
+            ['Algoritmo Inventario', 'Costo Promedio Ponderado (CPP)'],
+            ['Algoritmo Nómina', 'Factor Prestacional Variable'],
+            ['Seguridad', 'PIN Administrativo Encriptado Localmente'],
+            ['Reportes', 'Generación Dinámica PDF/Excel (Client-side)']
+        ]
+    });
+
+    // PÁGINA 4: MANUAL DE USUARIO - MÓDULOS
+    doc.addPage();
+    y = addHeader(doc, "Manual de Operación", "Guía para el Administrador de Finca", "USER GUIDE");
+    
+    const modules = [
+        ["Bodega Inteligente", "Permite registrar compras y salidas al gramo. Calcula automáticamente el valor de cada aplicación en campo."],
+        ["Nómina Legal", "Genera recibos de pago firmables en PDF. Incluye carga social del 52% (opcional)."],
+        ["Programador IVE", "Índice de Ejecución: Compara jornales planeados vs reales para detectar robos o ineficiencias."],
+        ["Radar BPA", "Checklist basado en Res. ICA 082394 para certificación de predio exportador."],
+        ["Simulador Real", "Modelado de flujos de caja a 6 años para cultivos de Café y Plátano."]
+    ];
+
+    autoTable(doc, {
+        startY: y + 10,
+        head: [['Módulo', 'Función Crítica']],
+        body: modules,
+        theme: 'grid'
+    });
+
+    addFooter(doc);
+    doc.save(`MANUAL_TECNICO_DATOSFINCA_VIVA_${new Date().getFullYear()}.pdf`);
+};
+
 export const getDemoData = (): AppState => {
     const warehouseId = generateId();
-    const supplierId = generateId();
-    
-    // 1. DEFINICIÓN DE 7 LOTES (100 Ha / 7 = 14.2 Ha por lote para rotación anual)
-    const lotSize = 14.28;
-    const lotModels = [1, 2, 3, 4, 5, 6, 7].map(i => ({
-        id: generateId(), 
-        warehouseId, 
-        name: `Lote ${i} (Etapa ${i})`, 
-        area: lotSize, 
-        stage: (i <= 2 ? 'Levante' : 'Produccion') as any,
-        cropType: 'Café',
-        startAge: i // Edad relativa al inicio de la simulación
-    }));
-
-    const workers = ["Alberto Páez", "Carlos Ruiz", "Dora Cano", "Wilson Tabares", "Héctor Gómez"].map(name => ({
-        id: generateId(), warehouseId, name, role: 'Operario'
-    }));
-
-    const activityId = generateId();
-    const activities = [
-        { id: activityId, warehouseId, name: 'Mantenimiento General', costClassification: 'COFFEE' as CostClassification },
-        { id: generateId(), warehouseId, name: 'Cosecha', costClassification: 'COFFEE' as CostClassification }
-    ];
-
-    const itemData = [
-        { name: 'Urea 46%', cat: Category.FERTILIZANTE, unit: Unit.BULTO_50KG, price: 155000, base: 'g' },
-        { name: 'DAP 18-46-0', cat: Category.FERTILIZANTE, unit: Unit.BULTO_50KG, price: 215000, base: 'g' },
-        { name: 'Amistar Top', cat: Category.FUNGICIDA, unit: Unit.LITRO, price: 198000, base: 'ml' }
-    ];
-
-    const inventory = itemData.map(d => ({
-        id: generateId(), warehouseId, name: d.name, category: d.cat, currentQuantity: 0,
-        baseUnit: d.base as any, averageCost: 0, lastPurchasePrice: d.price, lastPurchaseUnit: d.unit, minStock: 500000
-    }));
-
     const today = new Date();
-    const startOfSimulation = new Date();
-    startOfSimulation.setFullYear(today.getFullYear() - 7); 
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const lastMonth = new Date(today); lastMonth.setMonth(today.getMonth() - 1);
 
-    const demoState: AppState = {
-        warehouses: [{ id: warehouseId, name: 'Hacienda Los Andes (100 Ha - 7 Años)', created: startOfSimulation.toISOString(), ownerId: 'demo' }],
-        activeWarehouseId: warehouseId,
-        inventory: inventory,
-        movements: [],
-        suppliers: [{ id: supplierId, warehouseId, name: 'Central de Insumos', phone: '3101234567' }],
-        costCenters: lotModels.map(({startAge, ...rest}) => rest),
-        personnel: workers,
-        activities,
-        laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], bpaChecklist: {}, assets: [], laborFactor: 1.52
-    };
+    const activities: Activity[] = [
+        { id: 'act_recol', warehouseId, name: 'Recolección de Café', costClassification: 'COFFEE' },
+        { id: 'act_benef', warehouseId, name: 'Beneficio de Café', costClassification: 'COFFEE' },
+        { id: 'act_fert', warehouseId, name: 'Fertilización Lotes Producción', costClassification: 'JOINT' },
+        { id: 'act_pest', warehouseId, name: 'Control Plagas y Enfermedades', costClassification: 'JOINT' },
+        { id: 'act_arv', warehouseId, name: 'Control de Arvenses (Malezas)', costClassification: 'JOINT' },
+        { id: 'act_reno', warehouseId, name: 'Renovación (Zoca o Siembra)', costClassification: 'COFFEE' },
+        { id: 'act_admin', warehouseId, name: 'Gastos Administrativos', costClassification: 'JOINT' }
+    ];
 
-    // --- MOTOR DE TIEMPO (PASO A PASO 7 AÑOS) ---
-    const yieldCurve: Record<number, number> = { 1: 0, 2: 0, 3: 0.40, 4: 0.90, 5: 1.05, 6: 0.85, 7: 0.60 };
-    let curr = new Date(startOfSimulation);
-
-    while (curr <= today) {
-        const dStr = curr.toISOString().split('T')[0];
-        const month = curr.getMonth();
-        const year = curr.getFullYear();
-
-        // 1. COMPRAS TRIMESTRALES (ENTRADAS BODEGA)
-        if (curr.getDate() === 1 && [0, 3, 6, 9].includes(month)) {
-            inventory.forEach(item => {
-                const qty = 80 + Math.random() * 40; 
-                const cost = qty * item.lastPurchasePrice;
-                demoState.movements.push({
-                    id: generateId(), warehouseId, itemId: item.id, itemName: item.name, type: 'IN',
-                    quantity: qty, unit: item.lastPurchaseUnit, calculatedCost: cost, date: dStr
-                });
-                const itm = demoState.inventory.find(i => i.id === item.id)!;
-                const baseQty = convertToBase(qty, item.lastPurchaseUnit);
-                itm.averageCost = ((itm.currentQuantity * itm.averageCost) + cost) / (itm.currentQuantity + baseQty || 1);
-                itm.currentQuantity += baseQty;
-            });
-        }
-
-        // 2. APLICACIONES MENSUALES (SALIDAS BODEGA VINCULADAS A LOTE)
-        if (curr.getDate() === 15) {
-            lotModels.forEach(lot => {
-                const item = demoState.inventory[0];
-                const qtyOut = 30000; // 30kg por lote al mes
-                if (item.currentQuantity > qtyOut) {
-                    demoState.movements.push({
-                        id: generateId(), warehouseId, itemId: item.id, itemName: item.name, type: 'OUT',
-                        quantity: qtyOut, unit: Unit.GRAMO, calculatedCost: qtyOut * item.averageCost, 
-                        date: dStr, costCenterId: lot.id, costCenterName: lot.name
-                    });
-                    item.currentQuantity -= qtyOut;
-                }
-            });
-        }
-
-        // 3. COSECHAS SEMESTRALES (EXCELSO + PASILLA)
-        if (curr.getDate() === 28 && [4, 10].includes(month)) {
-            lotModels.forEach(lot => {
-                const simYear = year - startOfSimulation.getFullYear() + 1;
-                const currentAge = ((lot.startAge + simYear - 2) % 7) + 1;
-                const factor = yieldCurve[currentAge] || 0;
-
-                if (factor > 0) {
-                    const qtyExcelso = (3800 * lot.area * factor) / 2; 
-                    const priceExcelso = 2350000; // Precio competitivo para que Simulator sea > 0
-                    const valExcelso = (qtyExcelso / 125) * priceExcelso;
-
-                    demoState.harvests.push({
-                        id: generateId(), warehouseId, date: dStr, costCenterId: lot.id, costCenterName: lot.name,
-                        cropName: 'Café Pergamino Seco (Excelso)', quantity: qtyExcelso, unit: 'Kg', totalValue: valExcelso
-                    });
-
-                    // Pasilla técnica (6.8% masa)
-                    const qtyPasilla = qtyExcelso * 0.068;
-                    const valPasilla = (qtyPasilla / 125) * (priceExcelso * 0.22);
-                    demoState.harvests.push({
-                        id: generateId(), warehouseId, date: dStr, costCenterId: lot.id, costCenterName: lot.name,
-                        cropName: 'Pasilla de Finca', quantity: qtyPasilla, unit: 'Kg', totalValue: valPasilla
-                    });
-                }
-            });
-        }
-
-        // 4. JORNALES (VINCULADOS A LOTE)
-        if (curr.getDay() !== 0) {
-            const lot = lotModels[curr.getDate() % 7];
-            workers.forEach(w => {
-                demoState.laborLogs.push({
-                    id: generateId(), warehouseId, date: dStr, personnelId: w.id, personnelName: w.name,
-                    activityId, activityName: 'Labores de Ciclo',
-                    costCenterId: lot.id, costCenterName: lot.name, value: 85000, paid: true
-                });
-            });
-        }
-
-        curr.setDate(curr.getDate() + 1);
+    const costCenters: CostCenter[] = [];
+    for(let i=1; i<=10; i++) {
+        costCenters.push({
+            id: `lot_${i}`, 
+            warehouseId, 
+            name: `Lote ${i} - Seccion ${i}`, 
+            area: 10.0, 
+            stage: i > 8 ? 'Levante' : 'Produccion', 
+            cropType: 'Café', 
+            plantCount: 80000, 
+            associatedCrop: i % 3 === 0 ? 'Plátano' : undefined
+        });
     }
 
-    // 5. POBLAR PRESUPUESTO 2025 Y 2026 (Para eliminar los ceros en 'Presupuesto')
-    [2025, 2026].forEach(y => {
-        lotModels.forEach(lot => {
-            const bItems: BudgetItem[] = [
-                { id: generateId(), type: 'LABOR', conceptId: activityId, conceptName: 'Mantenimiento', unitCost: 85000, quantityPerHa: 12, months: [1, 3, 5, 7, 9, 11] },
-                { id: generateId(), type: 'SUPPLY', conceptId: inventory[0].id, conceptName: 'Fertilizante', unitCost: 155000, quantityPerHa: 8, months: [2, 8] }
-            ];
-            demoState.budgets.push({ id: generateId(), warehouseId, year: y, costCenterId: lot.id, items: bItems });
+    const personnel: Personnel[] = [
+        { id: 'per_admin', warehouseId, name: 'Carlos Mario (Administrador)', role: 'Admin' },
+        { id: 'per_mayo', warehouseId, name: 'Luis Fernando (Mayordomo)', role: 'Mayordomo' },
+        { id: 'per_op1', warehouseId, name: 'Juan Diego (Operario)', role: 'Operario' },
+        { id: 'per_op2', warehouseId, name: 'Andrés Felipe (Operario)', role: 'Operario' }
+    ];
+
+    const inventory: InventoryItem[] = [
+        { 
+            id: 'inv_fert1', warehouseId, name: 'Fertilizante Cafetero (17-6-18)', category: Category.FERTILIZANTE, 
+            currentQuantity: 45000000, baseUnit: 'g', averageCost: 3400 / 1000, 
+            lastPurchasePrice: 170000, lastPurchaseUnit: Unit.BULTO_50KG 
+        },
+        { 
+            id: 'inv_pest1', warehouseId, name: 'Insecticida Broca', category: Category.INSECTICIDA, 
+            currentQuantity: 50000, baseUnit: 'ml', averageCost: 120, 
+            lastPurchasePrice: 120000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 15
+        }
+    ];
+
+    const laborLogs: LaborLog[] = [];
+    const totalDemoBudget = 100000000;
+
+    const distributions = [
+        { act: activities[0], perc: 0.49, val: 49000000 }, 
+        { act: activities[2], perc: 0.14, val: 14000000 }, 
+        { act: activities[4], perc: 0.11, val: 11000000 }, 
+        { act: activities[5], perc: 0.08, val: 8000000 },  
+        { act: activities[3], perc: 0.07, val: 7000000 },  
+        { act: activities[6], perc: 0.07, val: 7000000 },  
+        { act: activities[1], perc: 0.04, val: 4000000 }   
+    ];
+
+    distributions.forEach(d => {
+        laborLogs.push({
+            id: generateId(), warehouseId, date: lastMonth.toISOString().split('T')[0],
+            personnelId: personnel[2].id, personnelName: personnel[2].name,
+            activityId: d.act.id, activityName: d.act.name,
+            costCenterId: costCenters[0].id, costCenterName: costCenters[0].name,
+            value: d.val, paid: true
         });
     });
 
-    return demoState;
+    const harvests: HarvestLog[] = [];
+    costCenters.filter(c => c.stage === 'Produccion').forEach(c => {
+        const yieldLoads = 15.5; 
+        harvests.push({
+            id: generateId(), warehouseId, costCenterId: c.id, costCenterName: c.name,
+            date: yesterday.toISOString().split('T')[0], cropName: 'Café CPS',
+            quantity: yieldLoads * 125 * c.area, unit: 'Kg', 
+            totalValue: yieldLoads * c.area * 1850000, 
+            yieldFactor: 94
+        });
+    });
+
+    return {
+        warehouses: [{ id: warehouseId, name: 'Hacienda Valle 100Ha', created: today.toISOString(), ownerId: 'demo' }],
+        activeWarehouseId: warehouseId,
+        inventory, movements: [], suppliers: [], costCenters, personnel, activities, laborLogs, harvests, machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], bpaChecklist: {}, assets: [], laborFactor: 1.52 
+    };
 };

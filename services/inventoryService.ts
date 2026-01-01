@@ -1,7 +1,7 @@
 
 import { InventoryItem, Movement, Unit, AppState } from '../types';
 
-const STORAGE_KEY = 'datosfinca_viva_v1_expert';
+const STORAGE_KEY = 'agrobodega_pro_v1';
 
 export const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -19,14 +19,35 @@ export const getBaseUnitType = (unit: Unit): 'g' | 'ml' | 'unit' => {
   return 'g';
 };
 
-export const getCostPerGramOrMl = (item: InventoryItem) => {
-  return item.averageCost;
+export const formatNumberInput = (val: string | number | undefined | null): string => {
+  if (val === undefined || val === null || val === '') return '';
+  let s = val.toString().replace(/['.\s]/g, '');
+  const parts = s.split(',');
+  let intStr = parts[0].replace(/\D/g, ''); 
+  let decStr = parts.length > 1 ? ',' + parts[1].replace(/\D/g, '').slice(0, 2) : '';
+  if (s === ',') return '0,';
+  if (!intStr && decStr) intStr = '0';
+  if (!intStr) return '';
+  let formattedInt = "";
+  let digitCount = 0;
+  for (let i = intStr.length - 1; i >= 0; i--) {
+    formattedInt = intStr[i] + formattedInt;
+    digitCount++;
+    if (i > 0 && digitCount % 3 === 0) {
+      if (digitCount % 6 === 0) formattedInt = "'" + formattedInt;
+      else formattedInt = "." + formattedInt;
+    }
+  }
+  return formattedInt + decStr;
 };
 
-/**
- * Calcula cuánto vale una unidad comercial basada en el costo promedio base.
- * Ej: Si el gramo vale 2.4, y pedimos el precio de 1kg, retorna 2400.
- */
+export const parseNumberInput = (s: string | number): number => {
+  if (s === undefined || s === null) return 0;
+  let str = s.toString();
+  const cleaned = str.replace(/['.]/g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
+};
+
 export const calculatePriceForUnit = (item: InventoryItem, unit: Unit) => {
   const baseQty = convertToBase(1, unit);
   return baseQty * item.averageCost;
@@ -38,22 +59,21 @@ export const formatCurrency = (val: number, decimals: number = 0) =>
     currency: 'COP', 
     maximumFractionDigits: decimals,
     minimumFractionDigits: decimals 
-  }).format(val);
+  }).format(val).replace('$', '$ ');
 
 export const formatBaseQuantity = (qty: number, type: string) => {
   if (type === 'unit') return `${qty} und`;
-  if (type === 'g' && qty >= 50000) return `${(qty/50000).toFixed(2)} bultos (50kg)`;
+  if (type === 'g' && qty >= 50000) return `${(qty/50000).toFixed(2)} bultos`;
   if (type === 'g' && qty >= 1000) return `${(qty/1000).toFixed(2)} kg`;
-  if (type === 'g') return `${qty.toFixed(1)} g`;
+  if (type === 'g') return `${qty.toFixed(0)} g`;
   if (type === 'ml' && qty >= 1000) return `${(qty/1000).toFixed(2)} L`;
-  if (type === 'ml') return `${qty.toFixed(1)} ml`;
+  if (type === 'ml') return `${qty.toFixed(0)} ml`;
   return `${qty.toFixed(1)} ${type}`;
 };
 
 export const calculateWeightedAverageCost = (item: InventoryItem, incomingQty: number, incomingUnit: Unit, incomingPrice: number) => {
   const currentTotalVal = item.currentQuantity * item.averageCost;
   const incomingBaseQty = convertToBase(incomingQty, incomingUnit);
-  // El incomingPrice es el precio por la UNIDAD de compra (ej: precio del bulto)
   const costPerBase = incomingPrice / convertToBase(1, incomingUnit);
   const incomingTotalVal = incomingBaseQty * costPerBase;
   const nextQty = item.currentQuantity + incomingBaseQty;
@@ -63,12 +83,10 @@ export const calculateWeightedAverageCost = (item: InventoryItem, incomingQty: n
 export const processInventoryMovement = (inventory: InventoryItem[], movement: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newPrice?: number, newExpirationDate?: string) => {
   const itemIndex = inventory.findIndex(i => i.id === movement.itemId);
   if (itemIndex === -1) return { updatedInventory: inventory, movementCost: 0 };
-
   const updatedInventory = [...inventory];
   const item = { ...updatedInventory[itemIndex] };
   const baseQty = convertToBase(movement.quantity, movement.unit);
   let movementCost = 0;
-
   if (movement.type === 'IN') {
     const unitPrice = newPrice !== undefined ? newPrice : item.lastPurchasePrice;
     movementCost = movement.quantity * unitPrice; 
@@ -81,7 +99,6 @@ export const processInventoryMovement = (inventory: InventoryItem[], movement: O
     movementCost = baseQty * item.averageCost;
     item.currentQuantity -= baseQty;
   }
-
   updatedInventory[itemIndex] = item;
   return { updatedInventory, movementCost };
 };
@@ -89,19 +106,10 @@ export const processInventoryMovement = (inventory: InventoryItem[], movement: O
 export const loadDataFromLocalStorage = (): AppState => {
   const storedData = localStorage.getItem(STORAGE_KEY);
   let parsed: any = {};
-  
-  if (storedData) {
-    try {
-      parsed = JSON.parse(storedData);
-    } catch (e) {
-      console.error("Error parsing local storage data", e);
-    }
-  }
-
+  if (storedData) { try { parsed = JSON.parse(storedData); } catch (e) {}}
   const id = parsed.activeWarehouseId || generateId();
-  
   return {
-    warehouses: parsed.warehouses || [{ id, name: 'Bodega Principal', created: new Date().toISOString(), ownerId: 'local_user' }],
+    warehouses: parsed.warehouses || [{ id, name: 'Finca Principal', created: new Date().toISOString(), ownerId: 'local_user' }],
     activeWarehouseId: id,
     inventory: parsed.inventory || [],
     movements: parsed.movements || [],
@@ -124,21 +132,12 @@ export const loadDataFromLocalStorage = (): AppState => {
     plannedLabors: parsed.plannedLabors || [], 
     budgets: parsed.budgets || [],
     laborFactor: parsed.laborFactor || 1.0,
-    swot: parsed.swot || {
-      f: 'Control estricto de inventario.',
-      o: 'Exportación de reportes Excel.',
-      d: 'Costos variables de insumos.',
-      a: 'Piratería de software.'
-    }, 
+    swot: parsed.swot || { f: '', o: '', d: '', a: '' }, 
     bpaChecklist: parsed.bpaChecklist || {},
     assets: parsed.assets || []
   };
 };
 
 export const saveDataToLocalStorage = (data: AppState) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error("Error saving data to local storage", e);
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
 };
