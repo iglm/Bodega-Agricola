@@ -28,7 +28,7 @@ import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, Asset, P
 import { processInventoryMovement, generateId, getBaseUnitType, loadDataFromLocalStorage, saveDataToLocalStorage } from './services/inventoryService';
 import { dbService } from './services/db'; 
 import { getDemoData, generateExcel, generatePDF, generateLaborReport, generateHarvestReport } from './services/reportService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Sprout, Calculator, Lightbulb, LayoutGrid } from 'lucide-react';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Sprout, Calculator, Lightbulb, LayoutGrid, Sun, Moon } from 'lucide-react';
 
 function App() {
   const [session, setSession] = useState<User | null>(null);
@@ -114,21 +114,27 @@ function App() {
       )}
       {view === 'app' && data && (
         <>
-          <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-2 pt-10 sm:pt-2">
+          <header className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border-b-2 border-slate-300 dark:border-slate-800 sticky top-0 z-40 px-4 py-2 pt-10 sm:pt-2">
             <div className="max-w-4xl mx-auto flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                     <button onClick={() => setShowWarehouses(true)} className="flex items-center gap-2 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
                         <div className="p-1.5 bg-emerald-600 rounded-lg shadow-lg"><Globe className="w-4 h-4 text-white" /></div>
-                        <div className="text-left"><h1 className="text-sm font-black flex items-center gap-1">DatosFinca Viva <ChevronDown className="w-3 h-3" /></h1><span className="text-[9px] text-slate-500 uppercase font-black">{currentW?.name || 'Seleccionar Finca'}</span></div>
+                        <div className="text-left"><h1 className="text-sm font-black flex items-center gap-1 text-slate-900 dark:text-white">DatosFinca Viva <ChevronDown className="w-3 h-3" /></h1><span className="text-[9px] text-slate-500 uppercase font-black">{currentW?.name || 'Seleccionar Finca'}</span></div>
                     </button>
                     <div className="flex gap-1 items-center">
-                        <button onClick={() => setShowManual(true)} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"><HelpCircle className="w-5 h-5" /></button>
-                        <button onClick={() => requestSecureAction(() => setShowData(true))} className="p-2 text-orange-500 hover:text-orange-400 transition-colors"><Database className="w-5 h-5" /></button>
-                        <button onClick={() => setShowSettings(true)} className="p-2 text-slate-500 hover:text-slate-400 transition-colors"><Settings className="w-5 h-5" /></button>
-                        <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} className="p-2 hover:scale-110 transition-transform">{theme === 'dark' ? '🌞' : '🌙'}</button>
+                        <button onClick={() => setShowManual(true)} className="p-2 text-slate-500 dark:text-slate-400 hover:text-emerald-500 transition-colors"><HelpCircle className="w-5 h-5" /></button>
+                        <button onClick={() => requestSecureAction(() => setShowData(true))} className="p-2 text-orange-600 hover:text-orange-400 transition-colors"><Database className="w-5 h-5" /></button>
+                        <button onClick={() => setShowSettings(true)} className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 transition-colors"><Settings className="w-5 h-5" /></button>
+                        <button 
+                          onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} 
+                          className="flex items-center gap-2 px-3 py-1.5 bg-slate-200 dark:bg-slate-800 rounded-full border border-slate-300 dark:border-slate-700 active:scale-95 transition-all"
+                        >
+                          {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-700" />}
+                          <span className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300">{theme === 'dark' ? 'Modo Sol' : 'Modo Noche'}</span>
+                        </button>
                     </div>
                 </div>
-                <div className="flex bg-slate-200 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
+                <div className="flex bg-slate-300 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide border border-slate-400 dark:border-transparent">
                     {[
                         { id: 'inventory', label: 'Bodega', icon: Package },
                         { id: 'labor', label: 'Personal', icon: Pickaxe },
@@ -140,7 +146,7 @@ function App() {
                         { id: 'budget', label: 'Presupuesto', icon: Calculator }, 
                         { id: 'stats', label: 'KPIs', icon: Database }
                     ].map(tab => (
-                        <button key={tab.id} onClick={() => setCurrentTab(tab.id)} className={`flex-1 min-w-[72px] py-2 rounded-xl text-[9px] font-black uppercase flex flex-col items-center gap-1 transition-all ${currentTab === tab.id ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500'}`}><tab.icon className="w-4 h-4" />{tab.label}</button>
+                        <button key={tab.id} onClick={() => setCurrentTab(tab.id)} className={`flex-1 min-w-[72px] py-2 rounded-xl text-[9px] font-black uppercase flex flex-col items-center gap-1 transition-all ${currentTab === tab.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-emerald-400 shadow-md ring-1 ring-slate-400 dark:ring-transparent' : 'text-slate-600 dark:text-slate-500'}`}><tab.icon className="w-4 h-4" />{tab.label}</button>
                     ))}
                 </div>
             </div>
@@ -159,9 +165,9 @@ function App() {
             {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={data.movements.filter(m=>m.warehouseId===activeId)} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId===activeId)} harvests={data.harvests.filter(h=>h.warehouseId===activeId)} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} budgets={data.budgets || []} plannedLabors={data.plannedLabors || []} />}
             
             <div className="fixed bottom-6 left-6 flex gap-2 z-30">
-                <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border border-slate-700 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>
+                <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border-2 border-slate-600 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>
             </div>
-            {currentTab === 'inventory' && <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 text-white p-5 rounded-3xl shadow-2xl active:scale-95 transition-all z-30 mr-20 sm:mr-0"><Plus className="w-8 h-8" /></button>}
+            {currentTab === 'inventory' && <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 text-white p-5 rounded-3xl shadow-2xl border-2 border-emerald-400 active:scale-95 transition-all z-30 mr-20 sm:mr-0"><Plus className="w-8 h-8" /></button>}
           </main>
         </>
       )}

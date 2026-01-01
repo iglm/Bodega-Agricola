@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppState } from '../types';
 import { analyzeFincaData } from '../services/aiService';
-import { BrainCircuit, X, Sparkles, Loader2, Target, TrendingUp, ShieldCheck, ChevronRight, MessageSquareCode } from 'lucide-react';
+import { BrainCircuit, X, Sparkles, Loader2, Target, TrendingUp, ShieldCheck, ChevronRight, MessageSquareCode, Calculator } from 'lucide-react';
 
 interface AIAssistantProps {
   data: AppState;
@@ -55,7 +55,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ data, onClose }) => {
                             { icon: Target, text: "Detección de sobrecostos" },
                             { icon: TrendingUp, text: "Proyección de utilidad" },
                             { icon: ShieldCheck, text: "Alerta de cumplimiento" },
-                            { icon: MessageSquareCode, text: "Consejo estratégico real" }
+                            { icon: Calculator, text: "Análisis de Simulador" }
                         ].map((item, i) => (
                             <div key={i} className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 flex items-center gap-3">
                                 <item.icon className="w-4 h-4 text-indigo-400" />
