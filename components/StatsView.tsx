@@ -7,7 +7,7 @@ import {
   Filter, Calendar, Percent, TrendingDown, Target, Layers, CloudRain, Zap, Landmark, MousePointer2, Scale, 
   AlertCircle, AlertTriangle, Leaf, Info, HelpCircle, Gauge, Timer, Globe, Tractor, ZapOff, CheckCircle, 
   Calculator, ChevronRight, PieChart as PieIcon, ArrowRight, Activity as ActivityIcon, Split, Coffee, 
-  ClipboardList, ShieldAlert, ShieldX, Lightbulb, TrendingUp as TrendUpIcon, Scissors
+  ClipboardList, ShieldAlert, ShieldX, Lightbulb, TrendingUp as TrendUpIcon, Scissors, ScatterChart
 } from 'lucide-react';
 import { Modal } from './UIElements';
 
@@ -168,6 +168,67 @@ export const StatsView: React.FC<StatsViewProps> = ({
     return { lots: results, avgProfitLow, avgProfitOptimal, profitDifference };
   }, [costCenters, filteredHarvests, filteredLabor, filteredMovements, laborFactor]);
 
+  const renderScatterPlot = () => {
+    const dataPoints = densityAnalysis.lots.filter(d => d.density > 0 && d.productivityKgHa > 0);
+    if (dataPoints.length === 0) return <div className="text-center text-xs text-slate-500 py-4">Faltan datos de área o producción para generar la gráfica.</div>;
+
+    const padding = 30;
+    const width = 500;
+    const height = 250;
+    
+    const maxDensity = Math.max(...dataPoints.map(d => d.density), 8000) * 1.1;
+    const maxProd = Math.max(...dataPoints.map(d => d.productivityKgHa), 1000) * 1.1;
+    
+    const xScale = (d: number) => padding + (d / maxDensity) * (width - 2 * padding);
+    const yScale = (p: number) => height - padding - (p / maxProd) * (height - 2 * padding);
+
+    return (
+        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4 overflow-hidden">
+            <p className="text-[10px] text-slate-400 font-bold uppercase mb-4 text-center flex items-center justify-center gap-2"><ActivityIcon className="w-3 h-3"/> Correlación Visual (Dispersión)</p>
+            <div className="w-full overflow-x-auto scrollbar-hide">
+                <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="mx-auto">
+                    {/* Axes */}
+                    <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#475569" strokeWidth="1" />
+                    <line x1={padding} y1={height - padding} x2={padding} y2={padding} stroke="#475569" strokeWidth="1" />
+                    
+                    {/* Threshold Line 6000 */}
+                    <line x1={xScale(6000)} y1={padding} x2={xScale(6000)} y2={height - padding} stroke="#ef4444" strokeWidth="1" strokeDasharray="4 4" />
+                    <text x={xScale(6000)} y={padding - 5} fill="#ef4444" fontSize="9" textAnchor="middle" fontWeight="bold">6.000 Árb/Ha (Límite)</text>
+
+                    {/* Points */}
+                    {dataPoints.map((point, i) => (
+                        <g key={i} className="group/point">
+                            <circle 
+                                cx={xScale(point.density)} 
+                                cy={yScale(point.productivityKgHa)} 
+                                r="5" 
+                                fill={point.isLowDensity ? "#ef4444" : "#10b981"} 
+                                stroke="#1e293b"
+                                strokeWidth="2"
+                                className="hover:r-7 transition-all cursor-pointer opacity-80 hover:opacity-100"
+                            />
+                            {/* Tooltip Simulation via SVG */}
+                            <g className="opacity-0 group-hover/point:opacity-100 transition-opacity">
+                                <rect x={Math.min(xScale(point.density), width - 90)} y={yScale(point.productivityKgHa) - 35} width="90" height="30" rx="4" fill="#0f172a" stroke="#334155" />
+                                <text x={Math.min(xScale(point.density) + 45, width - 45)} y={yScale(point.productivityKgHa) - 20} fill="white" fontSize="9" textAnchor="middle" fontWeight="bold">
+                                    {point.name}
+                                </text>
+                                <text x={Math.min(xScale(point.density) + 45, width - 45)} y={yScale(point.productivityKgHa) - 10} fill="#94a3b8" fontSize="8" textAnchor="middle">
+                                    {point.density.toFixed(0)} árb/Ha
+                                </text>
+                            </g>
+                        </g>
+                    ))}
+                    
+                    {/* Axis Labels */}
+                    <text x={width / 2} y={height - 5} fill="#94a3b8" fontSize="9" textAnchor="middle" fontWeight="bold">Densidad de Siembra (Árboles/Ha)</text>
+                    <text x={10} y={height / 2} fill="#94a3b8" fontSize="9" textAnchor="middle" fontWeight="bold" transform={`rotate(-90, 10, ${height/2})`}>Prod (Kg/Ha)</text>
+                </svg>
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
        {/* FILTRO DE FECHAS */}
@@ -270,7 +331,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                             </p>
                         </div>
                         <button onClick={() => setShowDensityAnalysis(true)} className="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl text-xs uppercase flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95">
-                            <BarChart3 className="w-4 h-4" /> Ver Análisis Detallado
+                            <BarChart3 className="w-4 h-4" /> Correlación Densidad/Prod.
                         </button>
                     </div>
                 </div>
@@ -328,9 +389,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex items-start gap-3">
                     <Info className="w-5 h-5 text-indigo-400 shrink-0" />
                     <p className="text-[11px] text-slate-400 italic">
-                        Este análisis cruza la densidad de siembra con los costos y ventas reales para identificar lotes sub-óptimos que impactan la rentabilidad global.
+                        Este análisis cruza la densidad de siembra con los costos y ventas reales para identificar lotes sub-óptimos que impactan la rentabilidad global al no cubrir los costos fijos por hectárea.
                     </p>
                 </div>
+
+                {renderScatterPlot()}
+
                 <div className="bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden shadow-inner max-h-80 overflow-y-auto custom-scrollbar">
                     <table className="w-full text-[10px] text-left">
                         <thead className="bg-slate-950 text-slate-500 font-black uppercase tracking-tighter sticky top-0">

@@ -2,16 +2,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine, Category } from '../types';
 import { getBaseUnitType, convertToBase, formatBaseQuantity, formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
-import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Image as ImageIcon, Tag, UserCheck, ShieldCheck, Calculator, Plus, Save } from 'lucide-react';
+import { storageAdapter } from '../services/storageAdapter';
+import { SecureImage } from './SecureImage';
+import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Calculator, Camera, Plus, Save, Loader2, Info } from 'lucide-react';
 
 interface MovementModalProps {
   item: InventoryItem;
   type: 'IN' | 'OUT';
   suppliers: Supplier[];
   costCenters: CostCenter[];
-  personnel?: Personnel[];
-  movements?: Movement[];
-  onSave: (movement: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newUnitPrice?: number, newExpirationDate?: string) => void;
+  personnel: Personnel[];
+  machines?: Machine[];
+  onSave: (movement: Omit<Movement, 'id' | 'warehouseId' | 'date' | 'calculatedCost'>, newPrice?: number, newExpiration?: string) => void;
   onCancel: () => void;
   onAddSupplier: (name: string) => void;
   onAddCostCenter: (name: string) => void;
@@ -19,20 +21,29 @@ interface MovementModalProps {
 }
 
 export const MovementModal: React.FC<MovementModalProps> = ({ 
-  item, type, suppliers, costCenters, personnel = [],
-  onSave, onCancel, onAddSupplier, onAddCostCenter, onAddPersonnel
+  item, type, suppliers, costCenters, personnel, machines = [], 
+  onSave, onCancel, onAddSupplier, onAddCostCenter, onAddPersonnel 
 }) => {
+  // Estado Básico
   const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState<Unit>(item.lastPurchaseUnit);
-  const [manualUnitPrice, setManualUnitPrice] = useState<string>(formatNumberInput(item.lastPurchasePrice));
+  const [unit, setUnit] = useState<Unit>(item.lastPurchaseUnit || (item.baseUnit === 'g' ? Unit.KILO : item.baseUnit === 'ml' ? Unit.LITRO : Unit.UNIDAD));
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
-  const [expirationDate, setExpirationDate] = useState<string>(item.expirationDate || '');
-  const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
-  const [selectedCostCenterId, setSelectedCostCenterId] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  
+  // Estado Entrada (Compra)
+  const [price, setPrice] = useState(''); // Precio total de compra o unitario según se desee, aquí usaremos unitario por presentación
+  const [supplierId, setSupplierId] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
+  const [expirationDate, setExpirationDate] = useState(item.expirationDate || '');
+  const [isProcessingImg, setIsProcessingImg] = useState(false);
 
-  // Inline Creation States
+  // Estado Salida (Consumo)
+  const [costCenterId, setCostCenterId] = useState('');
+  const [personnelId, setPersonnelId] = useState('');
+  const [activityType, setActivityType] = useState<'Aplicación' | 'Venta' | 'Pérdida' | 'Préstamo'>('Aplicación');
+
+  // Estados de Creación Rápida
   const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
   
@@ -42,229 +53,249 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [isCreatingPerson, setIsCreatingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
 
-  const isOut = type === 'OUT';
-  const baseType = getBaseUnitType(item.lastPurchaseUnit);
+  // Refs
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const compatibleUnits = useMemo(() => 
-    Object.values(Unit).filter(u => getBaseUnitType(u) === baseType), 
-  [baseType]);
+  // --- LÓGICA MATEMÁTICA DE COSTOS ---
+  const calculation = useMemo(() => {
+      const qtyVal = parseNumberInput(quantity);
+      if (qtyVal <= 0) return { total: 0, unitCost: 0, breakdown: '' };
 
-  useEffect(() => {
-    if (!compatibleUnits.includes(unit)) {
-      if (baseType === 'g') setUnit(Unit.KILO);
-      else if (baseType === 'ml') setUnit(Unit.LITRO);
-      else setUnit(Unit.UNIDAD);
-    }
-  }, [compatibleUnits, baseType]);
+      if (type === 'IN') {
+          // En entrada, el usuario define el precio
+          const priceVal = parseNumberInput(price);
+          return { total: priceVal * qtyVal, unitCost: priceVal, breakdown: `Compra: ${qtyVal} ${unit} a ${formatCurrency(priceVal)} c/u` };
+      } else {
+          // En salida, el costo se deriva del CPP (Costo Promedio Ponderado)
+          // 1. Convertir la unidad seleccionada a la unidad base (g/ml)
+          const baseQtyPerUnit = convertToBase(1, unit); 
+          // 2. Calcular el costo de ESA unidad seleccionada basado en el costo promedio base
+          const costPerSelectedUnit = item.averageCost * baseQtyPerUnit;
+          // 3. Costo total de la salida
+          const totalCost = costPerSelectedUnit * qtyVal;
 
-  const mathPreview = useMemo(() => {
-    const qtyNum = parseNumberInput(quantity);
-    const priceNum = parseNumberInput(manualUnitPrice);
-    if (qtyNum <= 0) return { total: 0, costPerBase: 0 };
+          return { 
+              total: totalCost, 
+              unitCost: costPerSelectedUnit,
+              breakdown: `1 ${unit} = ${formatCurrency(costPerSelectedUnit)} (CPP)`
+          };
+      }
+  }, [quantity, unit, price, type, item.averageCost]);
 
-    if (isOut) {
-        const baseAmount = convertToBase(qtyNum, unit);
-        return { total: baseAmount * item.averageCost, costPerBase: item.averageCost };
-    } else {
-        const total = qtyNum * priceNum;
-        const baseQty = convertToBase(qtyNum, unit);
-        return { total, costPerBase: total / baseQty };
-    }
-  }, [quantity, unit, manualUnitPrice, isOut, item.averageCost]);
-
+  // Manejadores de Creación Rápida
   const handleCreateSupplier = (e: React.MouseEvent) => {
       e.preventDefault();
-      if(newSupplierName.trim()) {
-          onAddSupplier(newSupplierName);
-          setIsCreatingSupplier(false);
-          setNewSupplierName('');
-      }
+      if(newSupplierName.trim()) { onAddSupplier(newSupplierName); setIsCreatingSupplier(false); setNewSupplierName(''); }
   };
-
   const handleCreateLot = (e: React.MouseEvent) => {
       e.preventDefault();
-      if(newLotName.trim()) {
-          onAddCostCenter(newLotName);
-          setIsCreatingLot(false);
-          setNewLotName('');
-      }
+      if(newLotName.trim()) { onAddCostCenter(newLotName); setIsCreatingLot(false); setNewLotName(''); }
   };
-
   const handleCreatePerson = (e: React.MouseEvent) => {
       e.preventDefault();
-      if(newPersonName.trim()) {
-          onAddPersonnel(newPersonName);
-          setIsCreatingPerson(false);
-          setNewPersonName('');
+      if(newPersonName.trim()) { onAddPersonnel(newPersonName); setIsCreatingPerson(false); setNewPersonName(''); }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setIsProcessingImg(true);
+          try {
+              const id = await storageAdapter.saveImage(e.target.files[0]);
+              setInvoiceImage(id);
+          } catch (err) {
+              alert("Error al guardar imagen. Espacio insuficiente.");
+          } finally {
+              setIsProcessingImg(false);
+          }
       }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const qtyInput = parseNumberInput(quantity);
-    const priceInput = parseNumberInput(manualUnitPrice);
-    
-    if (qtyInput <= 0) return;
+  const handleSubmit = () => {
+      const qtyVal = parseNumberInput(quantity);
+      if (qtyVal <= 0) return;
 
-    if (isOut) {
-        const reqBaseQty = convertToBase(qtyInput, unit);
-        if (reqBaseQty > (item.currentQuantity + 0.0001)) {
-            setError(`Stock insuficiente. Máx: ${formatBaseQuantity(item.currentQuantity, item.baseUnit)}`);
-            return;
-        }
-    }
+      const movementData: any = {
+          itemId: item.id,
+          itemName: item.name,
+          type,
+          quantity: qtyVal,
+          unit,
+          notes: notes.trim()
+      };
 
-    const supplierName = suppliers.find(s => s.id === selectedSupplierId)?.name;
-    const costCenterName = costCenters.find(c => c.id === selectedCostCenterId)?.name;
-    const personnelName = personnel.find(p => p.id === selectedPersonnelId)?.name;
-
-    onSave({
-      itemId: item.id, itemName: item.name, type, quantity: qtyInput, unit, calculatedCost: mathPreview.total,
-      notes: notes.trim(), supplierId: selectedSupplierId || undefined, supplierName,
-      costCenterId: isOut ? selectedCostCenterId : undefined, costCenterName: isOut ? costCenterName : undefined,
-      personnelId: selectedPersonnelId || undefined, personnelName
-    }, !isOut ? priceInput : undefined, !isOut ? expirationDate : undefined);
+      if (type === 'IN') {
+          movementData.supplierId = supplierId;
+          movementData.supplierName = suppliers.find(s => s.id === supplierId)?.name;
+          movementData.invoiceNumber = invoiceNumber;
+          movementData.invoiceImage = invoiceImage;
+          // Pasar el nuevo precio unitario para recalcular Ponderado
+          const unitPrice = parseNumberInput(price);
+          onSave(movementData, unitPrice, expirationDate || undefined);
+      } else {
+          movementData.costCenterId = costCenterId;
+          movementData.costCenterName = costCenters.find(c => c.id === costCenterId)?.name;
+          movementData.personnelId = personnelId;
+          movementData.personnelName = personnel.find(p => p.id === personnelId)?.name;
+          // No pasamos precio, el servicio calcula el costo de salida
+          onSave(movementData);
+      }
   };
 
+  const availableUnits = Object.values(Unit).filter(u => getBaseUnitType(u) === item.baseUnit);
+
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-slate-900 w-full max-w-md rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden animate-slide-up max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
+      <div className={`w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh] ${type === 'IN' ? 'bg-emerald-900/20 border-2 border-emerald-500/50' : 'bg-red-900/20 border-2 border-red-500/50'}`}>
         
-        <div className={`p-6 border-b border-slate-800 flex justify-between items-center ${isOut ? 'bg-red-950/20' : 'bg-emerald-950/20'}`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl ${isOut ? 'bg-red-600' : 'bg-emerald-600'} text-white shadow-lg`}>
-                {isOut ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+        {/* Header */}
+        <div className={`p-6 flex justify-between items-center ${type === 'IN' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+            <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-xl">
+                    {type === 'IN' ? <TrendingUp className="w-6 h-6 text-white" /> : <TrendingDown className="w-6 h-6 text-white" />}
+                </div>
+                <div>
+                    <h3 className="text-white font-black text-xl uppercase tracking-tight">{type === 'IN' ? 'Entrada Bodega' : 'Salida Bodega'}</h3>
+                    <p className="text-white/80 text-xs font-bold">{item.name}</p>
+                </div>
             </div>
-            <div>
-                <h3 className="text-white font-black text-xl">{isOut ? 'Salida de Bodega' : 'Nueva Compra'}</h3>
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{item.name}</p>
-            </div>
-          </div>
-          <button onClick={onCancel} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-full transition-all"><X className="w-6 h-6" /></button>
+            <button onClick={onCancel} className="bg-black/20 hover:bg-black/40 p-2 rounded-full text-white transition-colors">
+                <X className="w-6 h-6" />
+            </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Cantidad</label>
-              <input 
-                type="text" 
-                inputMode="decimal"
-                value={quantity} 
-                onChange={e => setQuantity(formatNumberInput(e.target.value))} 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-mono font-black text-lg outline-none focus:ring-2 focus:ring-indigo-500" 
-                placeholder="0" 
-                required 
-                autoFocus 
-              />
+        <div className="flex-1 overflow-y-auto bg-slate-900 p-6 space-y-6 custom-scrollbar">
+            
+            {/* CANTIDAD Y UNIDAD */}
+            <div className="flex gap-3">
+                <div className="flex-1 space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Cantidad</label>
+                    <input type="text" inputMode="decimal" value={quantity} onChange={e => setQuantity(formatNumberInput(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-white text-2xl font-black focus:border-emerald-500 outline-none" placeholder="0" autoFocus />
+                </div>
+                <div className="w-1/3 space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Unidad</label>
+                    <select value={unit} onChange={e => setUnit(e.target.value as Unit)} className="w-full h-[66px] bg-slate-800 border border-slate-700 rounded-2xl px-2 text-white text-xs font-bold outline-none">
+                        {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Unidad</label>
-              <select value={unit} onChange={e => setUnit(e.target.value as Unit)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-black text-xs h-[58px]">
-                {compatibleUnits.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-          </div>
 
-          {!isOut ? (
-              <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Precio por {unit}</label>
-                    <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={manualUnitPrice} 
-                        onChange={e => setManualUnitPrice(formatNumberInput(e.target.value))} 
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-500 font-mono font-black text-lg outline-none focus:ring-2 focus:ring-emerald-500" 
-                        placeholder="0" 
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><Users className="w-3 h-3"/> Proveedor</label>
-                        <button type="button" onClick={() => setIsCreatingSupplier(!isCreatingSupplier)} className="text-[10px] font-black text-indigo-400 hover:text-white uppercase flex items-center gap-1 transition-colors">
-                            {isCreatingSupplier ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
-                            {isCreatingSupplier ? 'Cancelar' : 'Crear'}
-                        </button>
+            {/* SECCIÓN ESPECÍFICA: ENTRADA vs SALIDA */}
+            {type === 'IN' ? (
+                <div className="space-y-4 animate-fade-in">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-emerald-500 uppercase ml-2 flex items-center gap-1"><DollarSign className="w-3 h-3"/> Precio de Compra (Por {unit})</label>
+                        <input type="text" inputMode="decimal" value={price} onChange={e => setPrice(formatNumberInput(e.target.value))} className="w-full bg-slate-800 border border-emerald-500/30 rounded-2xl p-4 text-emerald-400 text-xl font-mono font-black outline-none" placeholder="$ 0" />
                     </div>
-                    {isCreatingSupplier ? (
-                        <div className="flex gap-2 animate-fade-in-down">
-                            <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="Nuevo Proveedor" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" />
-                            <button type="button" onClick={handleCreateSupplier} disabled={!newSupplierName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+
+                    <div className="space-y-1">
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><Users className="w-3 h-3"/> Proveedor</label>
+                            <button onClick={() => setIsCreatingSupplier(!isCreatingSupplier)} className="text-[10px] text-indigo-400 font-bold uppercase">{isCreatingSupplier ? 'Cancelar' : '+ Nuevo'}</button>
                         </div>
-                    ) : (
-                        <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs">
-                            <option value="">Seleccionar Proveedor...</option>
-                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                    )}
-                  </div>
-              </div>
-          ) : (
-              <div className="space-y-4">
-                  <div className="space-y-1">
-                      <div className="flex justify-between items-center px-1">
-                          <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><MapPin className="w-3 h-3"/> Destino / Lote</label>
-                          <button type="button" onClick={() => setIsCreatingLot(!isCreatingLot)} className="text-[10px] font-black text-indigo-400 hover:text-white uppercase flex items-center gap-1 transition-colors">
-                              {isCreatingLot ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
-                              {isCreatingLot ? 'Cancelar' : 'Crear'}
-                          </button>
-                      </div>
-                      {isCreatingLot ? (
-                          <div className="flex gap-2 animate-fade-in-down">
-                              <input type="text" value={newLotName} onChange={e => setNewLotName(e.target.value)} placeholder="Nuevo Lote" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" />
-                              <button type="button" onClick={handleCreateLot} disabled={!newLotName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
-                          </div>
-                      ) : (
-                          <select value={selectedCostCenterId} onChange={e => setSelectedCostCenterId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs" required>
-                              <option value="">¿A qué lote va?</option>
-                              {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                      )}
-                  </div>
-                  
-                  <div className="space-y-1">
-                      <div className="flex justify-between items-center px-1">
-                          <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><UserCheck className="w-3 h-3"/> Responsable (Opcional)</label>
-                          <button type="button" onClick={() => setIsCreatingPerson(!isCreatingPerson)} className="text-[10px] font-black text-indigo-400 hover:text-white uppercase flex items-center gap-1 transition-colors">
-                              {isCreatingPerson ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
-                              {isCreatingPerson ? 'Cancelar' : 'Crear'}
-                          </button>
-                      </div>
-                      {isCreatingPerson ? (
-                          <div className="flex gap-2 animate-fade-in-down">
-                              <input type="text" value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder="Nuevo Trabajador" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" />
-                              <button type="button" onClick={handleCreatePerson} disabled={!newPersonName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
-                          </div>
-                      ) : (
-                          <select value={selectedPersonnelId} onChange={e => setSelectedPersonnelId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs">
-                              <option value="">Seleccionar Trabajador...</option>
-                              {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                      )}
-                  </div>
-              </div>
-          )}
+                        {isCreatingSupplier ? (
+                            <div className="flex gap-2">
+                                <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="Nombre Proveedor" className="flex-1 bg-slate-800 border border-indigo-500 rounded-xl p-3 text-white text-sm" />
+                                <button onClick={handleCreateSupplier} disabled={!newSupplierName} className="bg-indigo-600 text-white p-3 rounded-xl"><Save className="w-4 h-4"/></button>
+                            </div>
+                        ) : (
+                            <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm font-bold">
+                                <option value="">Seleccionar Proveedor...</option>
+                                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                        )}
+                    </div>
 
-          <div className="space-y-1">
-             <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Notas Adicionales</label>
-             <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-sm outline-none resize-none h-20" placeholder="Detalles de la operación..."></textarea>
-          </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase ml-2">N° Factura</label>
+                            <input type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Foto Factura</label>
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-800 border border-dashed border-slate-600 hover:border-emerald-500 text-slate-400 hover:text-emerald-500 rounded-xl p-2.5 flex items-center justify-center gap-2 transition-all">
+                                {isProcessingImg ? <Loader2 className="w-4 h-4 animate-spin"/> : invoiceImage ? <span className="text-emerald-500 font-bold text-xs">¡Foto Cargada!</span> : <><Camera className="w-4 h-4"/> <span className="text-xs font-bold">Subir</span></>}
+                            </button>
+                            <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-4 animate-fade-in">
+                    {/* INFO MATEMÁTICA SOLICITADA */}
+                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-indigo-400 border-b border-slate-700 pb-2 mb-1">
+                            <Calculator className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Desglose de Costo (CPP)</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-slate-400">
+                            <span>Valor 1 {unit}:</span>
+                            <span className="font-mono font-bold text-white">{formatCurrency(calculation.unitCost)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-slate-400">
+                            <span>Valor {item.baseUnit==='g'?'Gramo': item.baseUnit==='ml'?'Ml':'Unidad'} Base:</span>
+                            <span className="font-mono font-bold text-white">{formatCurrency(item.averageCost, 2)}</span>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between items-center">
+                            <span className="text-[10px] font-black text-red-400 uppercase">Costo Total Salida</span>
+                            <span className="text-xl font-mono font-black text-red-500">{formatCurrency(calculation.total)}</span>
+                        </div>
+                    </div>
 
-          {error && <div className="bg-red-900/20 border border-red-500/50 p-3 rounded-xl text-red-400 text-xs font-bold flex items-center gap-2 animate-shake"><AlertTriangle className="w-4 h-4"/> {error}</div>}
+                    <div className="space-y-1">
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><MapPin className="w-3 h-3"/> Lote Destino</label>
+                            <button onClick={() => setIsCreatingLot(!isCreatingLot)} className="text-[10px] text-indigo-400 font-bold uppercase">{isCreatingLot ? 'Cancelar' : '+ Nuevo'}</button>
+                        </div>
+                        {isCreatingLot ? (
+                            <div className="flex gap-2">
+                                <input type="text" value={newLotName} onChange={e => setNewLotName(e.target.value)} placeholder="Nombre Lote" className="flex-1 bg-slate-800 border border-indigo-500 rounded-xl p-3 text-white text-sm" />
+                                <button onClick={handleCreateLot} disabled={!newLotName} className="bg-indigo-600 text-white p-3 rounded-xl"><Save className="w-4 h-4"/></button>
+                            </div>
+                        ) : (
+                            <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm font-bold">
+                                <option value="">Seleccionar Lote...</option>
+                                {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        )}
+                    </div>
 
-          <div className="pt-2">
-             <div className="flex justify-between items-center bg-slate-950 rounded-xl p-4 mb-4 border border-slate-800">
-                 <span className="text-[10px] font-black text-slate-500 uppercase">Costo Total Estimado</span>
-                 <span className="text-xl font-mono font-black text-white">{formatCurrency(mathPreview.total)}</span>
-             </div>
-             <button type="submit" className={`w-full py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all ${isOut ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/40' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'}`}>
-                 <Save className="w-5 h-5" /> CONFIRMAR {isOut ? 'SALIDA' : 'ENTRADA'}
-             </button>
-          </div>
+                    <div className="space-y-1">
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><Users className="w-3 h-3"/> Responsable</label>
+                            <button onClick={() => setIsCreatingPerson(!isCreatingPerson)} className="text-[10px] text-indigo-400 font-bold uppercase">{isCreatingPerson ? 'Cancelar' : '+ Nuevo'}</button>
+                        </div>
+                        {isCreatingPerson ? (
+                            <div className="flex gap-2">
+                                <input type="text" value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder="Nombre Persona" className="flex-1 bg-slate-800 border border-indigo-500 rounded-xl p-3 text-white text-sm" />
+                                <button onClick={handleCreatePerson} disabled={!newPersonName} className="bg-indigo-600 text-white p-3 rounded-xl"><Save className="w-4 h-4"/></button>
+                            </div>
+                        ) : (
+                            <select value={personnelId} onChange={e => setPersonnelId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm font-bold">
+                                <option value="">Seleccionar Responsable...</option>
+                                {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        )}
+                    </div>
+                </div>
+            )}
 
-        </form>
+            <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Notas / Observaciones</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm resize-none h-20" placeholder="Detalles adicionales..." />
+            </div>
+
+        </div>
+
+        <div className="p-6 bg-slate-900 border-t border-slate-800">
+            <button 
+                onClick={handleSubmit} 
+                disabled={!quantity || (type === 'IN' && !price) || (type === 'OUT' && !costCenterId)}
+                className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${type === 'IN' ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40' : 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/40'}`}
+            >
+                {type === 'IN' ? 'Confirmar Entrada' : 'Confirmar Salida'}
+            </button>
+        </div>
+
       </div>
     </div>
   );

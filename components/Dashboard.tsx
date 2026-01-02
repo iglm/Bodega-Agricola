@@ -119,7 +119,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-6 pb-20 animate-fade-in">
       
       {/* SUMMARY DASHBOARD */}
-      <div className="bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+      <div className="bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 md:p-8 opacity-5">
               <Package className="w-32 h-32 md:w-48 md:h-48 text-white" />
           </div>
@@ -128,10 +128,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-2 flex items-center justify-center md:justify-start gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Valorización Activa Bodega
                   </p>
-                  <p className="text-4xl md:text-5xl font-black text-white font-mono tracking-tighter">{formatCurrency(inventoryAnalytics.totalValue)}</p>
+                  <p className="text-3xl md:text-5xl font-black text-white font-mono tracking-tighter">{formatCurrency(inventoryAnalytics.totalValue)}</p>
                   <p className="text-[10px] text-slate-500 font-bold uppercase mt-2 tracking-widest italic">Capital Operativo en Insumos</p>
               </div>
-              <div className="flex gap-4 w-full md:w-auto">
+              <div className="flex gap-3 md:gap-4 w-full md:w-auto">
                   <div className="bg-slate-800/50 p-4 md:p-5 rounded-[2rem] border border-slate-700 text-center flex-1 md:min-w-[130px] backdrop-blur-sm">
                       <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Items Totales</p>
                       <p className="text-xl md:text-2xl font-black text-white">{inventory.length}</p>
@@ -250,7 +250,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* INVENTORY LIST */}
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 sticky top-[120px] z-20 bg-slate-100/80 dark:bg-slate-950/80 backdrop-blur-md pt-2 pb-2 transition-colors">
+        <div className="flex flex-col gap-3 sticky top-[110px] sm:top-[120px] z-20 bg-slate-100/80 dark:bg-slate-950/80 backdrop-blur-md pt-2 pb-2 transition-colors">
             <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
               <Search className="w-5 h-5 text-slate-400" />
               <input type="text" placeholder="Buscar agroinsumo..." className="bg-transparent border-none outline-none text-sm w-full text-slate-700 dark:text-white font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
@@ -275,7 +275,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div key={item.id} className={`bg-white dark:bg-slate-800 rounded-[2.5rem] p-5 md:p-6 shadow-xl border transition-all hover:shadow-2xl relative group ${isLowStock ? 'border-red-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
                         {/* ABC BADGE - SOLICITADO */}
                         <div className={`absolute top-4 right-4 text-[9px] font-black px-2 py-1 rounded-lg border flex items-center gap-1 ${abcClass === 'A' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : abcClass === 'B' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500' : 'bg-slate-500/10 border-slate-500/30 text-slate-500'}`}>
-                            <LayoutGrid className="w-3 h-3" /> CATEGORÍA {abcClass}
+                            <LayoutGrid className="w-3 h-3" /> CAT. {abcClass}
                         </div>
 
                         {isLowStock && (
@@ -290,7 +290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 {isLowStock && <div className="absolute inset-0 bg-red-600/10 border-2 border-red-500/30 rounded-[2rem]"></div>}
                             </div>
                             <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                <h3 className="font-black text-slate-800 dark:text-white text-lg md:text-xl leading-tight truncate">{item.name}</h3>
+                                <h3 className="font-black text-slate-800 dark:text-white text-base md:text-xl leading-tight truncate">{item.name}</h3>
                                 <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-1 italic">{item.category}</p>
                                 <div className="mt-3">
                                     <p className="text-[8px] text-slate-500 uppercase font-black tracking-tighter">Stock en Bodega</p>
