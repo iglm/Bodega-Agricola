@@ -1,8 +1,8 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { AppState } from "../types";
 import { formatCurrency } from "./inventoryService";
 
+// Acceso nativo a variables de entorno via process.env según guidelines
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeFincaData = async (data: AppState): Promise<string> => {
@@ -41,6 +41,6 @@ export const analyzeFincaData = async (data: AppState): Promise<string> => {
         return response.text || "No se pudo generar el análisis en este momento.";
     } catch (error) {
         console.error("Gemini Error:", error);
-        return "Error de conexión con el motor de inteligencia. Verifique su conexión a internet.";
+        return "Error de conexión con el motor de inteligencia o API Key inválida.";
     }
 };
