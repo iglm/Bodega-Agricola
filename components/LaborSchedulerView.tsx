@@ -1,14 +1,15 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { PlannedLabor, CostCenter, Activity, BudgetPlan, LaborLog } from '../types';
+import React, { useState, useMemo } from 'react';
+import { PlannedLabor, CostCenter, Activity, BudgetPlan, LaborLog, Personnel } from '../types';
 import { formatCurrency } from '../services/inventoryService';
-import { CalendarRange, Plus, Calendar, Pickaxe, MapPin, Users, DollarSign, Calculator, Filter, CheckCircle2, Circle, Trash2, ArrowRight, AlertTriangle, AlertCircle, Clock, Percent, Gauge } from 'lucide-react';
+import { CalendarRange, Plus, Calendar, Pickaxe, MapPin, Users, DollarSign, Calculator, Filter, CheckCircle2, Circle, Trash2, ArrowRight, AlertTriangle, AlertCircle, Clock, Percent, Gauge, UserCheck, Square, CheckSquare } from 'lucide-react';
 import { HeaderCard, EmptyState, Modal } from './UIElements';
 
 interface LaborSchedulerViewProps {
   plannedLabors: PlannedLabor[];
   costCenters: CostCenter[];
   activities: Activity[];
+  personnel: Personnel[]; // Inyectamos personal
   onAddPlannedLabor: (labor: Omit<PlannedLabor, 'id' | 'warehouseId' | 'completed'>) => void;
   onDeletePlannedLabor: (id: string) => void;
   onToggleComplete: (id: string) => void;
@@ -21,6 +22,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
   plannedLabors,
   costCenters,
   activities,
+  personnel,
   onAddPlannedLabor,
   onDeletePlannedLabor,
   onToggleComplete,
@@ -38,6 +40,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
   const [technicalYield, setTechnicalYield] = useState(''); 
   const [unitCost, setUnitCost] = useState('');
   const [efficiency, setEfficiency] = useState('100');
+  const [selectedPersonnelIds, setSelectedPersonnelIds] = useState<string[]>([]);
   
   const projection = useMemo(() => {
       const area = parseFloat(targetArea) || 0;
@@ -47,10 +50,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
       
       if (area <= 0 || yieldBase <= 0) return { jornales: 0, totalCost: 0, people: 0, hours: 0, costPerHa: 0 };
 
-      // Rendimiento ajustado por eficiencia
       const realYield = yieldBase * (eff / 100);
-      
-      // Fórmula Maestra: Jornales = Area / Rendimiento Ajustado
       const totalJornales = area / realYield;
       const totalHours = totalJornales * 8;
       const totalCost = totalJornales * cost;
@@ -60,36 +60,11 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
       return { jornales: totalJornales, totalCost, people, hours: totalHours, costPerHa };
   }, [targetArea, technicalYield, unitCost, efficiency]);
 
-  const budgetCheck = useMemo(() => {
-      if (!costCenterId) return null;
-      const year = new Date(date).getFullYear();
-      const selectedLot = costCenters.find(c => c.id === costCenterId);
-      const budget = budgets.find(b => b.costCenterId === costCenterId && b.year === year);
-      if (!budget) return { status: 'no-budget' };
-
-      let totalBudgetLimit = 0;
-      budget.items.forEach(item => {
-          if (item.type === 'LABOR') {
-              totalBudgetLimit += item.unitCost * item.quantityPerHa * (selectedLot?.area || 1) * item.months.length;
-          }
-      });
-
-      const executed = laborLogs
-          .filter(l => l.costCenterId === costCenterId && new Date(l.date).getFullYear() === year)
-          .reduce((sum, l) => sum + (l.value * laborFactor), 0);
-
-      const committed = plannedLabors
-          .filter(l => l.costCenterId === costCenterId && !l.completed && new Date(l.date).getFullYear() === year)
-          .reduce((sum, l) => sum + l.calculatedTotalCost, 0);
-
-      const remaining = totalBudgetLimit - executed - committed;
-      const newCost = projection.totalCost;
-      const isOver = newCost > remaining;
-      const percentUsed = totalBudgetLimit > 0 ? ((executed + committed + newCost) / totalBudgetLimit) * 100 : 0;
-
-      return { status: 'active', totalBudgetLimit, executed, committed, remaining, newCost, isOver, percentUsed };
-  }, [costCenterId, date, budgets, laborLogs, plannedLabors, projection.totalCost, laborFactor, costCenters]);
-
+  const togglePerson = (id: string) => {
+    setSelectedPersonnelIds(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -109,11 +84,13 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
           efficiency: parseFloat(efficiency),
           calculatedPersonDays: projection.jornales,
           calculatedHours: projection.hours,
-          calculatedTotalCost: projection.totalCost
+          calculatedTotalCost: projection.totalCost,
+          assignedPersonnelIds: selectedPersonnelIds
       });
       setShowForm(false);
       setTargetArea('');
       setTechnicalYield('');
+      setSelectedPersonnelIds([]);
   };
 
   const filteredLabors = useMemo(() => {
@@ -146,7 +123,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
     <div className="space-y-6 pb-20 animate-fade-in">
         <HeaderCard 
             title="Programador de Labores"
-            subtitle="Planificación Táctica de Campo"
+            subtitle="Gestión Táctica de Campo"
             valueLabel="Costo Proyectado"
             value={formatCurrency(totals.cost)}
             gradientClass="bg-gradient-to-r from-violet-600 to-fuchsia-700"
@@ -156,35 +133,20 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
             actionIcon={Plus}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
-                <div className="flex gap-1">
-                    <button onClick={() => setFilterPeriod('day')} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-colors ${filterPeriod === 'day' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-500'}`}>Hoy</button>
-                    <button onClick={() => setFilterPeriod('week')} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-colors ${filterPeriod === 'week' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-500'}`}>Semana</button>
-                    <button onClick={() => setFilterPeriod('month')} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-colors ${filterPeriod === 'month' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-500'}`}>Mes</button>
-                    <button onClick={() => setFilterPeriod('all')} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-colors ${filterPeriod === 'all' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-500'}`}>Todo</button>
-                </div>
-            </div>
-            
-            <div className="bg-slate-900 p-4 rounded-[2rem] border border-slate-700 flex justify-around items-center">
-                <div className="text-center">
-                    <p className="text-[8px] text-slate-400 uppercase font-black">Área Total</p>
-                    <p className="text-sm text-white font-black">{totals.hectares.toFixed(1)} Ha</p>
-                </div>
-                <div className="w-px h-6 bg-slate-700"></div>
-                <div className="text-center">
-                    <p className="text-[8px] text-slate-400 uppercase font-black">Días/Hombre</p>
-                    <p className="text-sm text-emerald-400 font-black">{totals.jornales.toFixed(1)} Jor | {totals.hours.toFixed(0)} Hr</p>
-                </div>
-            </div>
+        <div className="flex gap-1 bg-slate-200 dark:bg-slate-900 p-1 rounded-2xl">
+            {['day', 'week', 'month', 'all'].map(p => (
+                <button key={p} onClick={() => setFilterPeriod(p as any)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${filterPeriod === p ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500'}`}>
+                    {p === 'day' ? 'Hoy' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Todo'}
+                </button>
+            ))}
         </div>
 
         <div className="space-y-4">
             {filteredLabors.length === 0 ? (
-                <EmptyState icon={Calendar} message="No hay labores programadas en este período." />
+                <EmptyState icon={Calendar} message="No hay labores programadas." />
             ) : (
                 filteredLabors.map(l => (
-                    <div key={l.id} className={`p-5 rounded-[2rem] border shadow-sm transition-all group ${l.completed ? 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-900/30'}`}>
+                    <div key={l.id} className={`p-5 rounded-[2rem] border shadow-sm transition-all ${l.completed ? 'bg-slate-100 dark:bg-slate-900/50 opacity-60' : 'bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-900/30'}`}>
                         <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-xs ${l.completed ? 'bg-slate-400' : 'bg-violet-600'}`}>
@@ -199,20 +161,29 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                             </div>
                             <div className="text-right">
                                 <p className="font-mono font-black text-slate-700 dark:text-white text-sm">{formatCurrency(l.calculatedTotalCost)}</p>
-                                <p className="text-[10px] text-violet-500 font-bold uppercase">{l.calculatedPersonDays.toFixed(2)} Días/Hombre</p>
+                                <p className="text-[10px] text-violet-500 font-bold uppercase">{l.calculatedPersonDays.toFixed(1)} Jor</p>
                             </div>
                         </div>
+
+                        {l.assignedPersonnelIds && l.assignedPersonnelIds.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                                {l.assignedPersonnelIds.map(pid => {
+                                    const p = personnel.find(x => x.id === pid);
+                                    return <span key={pid} className="text-[8px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-black uppercase">{p?.name || '...'}</span>;
+                                })}
+                            </div>
+                        )}
                         
                         <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
                             <div className="flex items-center gap-4 text-[10px] text-slate-400 font-medium">
-                                <span>Rend Plan: {l.technicalYield} Ha/Jor</span>
+                                <span>Rend: {l.technicalYield} Ha/Jor</span>
                                 <span className="text-indigo-400">Eficiencia: {l.efficiency}%</span>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => onToggleComplete(l.id)} className={`p-2 rounded-lg transition-colors ${l.completed ? 'text-emerald-500 bg-emerald-100' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}>
+                                <button onClick={() => onToggleComplete(l.id)} className={`p-2 rounded-lg transition-colors ${l.completed ? 'text-emerald-500 bg-emerald-100' : 'text-slate-400 hover:text-emerald-500'}`}>
                                     {l.completed ? <CheckCircle2 className="w-5 h-5"/> : <Circle className="w-5 h-5"/>}
                                 </button>
-                                <button onClick={() => onDeletePlannedLabor(l.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                <button onClick={() => onDeletePlannedLabor(l.id)} className="p-2 text-slate-400 hover:text-red-500">
                                     <Trash2 className="w-5 h-5"/>
                                 </button>
                             </div>
@@ -222,126 +193,73 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
             )}
         </div>
 
-        <Modal isOpen={showForm} onClose={() => setShowForm(false)} title="Planificación Técnica" icon={Calculator} maxWidth="max-w-2xl">
+        <Modal isOpen={showForm} onClose={() => setShowForm(false)} title="Programación de Labor Futura" icon={Calculator} maxWidth="max-w-2xl">
             <form onSubmit={handleSubmit} className="space-y-6">
-                
-                <div className="space-y-3">
-                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Calendar className="w-3 h-3"/> Fecha y Lugar</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Fecha Programada</label>
-                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm" required />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Lote Objetivo</label>
-                            <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm" required>
-                                <option value="">Seleccionar Lote...</option>
-                                {costCenters.map(c => <option key={c.id} value={c.id}>{c.name} ({c.area} Ha)</option>)}
-                            </select>
-                        </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Fecha Ejecución</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm" required />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Lote</label>
+                        <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm" required>
+                            <option value="">Lote...</option>
+                            {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Pickaxe className="w-3 h-3"/> Configuración de la Tarea</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Labor</label>
-                            <select value={activityId} onChange={e => setActivityId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm" required>
-                                <option value="">Seleccionar Labor...</option>
-                                {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-violet-400 uppercase">Hectáreas a Intervenir</label>
-                            <input type="number" step="0.1" value={targetArea} onChange={e => setTargetArea(e.target.value)} placeholder="0.0" className="w-full bg-slate-900 border border-violet-500/30 rounded-xl p-3 text-white font-black text-sm outline-none focus:ring-1 focus:ring-violet-500" required />
-                        </div>
-                    </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Labor Táctica</label>
+                    <select value={activityId} onChange={e => setActivityId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white text-sm font-black" required>
+                        <option value="">Seleccionar Labor...</option>
+                        {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
                 </div>
 
-                <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Gauge className="w-3 h-3 text-indigo-400"/> Parámetros de Rendimiento</h5>
+                <div className="bg-slate-900/50 p-5 rounded-[2rem] border border-slate-700 space-y-4">
+                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Gauge className="w-3 h-3 text-indigo-400"/> Metas y Rendimiento</h5>
                     <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1 text-center">
-                            <label className="text-[8px] font-black text-slate-500 uppercase block">Rend (Ha/Jor)</label>
-                            <input type="number" step="0.01" value={technicalYield} onChange={e => setTechnicalYield(e.target.value)} placeholder="0.5" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm text-center font-mono font-bold" required />
+                        <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-500 uppercase block text-center">Área (Ha)</label>
+                            <input type="number" step="0.1" value={targetArea} onChange={e => setTargetArea(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-center font-bold" required />
                         </div>
-                        <div className="space-y-1 text-center">
-                            <label className="text-[8px] font-black text-slate-500 uppercase block">Costo Neto Jornal</label>
-                            <input type="number" value={unitCost} onChange={e => setUnitCost(e.target.value)} placeholder="$" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 text-sm text-center font-mono font-bold" required />
+                        <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-500 uppercase block text-center">Rendimiento</label>
+                            <input type="number" step="0.01" value={technicalYield} onChange={e => setTechnicalYield(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-center font-bold" required />
                         </div>
-                        <div className="space-y-1 text-center">
-                            <label className="text-[8px] font-black text-indigo-400 uppercase block">Eficiencia (%)</label>
-                            <input type="number" value={efficiency} onChange={e => setEfficiency(e.target.value)} className="w-full bg-slate-950 border border-indigo-900/30 rounded-xl p-3 text-indigo-400 text-sm text-center font-mono font-bold" />
+                        <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-500 uppercase block text-center">Costo Jor.</label>
+                            <input type="number" value={unitCost} onChange={e => setUnitCost(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 text-center font-bold" required />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-violet-900/20 p-6 rounded-[2.5rem] border border-violet-500/30 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <p className="text-[9px] text-violet-300 font-black uppercase">Costo por Hectárea</p>
-                            <p className="text-2xl font-black text-white font-mono">{formatCurrency(projection.costPerHa)}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[9px] text-violet-300 font-black uppercase">Total Días/Hombre</p>
-                            <p className="text-2xl font-black text-white font-mono">{projection.jornales.toFixed(2)}</p>
-                        </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2"><Users className="w-4 h-4 text-indigo-400"/> Personal Asignado (Opcional)</label>
+                    <div className="max-h-32 overflow-y-auto bg-slate-900 border border-slate-700 rounded-2xl p-2 space-y-1 custom-scrollbar">
+                        {personnel.map(p => (
+                            <div key={p.id} onClick={() => togglePerson(p.id)} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${selectedPersonnelIds.includes(p.id) ? 'bg-indigo-900/30 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                {selectedPersonnelIds.includes(p.id) ? <CheckSquare className="w-4 h-4 text-indigo-400" /> : <Square className="w-4 h-4" />}
+                                <span className="text-xs font-bold uppercase">{p.name}</span>
+                            </div>
+                        ))}
                     </div>
-
-                    <div className="bg-slate-950/40 p-4 rounded-2xl flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                             <div className="p-2 bg-emerald-500/20 rounded-lg"><Clock className="w-4 h-4 text-emerald-500" /></div>
-                             <div>
-                                 <p className="text-[8px] text-slate-500 font-black uppercase">Tiempo Estimado Equipo</p>
-                                 <p className="text-sm font-black text-white">{(projection.hours).toFixed(0)} Horas Totales</p>
-                             </div>
-                         </div>
-                         <div className="text-right">
-                             <p className="text-[8px] text-slate-500 font-black uppercase">Presupuesto Total</p>
-                             <p className="text-lg font-black text-emerald-400">{formatCurrency(projection.totalCost)}</p>
-                         </div>
-                    </div>
-
-                    {budgetCheck && (
-                        <div className={`p-4 rounded-2xl border flex items-start gap-4 ${
-                            budgetCheck.status === 'no-budget' ? 'bg-slate-900 border-slate-700' :
-                            budgetCheck.isOver ? 'bg-red-950/40 border-red-500/40' :
-                            'bg-emerald-950/40 border-emerald-500/40'
-                        }`}>
-                            {budgetCheck.status === 'no-budget' ? (
-                                <>
-                                    <AlertCircle className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase">Sin Presupuesto Definido</p>
-                                        <p className="text-[9px] text-slate-500 mt-1">No existe un plan anual para este lote.</p>
-                                    </div>
-                                </>
-                            ) : budgetCheck.isOver ? (
-                                <>
-                                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5 animate-pulse" />
-                                    <div>
-                                        <p className="text-[10px] font-black text-red-400 uppercase">Excede Disponibilidad</p>
-                                        <p className="text-[9px] text-red-200/70 mt-1 leading-tight italic">
-                                            Diferencia: {formatCurrency(budgetCheck.newCost - budgetCheck.remaining)}. Se requiere ajuste presupuestal.
-                                        </p>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-[10px] font-black text-emerald-400 uppercase">Viable Financieramente</p>
-                                        <p className="text-[9px] text-emerald-200/70 mt-1">Gasto dentro del límite proyectado ({formatCurrency(budgetCheck.remaining)} disp.).</p>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
                 </div>
 
-                <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-violet-900/40 active:scale-95 transition-all text-xs uppercase tracking-widest">
-                    PROGRAMAR DÍAS/HOMBRE
+                <div className="bg-indigo-900/20 p-5 rounded-[2.5rem] border border-indigo-500/20 flex items-center justify-between">
+                    <div>
+                        <p className="text-[9px] text-indigo-300 font-black uppercase">Presupuesto Proyectado</p>
+                        <p className="text-2xl font-mono font-black text-white">{formatCurrency(projection.totalCost)}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[9px] text-indigo-300 font-black uppercase">Jornales</p>
+                        <p className="text-2xl font-mono font-black text-white">{projection.jornales.toFixed(2)}</p>
+                    </div>
+                </div>
+
+                <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-5 rounded-[2rem] shadow-xl active:scale-95 transition-all text-xs uppercase tracking-widest">
+                    PROGRAMAR LABOR TÁCTICA
                 </button>
             </form>
         </Modal>

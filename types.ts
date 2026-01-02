@@ -99,6 +99,7 @@ export interface PlannedLabor {
   calculatedTotalCost: number;
   completed: boolean;
   notes?: string;
+  assignedPersonnelIds?: string[]; // Personal asignado a la labor futura
 }
 
 export interface BudgetItem {
@@ -228,6 +229,13 @@ export interface HarvestLog {
   rejectionCause?: string;
   notes?: string;
   yieldFactor?: number;
+  collectorsCount?: number;
+  greenPercentage?: number;
+  pestPercentage?: number;
+  defectPercentage?: number;
+  // BI Fields
+  brocaLossValue?: number; // Dinero perdido por castigo de precio
+  efficiencyStatus?: 'LOW_OFFER' | 'LOW_EFFICIENCY' | 'OPTIMAL';
 }
 
 export interface Movement { 
