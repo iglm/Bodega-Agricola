@@ -35,7 +35,7 @@ export const LaborView: React.FC<LaborViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-8 pb-24">
        <HeaderCard 
           title="Gestión de Personal"
           subtitle="Legalidad y Nómina"
@@ -49,43 +49,43 @@ export const LaborView: React.FC<LaborViewProps> = ({
           secondaryAction={isAdmin && (
               <button 
                   onClick={() => setShowContractModal(true)}
-                  className="flex-1 bg-white/20 backdrop-blur-md text-white font-black py-3 rounded-xl flex items-center justify-center gap-2 border border-white/30"
+                  className="flex-1 bg-white/20 backdrop-blur-md text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 border border-white/30"
               >
-                  <FileText className="w-5 h-5" />
+                  <FileText className="w-6 h-6" />
                   Contratos
               </button>
           )}
        />
 
        {/* Resumen de Nómina y Liquidación */}
-       <div className="flex gap-2">
-            <button onClick={onOpenPayroll} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-3xl shadow-lg flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest active:scale-95 transition-all">
-                <Wallet className="w-5 h-5" /> Liquidar Pendientes
+       <div className="flex gap-4">
+            <button onClick={onOpenPayroll} className="flex-1 bg-emerald-600 text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase text-xs tracking-widest active:scale-95 transition-all">
+                <Wallet className="w-6 h-6" /> Liquidar Pendientes
             </button>
        </div>
 
-       <div className="space-y-4">
-          <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-2 px-2">
-             <Pickaxe className="w-5 h-5 text-amber-500" /> Registros de Campo
+       <div className="space-y-5">
+          <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-3 px-3 tracking-widest">
+             <Pickaxe className="w-5 h-5 text-amber-500" /> Registros de Campo Recientes
           </h3>
 
           {laborLogs.length === 0 ? (
              <EmptyState icon={Users} message="Sin labores registradas." />
           ) : (
-             <div className="space-y-3">
-                {laborLogs.slice().reverse().slice(0, 5).map(log => (
-                   <div key={log.id} className={`p-5 rounded-[2.5rem] border shadow-sm space-y-3 transition-all ${log.paid ? 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800' : 'bg-white dark:bg-slate-800 border-amber-200 dark:border-amber-900/30'}`}>
+             <div className="space-y-4">
+                {laborLogs.slice().reverse().slice(0, 10).map(log => (
+                   <div key={log.id} className={`p-6 rounded-[2.5rem] border shadow-sm space-y-3 transition-all ${log.paid ? 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800' : 'bg-white dark:bg-slate-800 border-amber-200 dark:border-amber-900/30'}`}>
                       <div className="flex justify-between items-center">
-                         <span className="text-[10px] text-slate-400 font-bold uppercase">{new Date(log.date).toLocaleDateString()}</span>
-                         <span className="font-black text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full text-xs">
+                         <span className="text-xs text-slate-400 font-bold uppercase">{new Date(log.date).toLocaleDateString()}</span>
+                         <span className="font-black text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-4 py-1.5 rounded-full text-sm">
                              {formatCurrency(log.value)}
                          </span>
                       </div>
-                      <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-xs">{log.personnelName[0]}</div>
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-md">{log.personnelName[0]}</div>
                           <div>
-                              <p className="font-black text-slate-800 dark:text-white text-sm">{log.personnelName}</p>
-                              <p className="text-[10px] text-amber-600 font-bold uppercase">{log.activityName} • {log.costCenterName}</p>
+                              <p className="font-black text-slate-800 dark:text-white text-base">{log.personnelName}</p>
+                              <p className="text-xs text-amber-600 font-bold uppercase mt-0.5">{log.activityName} • {log.costCenterName}</p>
                           </div>
                       </div>
                    </div>
@@ -96,18 +96,18 @@ export const LaborView: React.FC<LaborViewProps> = ({
 
        {/* MODAL DE CONTRATOS LEGALES */}
        <Modal isOpen={showContractModal} onClose={() => setShowContractModal(false)} title="Blindaje Legal Laboral" icon={ShieldCheck}>
-           <div className="space-y-4">
-               <div className="bg-blue-900/10 p-4 rounded-2xl border border-blue-500/20 text-[11px] text-blue-300 italic">
+           <div className="space-y-5">
+               <div className="bg-blue-900/10 p-5 rounded-2xl border border-blue-500/20 text-xs text-blue-300 italic leading-relaxed">
                    "Según el Libro Blanco de Contratación, definir la labor evita demandas ante la UGPP."
                </div>
                {personnel.map(p => (
-                   <div key={p.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-700 flex justify-between items-center">
+                   <div key={p.id} className="bg-slate-900 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
                        <div>
-                           <p className="text-white font-bold text-sm">{p.name}</p>
-                           <p className="text-[9px] text-slate-500 uppercase">{p.role}</p>
+                           <p className="text-white font-bold text-base">{p.name}</p>
+                           <p className="text-xs text-slate-500 uppercase mt-1">{p.role}</p>
                        </div>
-                       <button onClick={() => generateContractDraft(p)} className="p-2 bg-indigo-600 rounded-xl text-white hover:bg-indigo-500 transition-colors">
-                           <Signature className="w-5 h-5" />
+                       <button onClick={() => generateContractDraft(p)} className="p-3 bg-indigo-600 rounded-xl text-white hover:bg-indigo-500 transition-colors shadow-lg">
+                           <Signature className="w-6 h-6" />
                        </button>
                    </div>
                ))}

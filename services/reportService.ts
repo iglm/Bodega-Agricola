@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -6,30 +7,10 @@ import { formatCurrency, generateId, convertToBase, getBaseUnitType, processInve
 
 // --- TYPE DEFINITIONS FOR ROBUSTNESS ---
 
-// Extensión de tipo para soportar la propiedad inyectada por jspdf-autotable de forma segura
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable: {
     finalY: number;
   };
-}
-
-// Interfaces específicas para el reporte de simulación (antes eran any)
-interface SimulationYear {
-  year: number;
-  label: string;
-  totalIncome: number;
-  totalExpenses: number;
-  netCashFlow: number;
-  cumulativeFlow: number;
-}
-
-interface SimulationData {
-  initCap: number;
-  vpn: number;
-  roi: number;
-  paybackYear: number | null;
-  totalCapex: number;
-  yearlyData: SimulationYear[];
 }
 
 const BRAND_COLORS = {
@@ -65,9 +46,232 @@ const addFooter = (doc: jsPDF) => {
     doc.setTextColor(150);
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.text(`DATOSFINCA VIVA - PROPIEDAD INTELECTUAL: ${AUTHOR} | Pág ${i} de ${pageCount}`, 105, 290, { align: 'center' });
+        // Position depends on orientation, simplified logic:
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        doc.text(`DATOSFINCA VIVA - PROPIEDAD INTELECTUAL: ${AUTHOR} | Pág ${i} de ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
     }
 };
+
+// --- FIELD SHEET EXPORT (PLANILLA MANUAL) ---
+
+export const exportFieldSheet = (personnel: Personnel[], warehouseName: string): void => {
+    // 1. Configuración Landscape
+    const doc = new jsPDF('l', 'mm', 'a4');
+    
+    // Header Personalizado para Landscape
+    doc.setFillColor(...BRAND_COLORS.slate);
+    doc.rect(0, 0, 297, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("PLANILLA DE RECOLECCIÓN / LABORES - SEMANAL", 148.5, 15, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Formato de Registro Manual en Campo", 148.5, 22, { align: 'center' });
+
+    // Campos de cabecera manuales
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    const startY = 45;
+    
+    doc.text(`Finca / Sede:  ${warehouseName}`, 15, startY);
+    doc.text("Semana del:  _______/_______  al:  _______/_______", 120, startY);
+    doc.text("Lote Principal: ____________________", 220, startY);
+
+    // 2. Construcción de Tabla
+    const head = [['Trabajador', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom', 'Total Kg/Jor', 'Firma / Huella']];
+    
+    // Mapeo de personal activo (Asumimos que todos en la lista están activos o filtrados previamente)
+    const body = personnel.map(p => [
+        p.name.toUpperCase(), 
+        '', '', '', '', '', '', '', '', '' // Celdas vacías para escritura manual
+    ]);
+
+    // Rellenar filas vacías si hay pocos trabajadores para aprovechar la hoja
+    while (body.length < 15) {
+        body.push(['', '', '', '', '', '', '', '', '', '']);
+    }
+
+    autoTable(doc, {
+        startY: startY + 10,
+        head: head,
+        body: body,
+        theme: 'grid',
+        headStyles: {
+            fillColor: BRAND_COLORS.slate,
+            textColor: 255,
+            halign: 'center',
+            fontStyle: 'bold',
+            lineWidth: 0.1,
+            lineColor: [200, 200, 200]
+        },
+        bodyStyles: {
+            lineColor: [180, 180, 180], // Gris claro para ahorrar tinta
+            lineWidth: 0.1,
+            minCellHeight: 12, // Altura para escribir cómodamente
+            valign: 'middle',
+            fontSize: 10
+        },
+        columnStyles: {
+            0: { cellWidth: 60, fontStyle: 'bold' }, // Nombre más ancho
+            9: { cellWidth: 40 } // Firma ancha
+        },
+        alternateRowStyles: {
+            fillColor: [245, 245, 245] // Zebra muy sutil
+        }
+    });
+
+    // 3. Pie de Página con Firmas
+    // Type casting to custom interface for type safety
+    const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 30;
+    
+    if (finalY < 190) { // Solo si cabe en la página
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        
+        doc.line(30, finalY, 100, finalY);
+        doc.text("Firma Mayordomo / Responsable", 65, finalY + 5, { align: 'center' });
+
+        doc.line(180, finalY, 250, finalY);
+        doc.text("Firma Administrador / Auditor", 215, finalY + 5, { align: 'center' });
+    }
+
+    addFooter(doc);
+    doc.save(`Planilla_Campo_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+// --- BANKING GRADE EXCEL EXPORT ---
+
+export const exportToExcel = (data: AppState): void => {
+    const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+    const laborFactor = data.laborFactor || 1.0;
+
+    // 1. DATA PRE-PROCESSING & CALCULATIONS
+    
+    // Harvest Metrics
+    const totalKgCoffee = data.harvests.reduce((acc, h) => acc + h.quantity, 0);
+    const totalHarvestIncome = data.harvests.reduce((acc, h) => acc + h.totalValue, 0);
+    
+    // Cost Metrics
+    const totalLaborPaid = data.laborLogs.reduce((acc, l) => acc + (l.value * laborFactor), 0);
+    
+    // Inventory Metrics (Purchases vs Consumption)
+    const movementsIn = data.movements.filter(m => m.type === 'IN');
+    const movementsOut = data.movements.filter(m => m.type === 'OUT');
+    
+    const totalPurchases = movementsIn.reduce((acc, m) => acc + m.calculatedCost, 0);
+    const totalConsumption = movementsOut.reduce((acc, m) => acc + m.calculatedCost, 0);
+    
+    // Operating Logic
+    const totalOperatingCosts = totalLaborPaid + totalConsumption;
+    const operatingMargin = totalHarvestIncome - totalOperatingCosts;
+    const costPerKg = totalKgCoffee > 0 ? totalOperatingCosts / totalKgCoffee : 0;
+
+    // --- SHEET 1: RESUMEN GERENCIAL (DASHBOARD) ---
+    const dashboardData = [
+        { Indicador: "INGRESOS OPERATIVOS", Valor: totalHarvestIncome, Detalle: "Venta Cosecha Total" },
+        { Indicador: "", Valor: "", Detalle: "" },
+        { Indicador: "COSTOS DE PRODUCCIÓN", Valor: totalOperatingCosts, Detalle: "Mano de Obra + Insumos Aplicados" },
+        { Indicador: "  > Nómina Total (Cargada)", Valor: totalLaborPaid, Detalle: `Factor Prestacional: ${laborFactor}x` },
+        { Indicador: "  > Costo Insumos (Salidas)", Valor: totalConsumption, Detalle: "Costo Promedio Ponderado" },
+        { Indicador: "", Valor: "", Detalle: "" },
+        { Indicador: "UTILIDAD OPERATIVA", Valor: operatingMargin, Detalle: operatingMargin > 0 ? "SUPERÁVIT" : "DÉFICIT" },
+        { Indicador: "", Valor: "", Detalle: "" },
+        { Indicador: "KPI: Producción Total (Kg)", Valor: totalKgCoffee, Detalle: "Kilos Cereza/Pergamino" },
+        { Indicador: "KPI: Costo Promedio por Kilo", Valor: costPerKg, Detalle: "Costo Unitario de Producción" },
+        { Indicador: "", Valor: "", Detalle: "" },
+        { Indicador: "CAJA: Compras de Insumos", Valor: totalPurchases, Detalle: "Salida de Efectivo (Stock)" },
+    ];
+
+    // --- SHEET 2: NÓMINA DETALLADA (CONTABLE) ---
+    const payrollData = data.laborLogs.map(log => {
+        const person = data.personnel.find(p => p.id === log.personnelId);
+        const isServices = person?.contractType === 'PRESTACION_SERVICIOS';
+        const classification = isServices ? 'HONORARIOS' : 'SALARIOS';
+        
+        // Jornales calculation logic approximation from logs
+        const quantity = log.jornalesEquivalent || (log.hoursWorked ? log.hoursWorked / 8 : 1);
+
+        return {
+            'Fecha': log.date.split('T')[0],
+            'Trabajador': log.personnelName,
+            'Identificación': person?.documentId || 'N/D',
+            'Tipo Contrato': person?.contractType || 'OCASIONAL',
+            'Clasificación Gasto': classification,
+            'Labor Realizada': log.activityName,
+            'Centro de Costo': log.costCenterName,
+            'Cantidad (Jornales)': quantity.toFixed(2),
+            'Valor Base': log.value,
+            'Costo Total Empresa': log.value * (isServices ? 1 : laborFactor)
+        };
+    });
+
+    // --- SHEET 3: COSECHA Y LOTES (PRODUCCIÓN) ---
+    const harvestData = data.harvests.map(h => ({
+        'Fecha': h.date.split('T')[0],
+        'Lote Origen': h.costCenterName,
+        'Cultivo': h.cropName,
+        'Recolector': h.collectorsCount && h.collectorsCount > 1 ? 'Cuadrilla General' : 'Individual', // Logic can be improved if individual collector tracking exists
+        'Kilos Recolectados': h.quantity,
+        'Precio Unitario': h.quantity > 0 ? h.totalValue / h.quantity : 0,
+        'Total Pagado': h.totalValue
+    }));
+    
+    // Totals Row for Harvest
+    harvestData.push({
+        'Fecha': 'TOTALES',
+        'Lote Origen': '---',
+        'Cultivo': '---',
+        'Recolector': '---',
+        'Kilos Recolectados': totalKgCoffee,
+        'Precio Unitario': 0,
+        'Total Pagado': totalHarvestIncome
+    });
+
+    // --- SHEET 4: MOVIMIENTOS BODEGA (INVENTARIO) ---
+    const inventoryData = data.movements.map(m => ({
+        'Fecha': m.date.split('T')[0],
+        'Tipo Movimiento': m.type === 'IN' ? 'ENTRADA (COMPRA)' : 'SALIDA (GASTO)',
+        'Insumo': m.itemName,
+        'Cantidad': m.quantity,
+        'Unidad': m.unit,
+        'Costo Unitario': m.quantity > 0 ? m.calculatedCost / m.quantity : 0,
+        'Costo Total': m.calculatedCost,
+        'Tercero/Destino': m.type === 'IN' ? (m.supplierName || 'Proveedor General') : (m.costCenterName || 'Consumo General'),
+        'Factura Ref': m.invoiceNumber || '-'
+    }));
+
+    // --- BUILD WORKBOOK ---
+    const wb = XLSX.utils.book_new();
+
+    const wsSummary = XLSX.utils.json_to_sheet(dashboardData);
+    wsSummary['!cols'] = [{wch: 35}, {wch: 20}, {wch: 30}];
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Gerencial");
+
+    const wsPayroll = XLSX.utils.json_to_sheet(payrollData);
+    wsPayroll['!cols'] = [{wch: 12}, {wch: 25}, {wch: 15}, {wch: 20}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 10}, {wch: 15}, {wch: 15}];
+    XLSX.utils.book_append_sheet(wb, wsPayroll, "Nomina Detallada");
+
+    const wsHarvest = XLSX.utils.json_to_sheet(harvestData);
+    wsHarvest['!cols'] = [{wch: 12}, {wch: 20}, {wch: 15}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 20}];
+    XLSX.utils.book_append_sheet(wb, wsHarvest, "Control Cosecha");
+
+    const wsInventory = XLSX.utils.json_to_sheet(inventoryData);
+    wsInventory['!cols'] = [{wch: 12}, {wch: 20}, {wch: 25}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 25}, {wch: 15}];
+    XLSX.utils.book_append_sheet(wb, wsInventory, "Movimientos Bodega");
+
+    // --- EXPORT FILE ---
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `Reporte_Finca_${activeW?.name.replace(/\s+/g, '_')}_${dateStr}.xlsx`;
+    
+    XLSX.writeFile(wb, fileName);
+};
+
+// Legacy support: mapping old function calls to new robust function if needed, 
+// or keeping them for specific simple reports.
+export const generateCostNotebook = (data: AppState) => exportToExcel(data);
 
 // --- NEW FUNCTIONS FOR FARM STRUCTURE REPORT ---
 
@@ -178,26 +382,7 @@ export const generateFarmStructurePDF = (costCenters: CostCenter[]): void => {
 // --- EXISTING EXPORTS ---
 
 export const generateExcel = (data: AppState): void => {
-    const wb = XLSX.utils.book_new();
-    const dateStr = new Date().toISOString().split('T')[0];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.inventory.map(i => ({'Insumo': i.name, 'Categoría': i.category, 'Stock': i.currentQuantity, 'Unidad': i.baseUnit, 'Costo Prom.': i.averageCost, 'Valorización': i.currentQuantity * i.averageCost}))), "1_Inventario");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.movements.map(m => ({'Fecha': m.date.split('T')[0], 'Tipo': m.type, 'Insumo': m.itemName, 'Cantidad': m.quantity, 'Unidad': m.unit, 'Costo Total': m.calculatedCost, 'Lote': m.costCenterName || 'N/A', 'Proveedor': m.supplierName || ''}))), "2_Kardex_Historico");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.harvests.map(h => ({
-        'Fecha': h.date, 
-        'Lote': h.costCenterName, 
-        'Producto': h.cropName, 
-        'Cantidad': h.quantity, 
-        'Unidad': h.unit, 
-        'Venta Total': h.totalValue, 
-        'Rendimiento Factor': h.yieldFactor || '',
-        'Recolectores': h.collectorsCount || 1,
-        'Eff (Kg/H/D)': h.collectorsCount ? (h.quantity / h.collectorsCount).toFixed(1) : h.quantity,
-        '% Verdes': h.greenPercentage || 0,
-        '% Broca': h.pestPercentage || 0,
-        '% Defectos': h.defectPercentage || 0
-    }))), "3_Ventas_Calidad");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.costCenters.map(c => ({'Nombre': c.name, 'Area (Ha)': c.area, 'Etapa': c.stage, 'Cultivo': c.cropType, 'Población': c.plantCount}))), "7_Lotes_Estructura");
-    XLSX.writeFile(wb, `LIBRO_MAESTRO_100HA_${dateStr}.xlsx`);
+    exportToExcel(data); // Redirect to the new robust function
 };
 
 export const generateMasterPDF = (data: AppState): void => {

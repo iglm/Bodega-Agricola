@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification } from '../types';
-import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle, Ruler, Sun, CloudSun, AlertCircle, Flower2, TreePine } from 'lucide-react';
+import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification, ContractType } from '../types';
+import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle, Ruler, Sun, CloudSun, AlertCircle, Flower2, TreePine, Calendar } from 'lucide-react';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
@@ -182,6 +182,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [perArl, setPerArl] = useState(false);
   const [perBirth, setPerBirth] = useState('');
   const [perDisability, setPerDisability] = useState('');
+  // New Labor Law Fields
+  const [perContractType, setPerContractType] = useState<ContractType>('OCASIONAL');
+  const [perStartDate, setPerStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [perEndDate, setPerEndDate] = useState('');
 
   // Activity State
   const [actName, setActName] = useState('');
@@ -190,12 +194,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleAddPersonnel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!perName.trim() || !onAddPersonnel) return;
+    
     onAddPersonnel({
       name: perName, role: perRole, documentId: perDoc, phone: perPhone,
       emergencyContact: perEmergency, eps: perEps, arl: perArl, birthDate: perBirth,
-      disability: perDisability || undefined
+      disability: perDisability || undefined,
+      contractType: perContractType,
+      contractStartDate: perStartDate,
+      contractEndDate: perEndDate || undefined
     });
-    setPerName(''); setPerRole(''); setPerDoc(''); setPerPhone(''); setPerEmergency(''); setPerEps(''); setPerArl(false); setPerBirth(''); setPerDisability('');
+    
+    // Reset Form
+    setPerName(''); setPerRole(''); setPerDoc(''); setPerPhone(''); 
+    setPerEmergency(''); setPerEps(''); setPerArl(false); setPerBirth(''); 
+    setPerDisability(''); setPerContractType('OCASIONAL'); 
+    setPerStartDate(new Date().toISOString().split('T')[0]); setPerEndDate('');
   }
 
   const handleAddActivity = (e: React.FormEvent) => {
@@ -446,6 +459,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <input type="text" value={perName} onChange={e => setPerName(e.target.value)} placeholder="Nombre Completo" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" required />
                     <input type="text" value={perRole} onChange={e => setPerRole(e.target.value)} placeholder="Cargo (Ej: Operario)" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" required />
                 </div>
+                
+                {/* --- SECCIÓN LEGAL LABORAL (CST) --- */}
+                <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 space-y-3 mt-2">
+                    <h5 className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-1"><Gavel className="w-3 h-3" /> Vinculación Laboral</h5>
+                    <div className="grid grid-cols-1 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400">Tipo de Contrato</label>
+                            <select value={perContractType} onChange={e => setPerContractType(e.target.value as ContractType)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                                <option value="OCASIONAL">Ocasional / Jornalero (Default)</option>
+                                <option value="OBRA_LABOR">Obra o Labor</option>
+                                <option value="FIJO">Término Fijo (Con Fecha Fin)</option>
+                                <option value="INDEFINIDO">Término Indefinido</option>
+                                <option value="PRESTACION_SERVICIOS">Prestación de Servicios</option>
+                                <option value="APRENDIZAJE">Aprendizaje / SENA</option>
+                            </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400">Fecha Inicio</label>
+                                <input type="date" value={perStartDate} onChange={e => setPerStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" required />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400">Fecha Fin {perContractType === 'FIJO' ? '*' : '(Opc)'}</label>
+                                <input type="date" value={perEndDate} onChange={e => setPerEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" required={perContractType === 'FIJO'} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                     <input type="date" value={perBirth} onChange={e => setPerBirth(e.target.value)} placeholder="Fecha Nacimiento" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
                     <input type="text" value={perDisability} onChange={e => setPerDisability(e.target.value)} placeholder="Discapacidad (Opcional)" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
@@ -455,7 +497,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
                 {personnel.map(p => (
                   <div key={p.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center border border-slate-700/50">
-                    <div><p className="text-sm font-bold text-white">{p.name}</p><p className="text-xs text-slate-400">{p.role}</p></div>
+                    <div>
+                        <p className="text-sm font-bold text-white">{p.name}</p>
+                        <p className="text-xs text-slate-400">{p.role} • {p.contractType}</p>
+                    </div>
                     <button onClick={() => onDeletePersonnel && onDeletePersonnel(p.id)} className="p-2 text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}

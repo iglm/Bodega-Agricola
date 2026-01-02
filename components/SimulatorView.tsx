@@ -7,7 +7,7 @@ import {
   CheckCircle2, Timer, FileDown, Rocket, TreePine, Map,
   ChevronDown, ChevronUp, Minus, Plus, Users, Beaker,
   TrendingDown, ShieldAlert, BarChart, Landmark, Scissors, Wand2,
-  Home, Leaf
+  Home, Leaf, RefreshCw, Briefcase, BadgeDollarSign, Table, AlertOctagon
 } from 'lucide-react';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { generateSimulationPDF } from '../services/reportService';
@@ -20,55 +20,73 @@ interface SimulationYear {
     netCashFlow: number;
     cumulativeFlow: number;
     label: string;
-    harvestCost: number;
-    fertilizationCost: number;
-    arvensesCost: number;
-    renovationReserve: number;
-    fitosanitaryCost: number;
-    adminCost: number;
-    beneficioCost: number;
-    capex: number;
-    pricePerKg: number;
+    
+    // Cost Structure
+    fixedCost: number; // Maintenance, Admin, Inputs (IPC Inflation)
+    variableCost: number; // Harvest (Labor Inflation)
+    
+    // Metrics
+    costPerCarga: number; // The golden metric
+    marginPercent: number;
+    laborUnitCost: number; // Cost per Kg of harvest this year
+    
     isLiquidityCrisis: boolean;
-    debtService: number;
     opex: number;
+    capex: number;
 }
 
-type ScenarioType = 'Pessimistic' | 'Realistic' | 'Optimistic';
-type RenovationType = 'Siembra' | 'Zoca';
+type PriceTrend = 'Stable' | 'Optimistic' | 'Pessimistic';
 
 export const SimulatorView: React.FC = () => {
-    const [numTrees, setNumTrees] = useState('10000');
-    const [density, setDensity] = useState('7500'); 
-    const [marketPrice, setMarketPrice] = useState('1850000'); 
-    const [jornalValue, setJornalValue] = useState('75000');
-    const [initialCapital, setInitialCapital] = useState('50000000');
-    
-    // Selectores Tácticos
-    const [renovationType, setRenovationType] = useState<RenovationType>('Siembra');
-    const [producedInFinca, setProducedInFinca] = useState(false); // Almácigo en Finca (-53% Costo)
-    const [useMIA, setUseMIA] = useState(false); // Manejo Integrado de Arvenses
-    const [useAssistedHarvest, setUseAssistedHarvest] = useState(false); // Lonas/Derribadoras
+    // 1. INVENTARIO (BIOLÓGICO)
+    const [treesInRenovation, setTreesInRenovation] = useState('2000'); 
+    const [treesInLevante, setTreesInLevante] = useState('3000');     
+    const [treesInProduction, setTreesInProduction] = useState('5000'); 
+    const [density, setDensity] = useState('6000'); 
 
-    const [scenario, setScenario] = useState<ScenarioType>('Realistic');
+    // 2. PARÁMETROS MACROECONÓMICOS (FINANCIERO)
+    const [currentMarketPrice, setCurrentMarketPrice] = useState('1900000'); // Precio Carga Hoy
+    const [expectedPriceTrend, setExpectedPriceTrend] = useState<PriceTrend>('Stable');
+    const [harvestCostPerKg, setHarvestCostPerKg] = useState('850'); // Recolección manual hoy
+    
+    const [laborInflation, setLaborInflation] = useState('10'); // Inflación Mano de Obra (Alta)
+    const [generalInflation, setGeneralInflation] = useState('5'); // IPC (Insumos/Admin)
+    
+    const [baseMaintenanceCost, setBaseMaintenanceCost] = useState('12000000'); // Costo fijo por Ha/Año (Sostenimiento)
+    const [initialCapital, setInitialCapital] = useState('20000000');
+
     const [expandedYear, setExpandedYear] = useState<number | null>(null);
 
     const simulation = useMemo(() => {
-        const totalTrees = parseNumberInput(numTrees) || 1;
+        const qRenov = parseNumberInput(treesInRenovation);
+        const qLev = parseNumberInput(treesInLevante);
+        const qProd = parseNumberInput(treesInProduction);
+        const totalTrees = qRenov + qLev + qProd;
         const dens = parseNumberInput(density) || 1;
-        const hectares = totalTrees / dens;
-        const basePrice = parseNumberInput(marketPrice);
-        const jVal = parseNumberInput(jornalValue);
+        const totalHectares = totalTrees / dens;
+        
+        const basePriceCarga = parseNumberInput(currentMarketPrice);
+        const baseHarvestCost = parseNumberInput(harvestCostPerKg);
+        const baseMaintHa = parseNumberInput(baseMaintenanceCost);
+        const laborInfRate = parseNumberInput(laborInflation) / 100;
+        const generalInfRate = parseNumberInput(generalInflation) / 100;
         const initCap = parseNumberInput(initialCapital);
+        
+        // Base price per Kg for fallback/calculation
+        const basePriceKg = basePriceCarga / 125;
 
-        const factors = {
-            Pessimistic: { price: 0.8, yield: 0.85, costs: 1.15 },
-            Realistic: { price: 1.0, yield: 1.0, costs: 1.0 },
-            Optimistic: { price: 1.2, yield: 1.1, costs: 0.95 }
+        // --- MOTOR BIOLÓGICO ---
+        const getProductionPotential = (age: number) => {
+            // Curva de Producción (Kg Cereza/Arbol/Año aprox)
+            // Asumiendo 1 Ha = 6000 arb = ~15.000 Kg Cereza (25 Cargas) en pico
+            const peakYieldPerTree = 2.5; // Kg Cereza
+            
+            if (age <= 2) return 0;
+            if (age === 3) return peakYieldPerTree * 0.4; // Graneo
+            if (age >= 4 && age <= 6) return peakYieldPerTree; // Pico
+            if (age >= 7) return peakYieldPerTree * 0.75; // Declive
+            return 0;
         };
-
-        const currentFactor = factors[scenario];
-        const pKg = (basePrice * currentFactor.price) / 125;
 
         const yearlyData: SimulationYear[] = [];
         let cumulative = initCap;
@@ -76,254 +94,348 @@ export const SimulatorView: React.FC = () => {
         let totalCapexCalc = 0;
         let firstMonthCrisis: number | null = null;
 
-        for (let i = 1; i <= 6; i++) {
-            let prodKg = 0;
-            let label = "";
-            let capex = 0;
-            let harvestCost = 0;
-            let fertilizationCost = 0;
-            let arvensesCost = 0;
-            let fitosanitaryCost = 0;
-            let renovationReserve = 0;
-            let adminCost = 0;
-            let beneficioCost = 0;
-            let isYearlyCrisis = false;
+        for (let year = 1; year <= 6; year++) {
+            // A. INFLACIONADORES (INTERÉS COMPUESTO)
+            const laborIndex = Math.pow(1 + laborInfRate, year - 1);
+            const generalIndex = Math.pow(1 + generalInfRate, year - 1);
+            
+            // B. PRECIO DE VENTA (SCENARIO)
+            let priceModifier = 1;
+            if (expectedPriceTrend === 'Optimistic') priceModifier = Math.pow(1.05, year - 1);
+            if (expectedPriceTrend === 'Pessimistic') priceModifier = Math.pow(0.95, year - 1);
+            
+            const currentPriceCarga = basePriceCarga * priceModifier;
+            const currentPriceKg = currentPriceCarga / 125; // Precio venta Kg
 
-            if (i === 1) {
-                label = renovationType === 'Siembra' ? "Establecimiento" : "Zoqueo (Renovación)";
-                // Zoca es 45% más económica que Siembra Nueva
-                let baseEstCost = renovationType === 'Siembra' ? 250 : 135;
-                
-                // --- CAMBIO SOLICITADO: Almácigo Producido en Finca (-53%) ---
-                // Si el almácigo es en finca, el costo de establecimiento se reduce globalmente un 53%
-                let initialCapex = (baseEstCost * jVal * currentFactor.costs) * hectares;
-                if (producedInFinca) {
-                    initialCapex = initialCapex * 0.47; // Aplica el ahorro del 53%
-                }
-                
-                capex = initialCapex;
-                totalCapexCalc += capex;
-            } else if (i === 2) {
-                label = "Levante / Sostenimiento";
-                capex = (120 * jVal * currentFactor.costs) * hectares;
-                totalCapexCalc += capex;
-            } else {
-                label = i === 4 ? "Pico de Producción" : "Cosecha Estable";
-                prodKg = (2800 * (dens / 7000) * currentFactor.yield) * hectares;
-                if (i === 3) prodKg *= 0.4; 
-                if (i === 4) prodKg *= 1.0; 
-                if (i > 4) prodKg *= 0.85; 
-                
-                const baseOperationalCost = (180 * jVal * currentFactor.costs) * hectares;
-                
-                // Estrategia MIA
-                const arvensesFactor = useMIA ? 0.13 : 0.20;
-                // Cosecha Asistida
-                const recolectorCostKg = useAssistedHarvest ? 650 : 800;
+            // C. COSTOS UNITARIOS DEL AÑO
+            const currentHarvestCost = baseHarvestCost * laborIndex; // Costo recolección inflado
+            const currentMaintPerHa = baseMaintHa * generalIndex; // Costo sostenimiento inflado
 
-                harvestCost = prodKg * recolectorCostKg;
-                fertilizationCost = baseOperationalCost * 0.14;
-                arvensesCost = baseOperationalCost * arvensesFactor;
-                fitosanitaryCost = baseOperationalCost * 0.07;
-                adminCost = baseOperationalCost * 0.07;
-                beneficioCost = baseOperationalCost * 0.04;
-                if (i >= 5) renovationReserve = (prodKg * pKg) * 0.08;
-            }
+            // D. CÁLCULO POR LOTE (COHORTES)
+            // Lote 1: Renovación (Empieza edad 1)
+            const prodRenov = qRenov * getProductionPotential(year);
+            // Lote 2: Levante (Empieza edad 2)
+            const prodLev = qLev * getProductionPotential(year + 1);
+            // Lote 3: Producción (Empieza edad 4)
+            const prodProd = qProd * getProductionPotential(year + 3);
 
-            const income = prodKg * pKg;
-            const opexTotal = harvestCost + fertilizationCost + arvensesCost + fitosanitaryCost + adminCost + beneficioCost + renovationReserve;
-            const expenses = capex + opexTotal;
-            const net = income - expenses;
+            const totalProductionKg = prodRenov + prodLev + prodProd;
+            
+            // E. INGRESOS
+            const totalIncome = totalProductionKg * currentPriceKg;
 
-            for (let m = 1; m <= 12; m++) {
-                const monthlyExpense = (expenses - harvestCost) / 12 + (harvestCost / 4 && (m >= 10 || m <= 11) ? harvestCost/2 : 0);
-                const monthlyIncome = (income / 2) && (m === 10 || m === 11) ? income / 2 : 0;
-                cumulative += (monthlyIncome - monthlyExpense);
-                if (cumulative < 0 && firstMonthCrisis === null) firstMonthCrisis = (i - 1) * 12 + m;
-            }
+            // F. EGRESOS
+            // 1. Variable (Recolección): Directamente proporcional a la producción
+            const variableCost = totalProductionKg * currentHarvestCost;
 
-            if (cumulative < 0) isYearlyCrisis = true;
-            if (paybackYear === null && cumulative >= initCap && i > 2) paybackYear = i;
+            // 2. Fijo (Sostenimiento): Fertilizante, Limpias, Admin. Proporcional a Hectáreas.
+            // Ajustamos factor de intensidad por etapa
+            const haRenov = qRenov / dens;
+            const haLev = qLev / dens;
+            const haProd = qProd / dens;
+
+            const fixedCost = (
+                (haRenov * currentMaintPerHa * 1.5) + 
+                (haLev * currentMaintPerHa * 0.8) + 
+                (haProd * currentMaintPerHa)
+            );
+
+            const totalExpenses = variableCost + fixedCost;
+            const netCashFlow = totalIncome - totalExpenses;
+            
+            cumulative += netCashFlow;
+            
+            // Metrics
+            const totalCargas = totalProductionKg / 125;
+            const costPerCarga = totalCargas > 0 ? totalExpenses / totalCargas : 0;
+            const marginPercent = totalIncome > 0 ? (netCashFlow / totalIncome) * 100 : -100;
+
+            if (cumulative < 0 && firstMonthCrisis === null) firstMonthCrisis = year;
+            if (paybackYear === null && cumulative > initCap) paybackYear = year;
 
             yearlyData.push({
-                year: i, totalProductionKg: prodKg, totalIncome: income, totalExpenses: expenses,
-                netCashFlow: net, cumulativeFlow: cumulative, label, harvestCost, fertilizationCost,
-                arvensesCost, renovationReserve, fitosanitaryCost, adminCost, beneficioCost,
-                capex, pricePerKg: pKg, isLiquidityCrisis: isYearlyCrisis, debtService: 0, opex: opexTotal
+                year,
+                label: `Año ${year}`,
+                totalProductionKg,
+                totalIncome,
+                totalExpenses,
+                fixedCost,
+                variableCost,
+                netCashFlow,
+                cumulativeFlow: cumulative,
+                costPerCarga,
+                marginPercent,
+                laborUnitCost: currentHarvestCost,
+                isLiquidityCrisis: netCashFlow < 0,
+                opex: totalExpenses, 
+                capex: 0 // Integrated
             });
         }
 
         const vpn = yearlyData.reduce((acc, y) => acc + (y.netCashFlow / Math.pow(1.12, y.year)), 0);
+        const roi = (vpn / (initCap || 1)) * 100;
+
+        // --- ANÁLISIS DE SENSIBILIDAD (STRESS TEST AÑO 5) ---
+        // Tomamos el año 5 como referencia de madurez
+        const stableYear = yearlyData[4]; 
+        
+        // Determinar el precio de referencia usado en el año 5 (incluyendo tendencia)
+        const refPriceKg = stableYear && stableYear.totalProductionKg > 0 
+            ? stableYear.totalIncome / stableYear.totalProductionKg 
+            : basePriceKg;
+
+        const baseScenario = {
+            label: "Base",
+            price: stableYear?.totalIncome || 0,
+            cost: stableYear?.totalExpenses || 0,
+            margin: stableYear?.netCashFlow || 0,
+            icon: Minus, color: 'text-blue-500'
+        };
+
+        // Escenario Ácido: Precio cae 15%, Costo Mano de Obra sube 5% extra
+        const acidIncome = (stableYear?.totalProductionKg || 0) * (refPriceKg * 0.85); // Usando precio referencia ajustado
+        // Recálculo aproximado de costo ácido
+        const acidVarCost = (stableYear?.variableCost || 0) * 1.05; 
+        const acidExp = (stableYear?.fixedCost || 0) + acidVarCost;
+        const acidScenario = {
+            label: "Pesimista (-15% Precio)",
+            price: acidIncome,
+            cost: acidExp,
+            margin: acidIncome - acidExp,
+            icon: TrendingDown, color: 'text-red-500'
+        };
+
+        // Escenario Ideal: Precio sube 15%
+        const optIncome = (stableYear?.totalProductionKg || 0) * (refPriceKg * 1.15);
+        const optScenario = {
+            label: "Optimista (+15% Precio)",
+            price: optIncome,
+            cost: stableYear?.totalExpenses || 0, // Costos base
+            margin: optIncome - (stableYear?.totalExpenses || 0),
+            icon: TrendingUp, color: 'text-emerald-500'
+        };
 
         return {
-            hectares, yearlyData, vpn, paybackYear, roi: (vpn / (totalCapexCalc || 1)) * 100,
-            totalCapex: totalCapexCalc, firstMonthCrisis, initCap
+            hectares: totalHectares, yearlyData, vpn, paybackYear, roi,
+            firstMonthCrisis, initCap, 
+            year5LaborCost: yearlyData[4]?.laborUnitCost || 0,
+            avgCostPerCarga: yearlyData.reduce((a,b)=>a+b.costPerCarga,0)/6,
+            sensitivity: [acidScenario, baseScenario, optScenario],
+            breakevenPrice: stableYear ? stableYear.costPerCarga : 0
         };
-    }, [numTrees, density, marketPrice, jornalValue, initialCapital, scenario, renovationType, producedInFinca, useMIA, useAssistedHarvest]);
+    }, [treesInRenovation, treesInLevante, treesInProduction, density, currentMarketPrice, harvestCostPerKg, laborInflation, generalInflation, baseMaintenanceCost, initialCapital, expectedPriceTrend]);
 
     return (
         <div className="space-y-6 pb-40 animate-fade-in">
-            {/* SELECTORES DE ESCENARIO Y ESTRATEGIA - ACTUALIZADO */}
-            <div className="space-y-3">
-                <div className="bg-slate-900 p-2 rounded-[2rem] border border-slate-800 flex gap-1 shadow-lg">
-                    {(['Pessimistic', 'Realistic', 'Optimistic'] as ScenarioType[]).map((s) => (
-                        <button key={s} onClick={() => setScenario(s)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${scenario === s ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>
-                            {s === 'Realistic' ? 'Realista' : s === 'Optimistic' ? 'Optimista' : 'Pesimista'}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {/* SELECTOR DE RENOVACIÓN */}
-                    <button onClick={() => setRenovationType(renovationType === 'Siembra' ? 'Zoca' : 'Siembra')} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${renovationType === 'Zoca' ? 'bg-amber-600 border-amber-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                        <div className="flex items-center gap-2">
-                            <Scissors className="w-4 h-4" />
-                            <span className="text-[9px] font-black uppercase">Modo: {renovationType}</span>
-                        </div>
-                        <Info className="w-3 h-3 opacity-50" />
-                    </button>
-                    
-                    {/* NUEVO: ALMÁCIGO EN FINCA */}
-                    <button onClick={() => setProducedInFinca(!producedInFinca)} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${producedInFinca ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                        <div className="flex items-center gap-2">
-                            <Home className="w-4 h-4" />
-                            <span className="text-[9px] font-black uppercase">Almácigo Finca</span>
-                        </div>
-                        <span className={`text-[8px] font-bold ${producedInFinca ? 'text-white' : 'text-slate-600'}`}>{producedInFinca ? '-53%' : '0%'}</span>
-                    </button>
-
-                    <button onClick={() => setUseMIA(!useMIA)} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${useMIA ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                        <div className="flex items-center gap-2">
-                            <Pickaxe className="w-4 h-4" />
-                            <span className="text-[9px] font-black uppercase">MIA</span>
-                        </div>
-                        <CheckCircle2 className={`w-3 h-3 ${useMIA ? 'opacity-100' : 'opacity-20'}`} />
-                    </button>
-
-                    <button onClick={() => setUseAssistedHarvest(!useAssistedHarvest)} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${useAssistedHarvest ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                        <div className="flex items-center gap-2">
-                            <Wand2 className="w-4 h-4" />
-                            <span className="text-[9px] font-black uppercase">Asistida</span>
-                        </div>
-                        <CheckCircle2 className={`w-3 h-3 ${useAssistedHarvest ? 'opacity-100' : 'opacity-20'}`} />
-                    </button>
-                </div>
-            </div>
-
-            <div className="bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-8">
-                <div className="flex items-center gap-4 border-b border-slate-800 pb-6">
-                    <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg"><Calculator className="w-8 h-8 text-white" /></div>
-                    <div>
-                        <h2 className="text-white font-black text-2xl uppercase tracking-tighter italic">Proyección Financiera 2025</h2>
-                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Optimización de Costos • {renovationType}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                        <label className="text-xs font-black text-slate-400 uppercase ml-2 flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> Árboles Proyectados</label>
-                        <input type="text" value={formatNumberInput(numTrees)} onChange={e => setNumTrees(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-950 border-2 border-slate-800 focus:border-emerald-500 rounded-3xl p-6 text-4xl font-black text-white font-mono transition-all outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-black text-slate-400 uppercase ml-2 flex items-center gap-2"><Layers className="w-4 h-4 text-indigo-500" /> Densidad Siembra</label>
-                        <input type="text" value={formatNumberInput(density)} onChange={e => setDensity(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-950 border-2 border-slate-800 focus:border-indigo-500 rounded-3xl p-6 text-4xl font-black text-white font-mono transition-all outline-none" />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800/50">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2"><Wallet className="w-4 h-4 text-amber-500" /> Su Presupuesto Disponible</label>
-                        <input type="text" value={formatNumberInput(initialCapital)} onChange={e => setInitialCapital(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-800 border-none rounded-2xl p-4 text-lg font-black text-amber-500 font-mono outline-none" />
-                        <p className="text-[9px] text-slate-500 pl-2 italic">Dinero disponible en caja para iniciar el proyecto.</p>
-                    </div>
-                    <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+            
+            {/* ENCABEZADO Y PARAMETROS ECONÓMICOS */}
+            <div className="bg-slate-900 p-6 md:p-8 rounded-[3rem] border border-slate-800 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-5"><TrendingUp className="w-64 h-64 text-emerald-500" /></div>
+                
+                <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-4 border-b border-slate-800 pb-4">
+                        <div className="p-3 bg-emerald-600 rounded-2xl shadow-lg"><Briefcase className="w-8 h-8 text-white" /></div>
                         <div>
-                            <p className="text-[10px] text-slate-500 font-black uppercase">Hectáreas Totales</p>
-                            <p className="text-2xl font-black text-emerald-500 font-mono">{simulation.hectares.toFixed(2)} <span className="text-xs">Ha</span></p>
+                            <h2 className="text-white font-black text-xl md:text-2xl uppercase tracking-tighter">Simulador Financiero</h2>
+                            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Estructura de Costos Café Colombia</p>
                         </div>
-                        <Map className="w-10 h-10 text-slate-700" />
+                    </div>
+
+                    <div className="bg-slate-950/50 p-5 rounded-[2rem] border border-slate-800">
+                        <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Scale className="w-4 h-4"/> Variables Macroeconómicas</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Precio Mercado / Carga</label>
+                                <input type="text" value={formatNumberInput(currentMarketPrice)} onChange={e => setCurrentMarketPrice(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-black text-sm outline-none focus:border-emerald-500 text-center" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Tendencia Precio</label>
+                                <select value={expectedPriceTrend} onChange={e => setExpectedPriceTrend(e.target.value as PriceTrend)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-bold text-xs outline-none">
+                                    <option value="Stable">Estable (IPC)</option>
+                                    <option value="Optimistic">Optimista (+5% Anual)</option>
+                                    <option value="Pessimistic">Pesimista (-5% Anual)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-red-400 uppercase ml-1 flex items-center gap-1"><TrendingUp className="w-3 h-3"/> Inflación Laboral %</label>
+                                <input type="number" value={laborInflation} onChange={e => setLaborInflation(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-black text-sm outline-none focus:border-red-500 text-center" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Costo Recolección / Kg</label>
+                                <input type="text" value={formatNumberInput(harvestCostPerKg)} onChange={e => setHarvestCostPerKg(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-black text-sm outline-none text-center" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 space-y-2">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Capital Inicial (Caja)</label>
+                            <input type="text" value={formatNumberInput(initialCapital)} onChange={e => setInitialCapital(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-900 border-none rounded-xl p-3 text-emerald-400 font-mono font-black text-lg outline-none" />
+                        </div>
+                        <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 space-y-2">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Costo Sostenimiento Base / Ha</label>
+                            <input type="text" value={formatNumberInput(baseMaintenanceCost)} onChange={e => setBaseMaintenanceCost(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-900 border-none rounded-xl p-3 text-white font-mono font-bold text-lg outline-none" />
+                            <p className="text-[9px] text-slate-600">Incluye: Fertilizantes, limpias, administración (Sin recolección).</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {simulation.firstMonthCrisis && (
-                <div className="bg-red-950/30 border-2 border-red-500/50 p-6 rounded-[2.5rem] flex gap-5 items-center animate-shake shadow-2xl">
-                    <div className="p-4 bg-red-600 rounded-2xl shadow-lg"><ShieldAlert className="w-10 h-10 text-white" /></div>
-                    <div>
-                        <h4 className="text-red-500 font-black text-lg uppercase tracking-tight">Iliquidez Detectada</h4>
-                        <p className="text-xs text-slate-300 leading-tight">Su presupuesto se agota en el <strong>Mes {simulation.firstMonthCrisis}</strong>. {producedInFinca ? '' : 'Active "Almácigo Finca" para reducir el gasto inicial un 53%.'}</p>
-                    </div>
+            {/* INPUTS DE INVENTARIO */}
+            <div className="grid grid-cols-3 gap-3 bg-white dark:bg-slate-800 p-4 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700">
+                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-2xl border border-emerald-100 dark:border-emerald-500/20">
+                    <label className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1 mb-1"><Sprout className="w-3 h-3" /> Renovación</label>
+                    <input type="text" value={formatNumberInput(treesInRenovation)} onChange={e => setTreesInRenovation(parseNumberInput(e.target.value).toString())} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-center text-slate-800 dark:text-white font-mono font-bold outline-none" />
                 </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`p-6 rounded-[2.5rem] shadow-xl text-white text-center transition-all ${simulation.vpn > 0 ? 'bg-emerald-600' : 'bg-red-600'}`}>
-                    <p className="text-[10px] font-black uppercase mb-1 opacity-80">Valor Presente (VPN)</p>
-                    <p className="text-2xl font-black font-mono leading-none mb-1">{formatCurrency(simulation.vpn)}</p>
-                    <p className="text-[8px] font-bold uppercase">{simulation.vpn > 0 ? 'PROYECTO RENTABLE' : 'NO VIABLE'}</p>
+                <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-2xl border border-blue-100 dark:border-blue-500/20">
+                    <label className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase flex items-center gap-1 mb-1"><Leaf className="w-3 h-3" /> Levante</label>
+                    <input type="text" value={formatNumberInput(treesInLevante)} onChange={e => setTreesInLevante(parseNumberInput(e.target.value).toString())} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-center text-slate-800 dark:text-white font-mono font-bold outline-none" />
                 </div>
-                <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl text-center">
-                    <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Punto de Equilibrio</p>
-                    <p className="text-2xl font-black text-white">Año {simulation.paybackYear || '-'}</p>
-                    <p className="text-[8px] text-slate-500 font-bold uppercase">Recuperación Capital</p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-500/20">
+                    <label className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase flex items-center gap-1 mb-1"><TreePine className="w-3 h-3" /> Producción</label>
+                    <input type="text" value={formatNumberInput(treesInProduction)} onChange={e => setTreesInProduction(parseNumberInput(e.target.value).toString())} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-center text-slate-800 dark:text-white font-mono font-bold outline-none" />
                 </div>
-                {/* Se cambia el string 'Referente Cenicafé 2025' por un genérico para evitar líos legales */}
-                <button onClick={() => generateSimulationPDF(simulation, { varietyLabel: `Café ${renovationType}`, techLabel: "Estándar Técnico 2025", numTrees: parseNumberInput(numTrees), density: parseNumberInput(density), marketPrice, harvestCostKg: useAssistedHarvest ? "650" : "800", qualityFactor: 94 })} className="bg-indigo-600 hover:bg-indigo-500 p-6 rounded-[2.5rem] shadow-xl text-white flex flex-col items-center justify-center transition-all active:scale-95">
-                    <FileDown className="w-6 h-6 mb-1" />
-                    <span className="text-[10px] font-black uppercase">Descargar Reporte</span>
-                </button>
             </div>
 
+            {/* KPIS FINANCIEROS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-center text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <Users className="w-5 h-5 text-red-500" />
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Costo Recolección (Año 5)</p>
+                    </div>
+                    <p className="text-3xl font-black text-slate-800 dark:text-white font-mono">{formatCurrency(simulation.year5LaborCost)} <span className="text-sm text-slate-400 font-bold">/ Kg</span></p>
+                    <p className="text-[10px] text-red-400 font-bold mt-1 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full mx-auto inline-block">Inflación Impacto: +{((simulation.year5LaborCost/parseNumberInput(harvestCostPerKg) - 1)*100).toFixed(0)}%</p>
+                </div>
+
+                <div className="bg-indigo-600 p-6 rounded-[2.5rem] shadow-xl shadow-indigo-900/30 flex flex-col justify-center text-center text-white relative overflow-hidden">
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <BadgeDollarSign className="w-5 h-5 text-indigo-200" />
+                            <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Precio de Equilibrio (Año 5)</p>
+                        </div>
+                        <p className="text-3xl font-black font-mono">{formatCurrency(simulation.breakevenPrice)} <span className="text-sm text-indigo-300 font-bold">/ @</span></p>
+                        <p className="text-[10px] text-indigo-100 font-bold mt-1">Costo Total para No Perder Dinero</p>
+                    </div>
+                    <div className="absolute -bottom-6 -right-6 opacity-10"><TrendingDown className="w-32 h-32 text-white" /></div>
+                </div>
+            </div>
+
+            {/* TABLA DE FLUJO CON DESGLOSE */}
             <div className="space-y-4">
-                <h3 className="text-white font-black text-sm uppercase flex items-center gap-3 px-4 tracking-widest"><Clock className="w-5 h-5 text-indigo-400" /> Flujo Dinámico Anualizado</h3>
+                <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-3 px-4 tracking-widest"><Clock className="w-5 h-5 text-indigo-400" /> Proyección de Flujo de Caja</h3>
                 <div className="space-y-3">
                     {simulation.yearlyData.map(y => {
                         const isProfit = y.netCashFlow >= 0;
                         const isExpanded = expandedYear === y.year;
+                        
+                        // Bar calculation
+                        const maxBar = y.totalExpenses * 1.2;
+                        const fixedPct = (y.fixedCost / maxBar) * 100;
+                        const varPct = (y.variableCost / maxBar) * 100;
+
                         return (
-                            <div key={y.year} className={`bg-white dark:bg-slate-900 rounded-[2.5rem] border transition-all overflow-hidden ${y.isLiquidityCrisis ? 'border-red-500/50' : isExpanded ? 'ring-2 ring-emerald-500 shadow-2xl' : 'border-slate-200 dark:border-slate-800 shadow-sm'}`}>
-                                <button onClick={() => setExpandedYear(isExpanded ? null : y.year)} className="w-full text-left p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white shadow-lg transition-transform ${isExpanded ? 'scale-110 bg-emerald-500' : isProfit ? 'bg-emerald-600' : 'bg-slate-700'}`}>{y.year}</div>
-                                        <div>
-                                            <p className="text-xs font-black text-slate-800 dark:text-white uppercase italic flex items-center gap-2">{y.label}{isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}</p>
-                                            <p className="text-[9px] text-slate-500 font-bold uppercase">Análisis Financiero Detallado</p>
+                            <div key={y.year} className={`bg-white dark:bg-slate-900 rounded-[2.5rem] border transition-all overflow-hidden ${y.isLiquidityCrisis ? 'border-red-500/50' : isExpanded ? 'ring-2 ring-emerald-500 shadow-2xl' : 'border-slate-200 dark:border-slate-700 shadow-sm'}`}>
+                                <button onClick={() => setExpandedYear(isExpanded ? null : y.year)} className="w-full text-left p-6 flex flex-col gap-4">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white shadow-lg transition-transform ${isExpanded ? 'scale-110 bg-emerald-500' : isProfit ? 'bg-emerald-600' : 'bg-slate-700'}`}>{y.year}</div>
+                                            <div>
+                                                <p className="text-xs font-black text-slate-800 dark:text-white uppercase italic flex items-center gap-2">{y.label}{isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}</p>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase">Costo @: {formatCurrency(y.costPerCarga)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-xl font-black font-mono leading-none ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>{isProfit ? '+' : ''}{formatCurrency(y.netCashFlow)}</p>
+                                            <p className={`text-[9px] font-black uppercase mt-1 ${y.marginPercent < 15 ? 'text-red-400' : 'text-slate-500'}`}>Margen: {y.marginPercent.toFixed(1)}%</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className={`text-2xl font-black font-mono leading-none ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>{isProfit ? '+' : ''}{formatCurrency(y.netCashFlow)}</p>
-                                        <p className={`text-[9px] font-black uppercase mt-1 ${y.isLiquidityCrisis ? 'text-red-500' : 'text-slate-500'}`}>{y.isLiquidityCrisis ? 'RIESGO DE CAJA' : 'Caja Neta del Año'}</p>
+
+                                    {/* VISUALIZACIÓN DE COSTOS APILADOS */}
+                                    <div className="w-full h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex relative">
+                                        <div className="h-full bg-blue-500" style={{ width: `${fixedPct}%` }}></div>
+                                        <div className="h-full bg-red-500" style={{ width: `${varPct}%` }}></div>
+                                        {/* Legend inside bar if expanded */}
+                                        {isExpanded && (
+                                            <div className="absolute inset-0 flex justify-between px-2 items-center text-[8px] font-black text-white uppercase pointer-events-none">
+                                                <span>Fijo</span>
+                                                <span>Recolección</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </button>
+
                                 {isExpanded && (
                                     <div className="px-6 pb-6 pt-2 bg-slate-50 dark:bg-slate-950/50 animate-fade-in-down">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">
-                                            <div className="space-y-3">
-                                                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2"><Plus className="w-3 h-3"/> Proyección Ingresos</h4>
-                                                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
-                                                    <div className="flex justify-between text-xs"><span className="text-slate-500">Cosecha Estimada:</span><span className="font-bold text-slate-800 dark:text-white">{Math.round(y.totalProductionKg).toLocaleString()} Kg</span></div>
-                                                    <div className="flex justify-between text-sm"><span className="font-black text-slate-400">TOTAL BRUTO:</span><span className="font-black text-emerald-500">{formatCurrency(y.totalIncome)}</span></div>
-                                                </div>
+                                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                            <div>
+                                                <p className="text-[9px] font-black text-blue-500 uppercase">Costos Fijos (IPC)</p>
+                                                <p className="text-sm font-mono font-bold text-slate-700 dark:text-white">{formatCurrency(y.fixedCost)}</p>
                                             </div>
-                                            <div className="space-y-3">
-                                                <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2"><Minus className="w-3 h-3"/> Costos de Operación</h4>
-                                                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-1">
-                                                    <div className="flex justify-between text-[10px]"><span className="text-slate-500 font-bold">Recolección ({useAssistedHarvest ? 'Asistida':'Manual'}):</span><span className="font-bold text-red-500">-{formatCurrency(y.harvestCost)}</span></div>
-                                                    <div className="flex justify-between text-[10px]"><span className="text-slate-500">Arvenses ({useMIA ? 'MIA':'Conv.'}):</span><span className="font-bold text-red-500">-{formatCurrency(y.arvensesCost)}</span></div>
-                                                    {y.capex > 0 && <div className="flex justify-between text-[10px]"><span className="text-amber-500 font-bold">CAPEX {y.year === 1 && producedInFinca ? '(Almácigo Finca)' : ''}:</span><span className="font-bold text-amber-500">-{formatCurrency(y.capex)}</span></div>}
-                                                    <div className="h-px bg-slate-100 dark:bg-slate-800 my-1"></div>
-                                                    <div className="flex justify-between text-sm"><span className="font-black text-slate-400">TOTAL COSTOS:</span><span className="font-black text-red-500">{formatCurrency(y.totalExpenses)}</span></div>
-                                                </div>
+                                            <div className="text-right">
+                                                <p className="text-[9px] font-black text-red-500 uppercase">Costo Recolección (M.O)</p>
+                                                <p className="text-sm font-mono font-bold text-slate-700 dark:text-white">{formatCurrency(y.variableCost)}</p>
                                             </div>
                                         </div>
-                                        <div className={`mt-4 p-4 rounded-2xl border text-center ${y.isLiquidityCrisis ? 'bg-red-900/10 border-red-500/30' : 'bg-indigo-900/10 border-indigo-500/10'}`}>
-                                            <p className={`text-[10px] font-bold uppercase italic ${y.isLiquidityCrisis ? 'text-red-400' : 'text-indigo-400'}`}>* Capital proyectado acumulado: {formatCurrency(y.cumulativeFlow)}</p>
+                                        <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-500/20 text-center">
+                                            <p className="text-[10px] text-indigo-500 font-black uppercase">Ingreso Total (Prod: {Math.round(y.totalProductionKg).toLocaleString()} Kg)</p>
+                                            <p className="text-lg font-black text-indigo-700 dark:text-indigo-300 font-mono">{formatCurrency(y.totalIncome)}</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         );
                     })}
+                </div>
+            </div>
+
+            {/* ANÁLISIS DE SENSIBILIDAD (STRESS TEST) */}
+            <div className="bg-slate-900 rounded-[2.5rem] border border-slate-800 p-6 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="bg-orange-500/20 p-2.5 rounded-xl border border-orange-500/30">
+                        <AlertOctagon className="w-6 h-6 text-orange-500" />
+                    </div>
+                    <div>
+                        <h4 className="text-white font-black text-lg uppercase tracking-tight">Análisis de Sensibilidad</h4>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Escenarios para el Año 5 (Pico)</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {simulation.sensitivity.map((scenario, index) => (
+                        <div key={index} className={`p-5 rounded-3xl border transition-all ${scenario.margin >= 0 ? 'bg-slate-950 border-slate-800' : 'bg-red-950/20 border-red-500/30'}`}>
+                            <div className="flex justify-between items-start mb-4">
+                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg border ${scenario.margin >= 0 ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-red-900 border-red-500 text-red-400'}`}>
+                                    {scenario.label}
+                                </span>
+                                <scenario.icon className={`w-5 h-5 ${scenario.color}`} />
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs text-slate-500 font-bold uppercase">
+                                    <span>Ventas:</span>
+                                    <span className="text-slate-300">{formatCurrency(scenario.price)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-500 font-bold uppercase">
+                                    <span>Costos:</span>
+                                    <span className="text-slate-300">{formatCurrency(scenario.cost)}</span>
+                                </div>
+                                <div className="h-px bg-slate-800 my-2"></div>
+                                <div>
+                                    <p className="text-[9px] text-slate-500 font-black uppercase mb-1">Margen Neto</p>
+                                    <p className={`text-xl font-black font-mono ${scenario.margin >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                        {formatCurrency(scenario.margin)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex gap-4 items-start">
+                    <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                        El <strong>Escenario Pesimista</strong> asume una caída del 15% en el precio del café y un aumento adicional del 5% en costos laborales sobre la inflación. Si el margen es negativo, el proyecto tiene alto riesgo financiero.
+                    </p>
                 </div>
             </div>
         </div>

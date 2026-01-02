@@ -20,6 +20,8 @@ export enum Unit {
   UNIDAD = 'Unidad'
 }
 
+export type ContractType = 'FIJO' | 'INDEFINIDO' | 'OBRA_LABOR' | 'APRENDIZAJE' | 'PRESTACION_SERVICIOS' | 'OCASIONAL';
+
 export interface User {
   id: string;
   name: string;
@@ -319,6 +321,11 @@ export interface Personnel {
   arl?: boolean;
   birthDate?: string;
   disability?: string;
+  
+  // Labor Compliance
+  contractType?: ContractType;
+  contractStartDate?: string;
+  contractEndDate?: string;
 }
 
 export interface Supplier { id: string; warehouseId: string; name: string; phone?: string; email?: string; address?: string; }

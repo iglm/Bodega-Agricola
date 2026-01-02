@@ -13,7 +13,7 @@ export const Notification: React.FC<NotificationProps> = ({ message, type, onClo
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 4000); // Auto-dismiss after 4 seconds
+    }, 5000); // Increased time for better readability
 
     return () => clearTimeout(timer);
   }, [onClose]);
@@ -21,20 +21,20 @@ export const Notification: React.FC<NotificationProps> = ({ message, type, onClo
   const isSuccess = type === 'success';
 
   return (
-    <div className={`fixed top-5 right-5 z-[200] w-full max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 animate-fade-in-down
+    <div className={`fixed top-6 right-0 left-0 mx-auto z-[200] w-[90%] max-w-md p-5 rounded-3xl shadow-2xl border-2 flex items-center gap-5 animate-fade-in-down transform transition-all
       ${isSuccess 
-        ? 'bg-emerald-600 border-emerald-500 text-white' 
-        : 'bg-red-600 border-red-500 text-white'}`
+        ? 'bg-emerald-900/95 border-emerald-400 text-white backdrop-blur-md' 
+        : 'bg-red-900/95 border-red-400 text-white backdrop-blur-md'}`
     }>
-      <div className="shrink-0 pt-1">
-        {isSuccess ? <CheckCircle className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
+      <div className={`shrink-0 p-2 rounded-full ${isSuccess ? 'bg-emerald-500' : 'bg-red-500'}`}>
+        {isSuccess ? <CheckCircle className="w-8 h-8 text-white" /> : <AlertTriangle className="w-8 h-8 text-white" />}
       </div>
       <div className="flex-1">
-        <p className="font-black text-sm">{isSuccess ? 'Éxito' : 'Error'}</p>
-        <p className="text-xs mt-1">{message}</p>
+        <p className="font-black text-lg uppercase tracking-wide">{isSuccess ? '¡Excelente!' : 'Atención'}</p>
+        <p className="text-base font-medium mt-1 leading-snug">{message}</p>
       </div>
-      <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition-colors">
-        <X className="w-5 h-5" />
+      <button onClick={onClose} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors active:scale-95">
+        <X className="w-6 h-6" />
       </button>
     </div>
   );

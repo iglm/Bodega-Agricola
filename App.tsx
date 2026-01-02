@@ -1,19 +1,15 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider, useData } from './contexts/DataContext';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext';
 import { MainLayout } from './layouts/MainLayout';
-import { Notification } from './components/Notification';
 
 const AppContent = () => {
   const { isDataLoaded } = useData();
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-      setNotification({ message, type });
-  };
+  const { showNotification } = useNotification();
 
   if (!isDataLoaded) {
       return (
@@ -25,23 +21,19 @@ const AppContent = () => {
   }
 
   return (
-    <>
-      {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-      <MainLayout onShowNotification={showNotification} />
-    </>
+    <MainLayout onShowNotification={showNotification} />
   );
 };
 
 function App() {
-  const [tempNotification, setTempNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  
   return (
     <ThemeProvider>
       <AuthProvider>
-        <DataProvider notify={(msg, type) => setTempNotification({message: msg, type})}>
-           {tempNotification && <Notification message={tempNotification.message} type={tempNotification.type} onClose={() => setTempNotification(null)} />}
-           <AppContent />
-        </DataProvider>
+        <NotificationProvider>
+          <DataProvider>
+             <AppContent />
+          </DataProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

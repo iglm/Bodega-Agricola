@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { LaborLog, Personnel } from '../types';
 import { formatCurrency } from '../services/inventoryService';
 import { generatePaymentReceipt } from '../services/reportService';
-import { X, CheckCircle, AlertTriangle, Printer, Wallet, UserCheck, Loader2, ShieldCheck, Scale, Briefcase } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, Printer, Wallet, UserCheck, Loader2, ShieldCheck, Scale, Briefcase, FileText } from 'lucide-react';
 
 interface PayrollModalProps {
   logs: LaborLog[];
@@ -28,18 +28,32 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
     return debt;
   }, [unpaidLogs]);
 
-  const totalGlobalDebtBase = (Object.values(debtByPerson) as number[]).reduce((a, b) => a + b, 0);
-  const totalGlobalDebtReal = totalGlobalDebtBase * laborFactor;
+  // CÁLCULO DE DEUDA GLOBAL INTELIGENTE
+  // Suma el costo real individualmente dependiendo del tipo de contrato de cada persona
+  const totalGlobalDebtReal = useMemo(() => {
+    return Object.entries(debtByPerson).reduce((acc, [personId, amount]) => {
+        const person = personnel.find(p => p.id === personId);
+        // Si es Prestación de Servicios, el factor es 1.0 (Sin carga prestacional empresa)
+        // Si es Laboral u otro, aplica el factor configurado (ej: 1.52)
+        const factor = person?.contractType === 'PRESTACION_SERVICIOS' ? 1.0 : laborFactor;
+        return acc + (amount * factor);
+    }, 0);
+  }, [debtByPerson, personnel, laborFactor]);
 
   const selectedLogs = useMemo(() => {
       return unpaidLogs.filter(l => l.personnelId === selectedPersonId).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [unpaidLogs, selectedPersonId]);
 
-  const totalSelectedBase = selectedLogs.reduce((acc, l) => acc + l.value, 0);
-  const totalSelectedReal = totalSelectedBase * laborFactor;
-  const provicionesSociales = totalSelectedReal - totalSelectedBase;
+  // LÓGICA INDIVIDUAL
+  const selectedPerson = personnel.find(p => p.id === selectedPersonId);
+  const selectedPersonName = selectedPerson?.name || 'Desconocido';
+  
+  const isServiceContract = selectedPerson?.contractType === 'PRESTACION_SERVICIOS';
+  const effectiveFactor = isServiceContract ? 1.0 : laborFactor;
 
-  const selectedPersonName = personnel.find(p => p.id === selectedPersonId)?.name || 'Desconocido';
+  const totalSelectedBase = selectedLogs.reduce((acc, l) => acc + l.value, 0);
+  const totalSelectedReal = totalSelectedBase * effectiveFactor;
+  const provicionesSociales = totalSelectedReal - totalSelectedBase;
 
   const handlePay = async () => {
     if (!selectedPersonId || selectedLogs.length === 0) return;
@@ -84,10 +98,10 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
             
             <div className="w-full md:w-80 bg-slate-900/50 border-r border-slate-700 overflow-y-auto custom-scrollbar p-4 space-y-4">
                 <div className="p-5 bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 shadow-xl">
-                    <p className="text-[10px] text-slate-400 uppercase font-black mb-1">Costo Total Real (Empresa)</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-black mb-1">Pasivo Laboral Total (Real)</p>
                     <p className="text-2xl font-mono font-black text-white">{formatCurrency(totalGlobalDebtReal)}</p>
-                    <div className={`mt-2 flex items-center gap-2 text-[9px] font-bold px-2 py-1 rounded-lg ${laborFactor > 1 ? 'text-emerald-400 bg-emerald-900/20' : 'text-amber-400 bg-amber-900/20'}`}>
-                        <ShieldCheck className="w-3 h-3" /> Factor Laboral {laborFactor} Activo
+                    <div className="mt-2 flex items-center gap-2 text-[9px] font-bold px-2 py-1 rounded-lg text-slate-400 bg-slate-800 border border-slate-600">
+                        <Scale className="w-3 h-3" /> Cálculo mixto (Laboral/Servicios)
                     </div>
                 </div>
 
@@ -100,7 +114,9 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {personnel.filter(p => ((debtByPerson[p.id] as number) || 0) > 0).map(p => (
+                        {personnel.filter(p => ((debtByPerson[p.id] as number) || 0) > 0).map(p => {
+                            const isPS = p.contractType === 'PRESTACION_SERVICIOS';
+                            return (
                                 <button
                                     key={p.id}
                                     onClick={() => setSelectedPersonId(p.id)}
@@ -110,9 +126,13 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                                         <span className={`font-black text-sm ${selectedPersonId === p.id ? 'text-white' : 'text-slate-200'}`}>{p.name}</span>
                                         <span className={`font-mono text-xs font-black ${selectedPersonId === p.id ? 'text-emerald-100' : 'text-emerald-500'}`}>{formatCurrency(debtByPerson[p.id])}</span>
                                     </div>
-                                    <p className={`text-[9px] font-bold uppercase ${selectedPersonId === p.id ? 'text-emerald-200' : 'text-slate-500'}`}>{unpaidLogs.filter(l => l.personnelId === p.id).length} Jornales por liquidar</p>
+                                    <div className="flex justify-between items-center">
+                                        <p className={`text-[9px] font-bold uppercase ${selectedPersonId === p.id ? 'text-emerald-200' : 'text-slate-500'}`}>{unpaidLogs.filter(l => l.personnelId === p.id).length} Regs.</p>
+                                        {isPS && <span className={`text-[8px] font-black px-1.5 rounded uppercase ${selectedPersonId === p.id ? 'bg-emerald-800 text-emerald-200' : 'bg-slate-700 text-slate-400'}`}>OPS</span>}
+                                    </div>
                                 </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -123,21 +143,28 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                         <div className="flex justify-between items-start mb-6">
                             <div>
                                 <h4 className="text-white font-black text-2xl flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-sm">{selectedPersonName[0]}</div>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm ${isServiceContract ? 'bg-indigo-600' : 'bg-blue-600'}`}>{selectedPersonName[0]}</div>
                                     {selectedPersonName}
                                 </h4>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Liquidación Consolidada</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border ${isServiceContract ? 'bg-indigo-900/30 border-indigo-500 text-indigo-400' : 'bg-blue-900/30 border-blue-500 text-blue-400'}`}>
+                                        {isServiceContract ? 'Prestación de Servicios' : 'Contrato Laboral'}
+                                    </span>
+                                    {selectedPerson?.contractEndDate && <span className="text-[10px] text-slate-500">Vence: {selectedPerson.contractEndDate}</span>}
+                                </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 mb-6">
                             <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
-                                <p className="text-[9px] text-slate-500 font-black uppercase mb-1">Valor Pagado (Neto)</p>
+                                <p className="text-[9px] text-slate-500 font-black uppercase mb-1">Total a Pagar (Neto)</p>
                                 <p className="text-lg font-black text-slate-300 font-mono">{formatCurrency(totalSelectedBase)}</p>
                             </div>
-                            <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
-                                <p className="text-[9px] text-indigo-400 font-black uppercase mb-1">Carga Social / Prest.</p>
-                                <p className={`text-lg font-black font-mono ${laborFactor > 1 ? 'text-indigo-400' : 'text-slate-600'}`}>+{formatCurrency(provicionesSociales)}</p>
+                            <div className={`bg-slate-900/50 p-4 rounded-2xl border ${isServiceContract ? 'border-slate-800' : 'border-slate-700'}`}>
+                                <p className={`text-[9px] font-black uppercase mb-1 ${isServiceContract ? 'text-slate-600' : 'text-indigo-400'}`}>Carga Social / Prest.</p>
+                                <p className={`text-lg font-black font-mono ${isServiceContract ? 'text-slate-600' : 'text-indigo-400'}`}>
+                                    {isServiceContract ? 'N/A (Honorarios)' : `+${formatCurrency(provicionesSociales)}`}
+                                </p>
                             </div>
                             <div className="bg-emerald-900/20 p-4 rounded-2xl border border-emerald-500/30">
                                 <p className="text-[9px] text-emerald-500 font-black uppercase mb-1">Costo Real Finca</p>
@@ -166,11 +193,18 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-amber-900/10 p-4 rounded-2xl border border-amber-700/30 flex gap-4 items-center">
-                                <AlertTriangle className="w-8 h-8 text-amber-500 shrink-0" />
+                            <div className={`p-4 rounded-2xl border flex gap-4 items-center ${isServiceContract ? 'bg-indigo-900/10 border-indigo-700/30' : 'bg-amber-900/10 border-amber-700/30'}`}>
+                                {isServiceContract ? <FileText className="w-8 h-8 text-indigo-500 shrink-0" /> : <AlertTriangle className="w-8 h-8 text-amber-500 shrink-0" />}
                                 <div className="text-[10px]">
-                                    <p className="text-amber-400 font-black uppercase">Información de Pago</p>
-                                    <p className="text-slate-400">Factor {laborFactor} aplicado. {laborFactor > 1 ? 'Cálculo incluye provisiones legales del CST.' : 'Registro basado únicamente en el valor pactado informalmente.'}</p>
+                                    <p className={`font-black uppercase ${isServiceContract ? 'text-indigo-400' : 'text-amber-400'}`}>
+                                        {isServiceContract ? 'Liquidación de Honorarios' : 'Liquidación Laboral'}
+                                    </p>
+                                    <p className="text-slate-400">
+                                        {isServiceContract 
+                                            ? 'Contrato de Prestación de Servicios. El valor pagado cubre la totalidad de la obligación. El contratista asume su Seguridad Social.'
+                                            : `Factor ${laborFactor} aplicado. Incluye provisión de prestaciones sociales según CST.`
+                                        }
+                                    </p>
                                 </div>
                             </div>
                             <button 
