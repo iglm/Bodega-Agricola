@@ -1,0 +1,187 @@
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AppState, CostCenter, InventoryItem, Movement, BudgetPlan, PlannedLabor, Unit } from '../types';
+import { dbService } from '../services/db';
+import { loadDataFromLocalStorage, saveDataToLocalStorage, processInventoryMovement, generateId, getBaseUnitType } from '../services/inventoryService';
+import { getDemoData } from '../services/reportService';
+
+interface DataContextType {
+  data: AppState;
+  setData: React.Dispatch<React.SetStateAction<AppState>>;
+  isDataLoaded: boolean;
+  actions: {
+    loadDemoData: () => void;
+    deleteCostCenter: (id: string) => void;
+    deletePersonnel: (id: string) => void;
+    deleteActivity: (id: string) => void;
+    saveNewItem: (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails?: any, initialUnit?: Unit) => void;
+    addPlannedLabor: (labor: Omit<PlannedLabor, 'id' | 'warehouseId' | 'completed'>) => void;
+    updateCostCenter: (lot: CostCenter) => void;
+    saveBudget: (budget: BudgetPlan) => void;
+  };
+}
+
+const DataContext = createContext<DataContextType | undefined>(undefined);
+
+export const DataProvider: React.FC<{ children: React.ReactNode, notify: (msg: string, type: 'success' | 'error') => void }> = ({ children, notify }) => {
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [data, setData] = useState<AppState>(() => ({
+      warehouses: [], activeWarehouseId: '', inventory: [], movements: [], suppliers: [], costCenters: [], personnel: [], activities: [], laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], assets: [], bpaChecklist: {}, laborFactor: 1.0
+  }));
+
+  // Carga Inicial
+  useEffect(() => {
+    const initData = async () => {
+        try {
+            const savedState = await dbService.loadState();
+            if (savedState && savedState.activeWarehouseId) {
+                setData(savedState);
+            } else {
+                const legacy = loadDataFromLocalStorage();
+                setData(legacy);
+            }
+        } catch (e) {
+            console.error("Error cargando DB local:", e);
+        } finally {
+            setIsDataLoaded(true);
+        }
+    };
+    initData();
+  }, []);
+
+  // Persistencia Automática
+  useEffect(() => {
+    if (!isDataLoaded || !data.activeWarehouseId) return;
+    saveDataToLocalStorage(data);
+    dbService.saveState(data).catch(err => console.warn("Guardado asíncrono:", err));
+  }, [data, isDataLoaded]);
+
+  // --- ACTIONS (Lógica de Negocio e Integridad) ---
+
+  const loadDemoData = () => {
+      const demoData = getDemoData();
+      setData(demoData);
+      notify('Datos de demostración cargados exitosamente.', 'success');
+  };
+
+  const deleteCostCenter = (id: string) => {
+      const deps = {
+          labor: data.laborLogs.filter(l => l.costCenterId === id).length,
+          harvests: data.harvests.filter(h => h.costCenterId === id).length,
+          movements: data.movements.filter(m => m.costCenterId === id).length,
+          planned: (data.plannedLabors || []).filter(p => p.costCenterId === id).length,
+          budgets: (data.budgets || []).filter(b => b.costCenterId === id).length,
+          others: (data.phenologyLogs || []).filter(p => p.costCenterId === id).length + (data.pestLogs || []).filter(p => p.costCenterId === id).length + (data.soilAnalyses || []).filter(s => s.costCenterId === id).length
+      };
+      const totalDeps = Object.values(deps).reduce((a, b) => a + b, 0);
+
+      if (totalDeps > 0) {
+          const message = `⚠️ ALERTA DE INTEGRIDAD:\n\nEste lote tiene ${totalDeps} registros vinculados:\n- ${deps.harvests} Ventas/Cosechas\n- ${deps.labor} Pagos de Nómina\n- ${deps.movements} Insumos Aplicados\n\nPROTOCOLO DE SEGURIDAD:\n1. Los registros financieros NO SE BORRARÁN (se marcan como 'Lote Eliminado').\n2. Las planificaciones futuras SÍ se eliminarán.\n\n¿Confirma la eliminación?`;
+          if (!confirm(message)) return;
+      } else {
+          if (!confirm("¿Está seguro de eliminar este Lote?")) return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          costCenters: prev.costCenters.filter(c => c.id !== id),
+          laborLogs: prev.laborLogs.map(l => l.costCenterId === id ? { ...l, costCenterId: 'deleted', costCenterName: `${l.costCenterName} (Eliminado)` } : l),
+          harvests: prev.harvests.map(h => h.costCenterId === id ? { ...h, costCenterId: 'deleted', costCenterName: `${h.costCenterName} (Eliminado)` } : h),
+          movements: prev.movements.map(m => m.costCenterId === id ? { ...m, costCenterId: undefined, costCenterName: `${m.costCenterName} (Eliminado)` } : m),
+          plannedLabors: (prev.plannedLabors || []).filter(p => p.costCenterId !== id),
+          budgets: (prev.budgets || []).filter(b => b.costCenterId !== id),
+          phenologyLogs: (prev.phenologyLogs || []).filter(p => p.costCenterId !== id),
+          pestLogs: (prev.pestLogs || []).filter(p => p.costCenterId !== id),
+          soilAnalyses: (prev.soilAnalyses || []).filter(s => s.costCenterId !== id)
+      }));
+      notify('Lote eliminado. Integridad financiera preservada.', 'success');
+  };
+
+  const deletePersonnel = (id: string) => {
+      const pendingPay = data.laborLogs.filter(l => l.personnelId === id && !l.paid).length;
+      if (pendingPay > 0) {
+          alert(`⛔ NO SE PUEDE ELIMINAR:\n\nTiene ${pendingPay} pagos pendientes. Liquide la deuda primero.`);
+          return;
+      }
+      const historyCount = data.laborLogs.filter(l => l.personnelId === id).length;
+      if (historyCount > 0) {
+          if (!confirm(`Este trabajador tiene ${historyCount} registros históricos.\n\nSe conservará el historial, pero se eliminará de la lista activa.\n\n¿Proceder?`)) return;
+      } else {
+          if (!confirm("¿Eliminar trabajador?")) return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          personnel: prev.personnel.filter(p => p.id !== id),
+          laborLogs: prev.laborLogs.map(l => l.personnelId === id ? { ...l, personnelId: 'deleted', personnelName: `${l.personnelName} (Retirado)` } : l),
+          movements: prev.movements.map(m => m.personnelId === id ? { ...m, personnelId: undefined, personnelName: `${m.personnelName} (Retirado)` } : m),
+          plannedLabors: (prev.plannedLabors || []).map(p => p.assignedPersonnelIds?.includes(id) ? { ...p, assignedPersonnelIds: p.assignedPersonnelIds.filter(pid => pid !== id) } : p)
+      }));
+      notify('Trabajador retirado correctamente.', 'success');
+  };
+
+  const deleteActivity = (id: string) => {
+      const usage = data.laborLogs.filter(l => l.activityId === id).length;
+      if (usage > 0) {
+          if (!confirm(`Esta labor se usa en ${usage} registros.\n\nSe conservará el historial, pero ya no podrá usarse en nuevos registros.\n\n¿Proceder?`)) return;
+      } else {
+          if (!confirm("¿Eliminar labor?")) return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          activities: prev.activities.filter(a => a.id !== id),
+          laborLogs: prev.laborLogs.map(l => l.activityId === id ? { ...l, activityId: 'deleted', activityName: `${l.activityName} (Obsolescente)` } : l),
+          plannedLabors: (prev.plannedLabors || []).filter(p => p.activityId !== id)
+      }));
+      notify('Labor eliminada del catálogo.', 'success');
+  };
+
+  const saveNewItem = (item: any, initialQuantity: number, initialMovementDetails: any, initialUnit?: Unit) => {
+      const baseUnit = getBaseUnitType(item.lastPurchaseUnit);
+      const newItem: InventoryItem = { ...item, id: generateId(), warehouseId: data.activeWarehouseId, baseUnit: baseUnit, currentQuantity: 0, averageCost: 0 };
+      let updatedInventory = [...data.inventory, newItem];
+      let newMovements = [...data.movements];
+      if (initialQuantity > 0 && initialUnit) {
+          const initialMovement: Omit<Movement, 'id' | 'date' | 'warehouseId'> = { itemId: newItem.id, itemName: newItem.name, type: 'IN', quantity: initialQuantity, unit: initialUnit, calculatedCost: 0, supplierId: initialMovementDetails?.supplierId, supplierName: data.suppliers.find(s => s.id === initialMovementDetails?.supplierId)?.name, invoiceNumber: initialMovementDetails?.invoiceNumber, invoiceImage: initialMovementDetails?.invoiceImage, notes: 'Saldo inicial' };
+          const { updatedInventory: invWithMovement, movementCost } = processInventoryMovement(updatedInventory, initialMovement, item.lastPurchasePrice, item.expirationDate);
+          updatedInventory = invWithMovement;
+          const completeMovement: Movement = { ...initialMovement, id: generateId(), warehouseId: data.activeWarehouseId, date: new Date().toISOString(), calculatedCost: movementCost };
+          newMovements = [completeMovement, ...newMovements];
+      }
+      setData(prev => ({ ...prev, inventory: updatedInventory, movements: newMovements }));
+      notify('Producto creado correctamente.', 'success');
+  };
+
+  const addPlannedLabor = (labor: any) => {
+      setData(prev => ({ ...prev, plannedLabors: [...(prev.plannedLabors || []), { ...labor, id: generateId(), warehouseId: data.activeWarehouseId, completed: false }] }));
+      notify('Labor programada.', 'success');
+  };
+
+  const updateCostCenter = (updatedLot: CostCenter) => {
+      setData(prev => ({ ...prev, costCenters: prev.costCenters.map(c => c.id === updatedLot.id ? updatedLot : c) }));
+      notify('Lote actualizado.', 'success');
+  };
+
+  const saveBudget = (budget: BudgetPlan) => {
+      setData(prev => {
+          const exists = prev.budgets?.find(b => b.id === budget.id);
+          let newBudgets = prev.budgets || [];
+          if (exists) { newBudgets = newBudgets.map(b => b.id === budget.id ? budget : b); } else { newBudgets = [...newBudgets, budget]; }
+          return { ...prev, budgets: newBudgets };
+      });
+      notify('Presupuesto guardado.', 'success');
+  };
+
+  return (
+    <DataContext.Provider value={{ data, setData, isDataLoaded, actions: { loadDemoData, deleteCostCenter, deletePersonnel, deleteActivity, saveNewItem, addPlannedLabor, updateCostCenter, saveBudget } }}>
+      {children}
+    </DataContext.Provider>
+  );
+};
+
+export const useData = () => {
+  const context = useContext(DataContext);
+  if (!context) throw new Error('useData must be used within a DataProvider');
+  return context;
+};
