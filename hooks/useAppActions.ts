@@ -1,6 +1,6 @@
 
-import { Dispatch, SetStateAction } from 'react';
-import { AppState, InventoryItem, Movement, Unit, PlannedLabor, CostCenter, BudgetPlan, InitialMovementDetails } from '../types';
+import { Dispatch, SetStateAction, useCallback, useMemo } from 'react';
+import { AppState, InventoryItem, Movement, Unit, PlannedLabor, CostCenter, BudgetPlan, InitialMovementDetails, ContractType } from '../types';
 import { processInventoryMovement, generateId, getBaseUnitType, convertToBase } from '../services/inventoryService';
 import { getDemoData } from '../services/reportService';
 
@@ -10,13 +10,15 @@ export const useAppActions = (
   notify: (msg: string, type: 'success' | 'error') => void
 ) => {
 
-  const loadDemoData = () => {
+  const loadDemoData = useCallback(() => {
     const demoData = getDemoData();
     setData(demoData);
     notify('Datos de demostración cargados exitosamente.', 'success');
-  };
+  }, [setData, notify]);
 
-  const deleteCostCenter = (id: string) => {
+  const deleteCostCenter = useCallback((id: string) => {
+    // We need the latest data for validation, so we can't remove 'data' dependency 
+    // unless we use a ref, but standard pattern is acceptable here as data changes imply UI updates anyway.
     const deps = {
       labor: data.laborLogs.filter(l => l.costCenterId === id).length,
       harvests: data.harvests.filter(h => h.costCenterId === id).length,
@@ -49,9 +51,9 @@ export const useAppActions = (
       soilAnalyses: (prev.soilAnalyses || []).filter(s => s.costCenterId !== id)
     }));
     notify('Lote eliminado. Integridad financiera preservada.', 'success');
-  };
+  }, [data, setData, notify]);
 
-  const deletePersonnel = (id: string) => {
+  const deletePersonnel = useCallback((id: string) => {
     const pendingPay = data.laborLogs.filter(l => l.personnelId === id && !l.paid).length;
     if (pendingPay > 0) {
       alert(`⛔ NO SE PUEDE ELIMINAR:\n\nTiene ${pendingPay} pagos pendientes. Liquide la deuda primero.`);
@@ -72,9 +74,9 @@ export const useAppActions = (
       plannedLabors: (prev.plannedLabors || []).map(p => p.assignedPersonnelIds?.includes(id) ? { ...p, assignedPersonnelIds: p.assignedPersonnelIds.filter(pid => pid !== id) } : p)
     }));
     notify('Trabajador retirado correctamente.', 'success');
-  };
+  }, [data, setData, notify]);
 
-  const deleteActivity = (id: string) => {
+  const deleteActivity = useCallback((id: string) => {
     const usage = data.laborLogs.filter(l => l.activityId === id).length;
     if (usage > 0) {
       if (!confirm(`Esta labor se usa en ${usage} registros.\n\nSe conservará el historial, pero ya no podrá usarse en nuevos registros.\n\n¿Proceder?`)) return;
@@ -89,13 +91,13 @@ export const useAppActions = (
       plannedLabors: (prev.plannedLabors || []).filter(p => p.activityId !== id)
     }));
     notify('Labor eliminada del catálogo.', 'success');
-  };
+  }, [data, setData, notify]);
 
-  const saveNewItem = (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails: InitialMovementDetails | undefined, initialUnit?: Unit) => {
+  const saveNewItem = useCallback((item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails: InitialMovementDetails | undefined, initialUnit?: Unit) => {
     const baseUnit = getBaseUnitType(item.lastPurchaseUnit);
     const newItem: InventoryItem = { ...item, id: generateId(), warehouseId: data.activeWarehouseId, baseUnit: baseUnit, currentQuantity: 0, averageCost: 0 };
     
-    // Usamos el estado actual para calcular, pero el setter para actualizar
+    // Using current data state for calculation logic
     let updatedInventory = [...data.inventory, newItem];
     let newMovements = [...data.movements];
     
@@ -114,7 +116,6 @@ export const useAppActions = (
         notes: 'Saldo inicial' 
       };
       
-      // Lógica de Ajuste de Precio por Discrepancia de Unidades
       let adjustedPrice = item.lastPurchasePrice;
       if (initialUnit !== item.lastPurchaseUnit) {
           const pricePerBase = item.lastPurchasePrice / convertToBase(1, item.lastPurchaseUnit);
@@ -136,25 +137,25 @@ export const useAppActions = (
 
     setData(prev => ({ ...prev, inventory: updatedInventory, movements: newMovements }));
     notify('Producto creado correctamente.', 'success');
-  };
+  }, [data, setData, notify]);
 
-  const addPlannedLabor = (labor: any) => {
+  const addPlannedLabor = useCallback((labor: any) => {
     setData(prev => ({ 
       ...prev, 
       plannedLabors: [...(prev.plannedLabors || []), { ...labor, id: generateId(), warehouseId: data.activeWarehouseId, completed: false }] 
     }));
     notify('Labor programada.', 'success');
-  };
+  }, [data.activeWarehouseId, setData, notify]);
 
-  const updateCostCenter = (updatedLot: CostCenter) => {
+  const updateCostCenter = useCallback((updatedLot: CostCenter) => {
     setData(prev => ({ 
       ...prev, 
       costCenters: prev.costCenters.map(c => c.id === updatedLot.id ? updatedLot : c) 
     }));
     notify('Lote actualizado.', 'success');
-  };
+  }, [setData, notify]);
 
-  const saveBudget = (budget: BudgetPlan) => {
+  const saveBudget = useCallback((budget: BudgetPlan) => {
     setData(prev => {
       const exists = prev.budgets?.find(b => b.id === budget.id);
       let newBudgets = prev.budgets || [];
@@ -166,9 +167,10 @@ export const useAppActions = (
       return { ...prev, budgets: newBudgets };
     });
     notify('Presupuesto guardado.', 'success');
-  };
+  }, [setData, notify]);
 
-  return {
+  // Memoize the return object so it remains stable if dependencies haven't changed
+  return useMemo(() => ({
     loadDemoData,
     deleteCostCenter,
     deletePersonnel,
@@ -177,5 +179,5 @@ export const useAppActions = (
     addPlannedLabor,
     updateCostCenter,
     saveBudget
-  };
+  }), [loadDemoData, deleteCostCenter, deletePersonnel, deleteActivity, saveNewItem, addPlannedLabor, updateCostCenter, saveBudget]);
 };
