@@ -5,6 +5,43 @@ import * as XLSX from 'xlsx';
 import { AppState, LaborLog, HarvestLog, Movement, InventoryItem, Unit, Category, CostCenter, Personnel, Activity, PhenologyLog, PestLog, Machine, Asset, MaintenanceLog, RainLog, FinanceLog, SoilAnalysis, PPELog, WasteLog, AgendaEvent, CostClassification, Warehouse, PlannedLabor, Supplier, BudgetPlan, BudgetItem } from '../types';
 import { formatCurrency, generateId, convertToBase, getBaseUnitType, processInventoryMovement, parseNumberInput } from './inventoryService';
 
+// --- TYPE DEFINITIONS FOR ROBUSTNESS ---
+
+// Extensión de tipo para soportar la propiedad inyectada por jspdf-autotable de forma segura
+interface JsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: {
+    finalY: number;
+  };
+}
+
+// Interfaces específicas para el reporte de simulación (antes eran any)
+interface SimulationYear {
+  year: number;
+  label: string;
+  totalIncome: number;
+  totalExpenses: number;
+  netCashFlow: number;
+}
+
+interface SimulationData {
+  initCap: number;
+  vpn: number;
+  roi: number;
+  paybackYear: number | null;
+  totalCapex: number;
+  yearlyData: SimulationYear[];
+}
+
+interface SimulationParams {
+  varietyLabel: string;
+  numTrees: number;
+  density: number;
+  marketPrice: string | number;
+  harvestCostKg: string | number;
+  techLabel?: string;
+  qualityFactor?: number;
+}
+
 const BRAND_COLORS = {
     primary: [5, 150, 105] as [number, number, number], 
     slate: [15, 23, 42] as [number, number, number],   
@@ -120,7 +157,8 @@ export const generateAgronomicDossier = (data: AppState) => {
         body: data.rainLogs.map(r => [r.date.split('T')[0], `${r.millimeters} mm`]),
     });
     
-    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    // Type casting to custom interface for type safety
+    const nextY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
     doc.text("Monitoreo de Plagas y Enfermedades", 14, nextY);
     autoTable(doc, {
         startY: nextY + 5,
@@ -205,7 +243,8 @@ export const generateSafetyReport = (data: AppState) => {
         body: data.ppeLogs.map(p => [p.date.split('T')[0], p.personnelName, p.items.join(', ')]),
     });
     
-    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    // Type casting to custom interface for type safety
+    const nextY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
     doc.text("Gestión de Residuos y Triple Lavado", 14, nextY);
     autoTable(doc, {
         startY: nextY + 5,
@@ -257,7 +296,8 @@ export const generateFieldTemplates = (data: AppState) => {
             }
         });
 
-        const finalY = (doc as any).lastAutoTable.finalY + 15;
+        // Type casting to custom interface for type safety
+        const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
         if (finalY < 270) {
             doc.setDrawColor(200);
             doc.line(14, finalY, 80, finalY);
@@ -317,7 +357,8 @@ export const generatePaymentReceipt = (personName: string, logs: LaborLog[], war
         headStyles: { fillColor: BRAND_COLORS.primary }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 30;
+    // Type casting to custom interface for type safety
+    const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 30;
     doc.line(20, finalY, 90, finalY);
     doc.text("Firma del Trabajador", 20, finalY + 5);
     doc.text(`CC: _________________`, 20, finalY + 12);
@@ -368,7 +409,7 @@ export const generateManualPDF = () => {
     doc.save(`MANUAL_TECNICO_DATOSFINCA_VIVA_${new Date().getFullYear()}.pdf`);
 };
 
-export const generateSimulationPDF = (simulation: any, params: any) => {
+export const generateSimulationPDF = (simulation: SimulationData, params: SimulationParams) => {
     const doc = new jsPDF();
     let y = addHeader(doc, "Simulación de Rentabilidad", "Proyección Financiera a 6 Años", "Planificación Estratégica", BRAND_COLORS.purple);
     
@@ -381,18 +422,21 @@ export const generateSimulationPDF = (simulation: any, params: any) => {
         head: [['Parámetro', 'Valor']],
         body: [
             ['Variedad/Estrategia', params.varietyLabel],
+            ['Referente Técnico', params.techLabel || 'N/A'],
             ['Árboles Totales', params.numTrees.toLocaleString()],
             ['Densidad (árb/Ha)', params.density.toLocaleString()],
             ['Área Total (Ha)', (params.numTrees / params.density).toFixed(2)],
             ['Precio Mercado (@)', formatCurrency(parseNumberInput(params.marketPrice))],
-            ['Costo Cosecha (Kg)', formatCurrency(parseFloat(params.harvestCostKg))],
+            ['Costo Cosecha (Kg)', formatCurrency(parseNumberInput(params.harvestCostKg))],
+            ['Factor Calidad', params.qualityFactor || '94'],
             ['Capital Inicial', formatCurrency(simulation.initCap)]
         ],
         theme: 'striped',
         headStyles: { fillColor: BRAND_COLORS.purple }
     });
 
-    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    // Type casting to custom interface for type safety
+    const nextY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
     doc.text("Resultados Financieros (KPIs)", 14, nextY);
     autoTable(doc, {
         startY: nextY + 5,
@@ -413,7 +457,7 @@ export const generateSimulationPDF = (simulation: any, params: any) => {
     autoTable(doc, {
         startY: y,
         head: [['Año', 'Hito', 'Ingresos', 'Costos', 'Flujo Neto']],
-        body: simulation.yearlyData.map((y: any) => [
+        body: simulation.yearlyData.map((y: SimulationYear) => [
             y.year,
             y.label,
             formatCurrency(y.totalIncome),

@@ -3,7 +3,20 @@ import { InventoryItem, Movement, Unit, AppState } from '../types';
 
 const STORAGE_KEY = 'agrobodega_pro_v1';
 
-export const generateId = () => Math.random().toString(36).substring(2, 15);
+export const generateId = (): string => {
+  // 1. Prioridad: API Nativa de Alto Rendimiento (Crypto)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  // 2. Fallback Robusto: Generador compatible con UUID v4 (RFC 4122)
+  // Garantiza unicidad estadística incluso en navegadores antiguos
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 const CONVERSION_RATES: Record<string, number> = {
   [Unit.BULTO_50KG]: 50000, [Unit.KILO]: 1000, [Unit.GRAMO]: 1,

@@ -2,10 +2,26 @@ import { GoogleGenAI } from "@google/genai";
 import { AppState } from "../types";
 import { formatCurrency } from "./inventoryService";
 
-// Acceso nativo a variables de entorno via process.env según guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Access API Key via process.env.API_KEY as per guidelines
+const apiKey = process.env.API_KEY;
+
+let ai: GoogleGenAI | null = null;
+
+if (apiKey) {
+    try {
+        ai = new GoogleGenAI({ apiKey });
+    } catch (e) {
+        console.error("Failed to initialize GoogleGenAI client:", e);
+    }
+} else {
+    console.warn("API_KEY is not set in environment variables.");
+}
 
 export const analyzeFincaData = async (data: AppState): Promise<string> => {
+    if (!ai) {
+        return "⚠️ Error de configuración: No se ha detectado la API Key de Gemini (API_KEY). Por favor configure su archivo .env";
+    }
+
     try {
         // Preparamos un resumen compacto para el prompt (Token efficient)
         const inventoryValue = data.inventory.reduce((a, b) => a + (b.currentQuantity * b.averageCost), 0);
