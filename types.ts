@@ -176,6 +176,7 @@ export interface CostCenter {
   activationDate?: string;
   cropAgeMonths?: number;
   associatedCropDensity?: number;
+  associatedCropAge?: number; // New Field for associated crop lifecycle
 }
 
 export interface InventoryItem { 

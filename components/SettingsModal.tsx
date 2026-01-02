@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification } from '../types';
-import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle, Ruler, Sun, CloudSun, AlertCircle } from 'lucide-react';
+import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle, Ruler, Sun, CloudSun, AlertCircle, Flower2, TreePine } from 'lucide-react';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
@@ -14,7 +14,7 @@ interface SettingsModalProps {
   onUpdateState: (data: AppState) => void;
   onAddSupplier: (name: string, phone: string, email: string, address: string) => void;
   onDeleteSupplier: (id: string) => void;
-  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string, cropAgeMonths?: number, associatedCropDensity?: number) => void;
+  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string, cropAgeMonths?: number, associatedCropDensity?: number, associatedCropAge?: number) => void;
   onDeleteCostCenter: (id: string) => void;
   onAddPersonnel?: (person: Omit<Personnel, 'id' | 'warehouseId'>) => void;
   onDeletePersonnel?: (id: string) => void;
@@ -52,13 +52,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [loteStage, setLoteStage] = useState<'Produccion' | 'Levante' | 'Infraestructura'>('Produccion');
   const [lotePlants, setLotePlants] = useState('');
   const [loteCrop, setLoteCrop] = useState('Café');
-  const [associatedCrop, setAssociatedCrop] = useState('');
   const [loteCropAge, setLoteCropAge] = useState('');
+  
+  // ASSOCIATED CROP STATES (NEW)
+  const [associatedCrop, setAssociatedCrop] = useState('');
+  const [associatedCropName, setAssociatedCropName] = useState('');
+  const [associatedCropAge, setAssociatedCropAge] = useState('');
   const [associatedCropDensity, setAssociatedCropDensity] = useState('');
 
   // Distancia de Siembra
   const [distSurco, setDistSurco] = useState('');
   const [distPlanta, setDistPlanta] = useState('');
+
+  // --- HELPER FOR CROP SPECS (SHARED LOGIC) ---
+  const getCropSpecs = (crop: string) => {
+      const isMusaceae = crop === 'Plátano' || crop === 'Banano';
+      
+      if (isMusaceae) {
+        return {
+          label: 'Sitios / Plantas',
+          densityLow: 1000,
+          densityHigh: 3000, 
+          productionAge: 9, 
+          densityUnit: 'Sitios/Ha'
+        };
+      }
+      return {
+        label: 'Árboles',
+        densityLow: 4000,
+        densityHigh: 8000,
+        productionAge: 18,
+        densityUnit: 'Árb/Ha'
+      };
+  };
+
+  const currentSpecs = getCropSpecs(loteCrop);
 
   // Diagnóstico Agronómico Inmediato (Calculado)
   const calculatedDensityPerHa = useMemo(() => {
@@ -80,24 +108,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // --- LOGIC: AUTO STAGE SELECTION BASED ON AGE ---
   useEffect(() => {
       const age = parseInt(loteCropAge) || 0;
-      // Solo aplicar lógica automática si hay un valor, para permitir edición manual si se requiere
       if (loteCropAge !== '') {
-          if (age < 18) {
+          if (age < currentSpecs.productionAge) {
               setLoteStage('Levante');
           } else {
               setLoteStage('Produccion');
           }
       }
-  }, [loteCropAge]);
+  }, [loteCropAge, currentSpecs]);
 
-  // Densidad visual para las alertas (Prioriza el cálculo directo de distancias)
   const displayDensity = calculatedDensityPerHa > 0 
       ? calculatedDensityPerHa 
       : (parseFloat(lotePlants) > 0 && parseFloat(loteArea) > 0 ? parseFloat(lotePlants) / parseFloat(loteArea) : 0);
 
+  // --- MUSACEAE LOGIC ---
+  const getMusaceaeStage = (crop: string, ageStr: string) => {
+      if (crop !== 'Plátano' && crop !== 'Banano') return null;
+      const age = parseInt(ageStr) || 0;
+      if (age <= 6) return { label: 'Vegetativo (Hojas)', color: 'text-blue-400', icon: Sprout };
+      if (age <= 9) return { label: 'Diferenciación (Bellota)', color: 'text-purple-400', icon: Flower2 };
+      return { label: 'Producción (Racimo)', color: 'text-emerald-400', icon: TreePine };
+  };
+
+  const mainCropMusaceaeStage = useMemo(() => getMusaceaeStage(loteCrop, loteCropAge), [loteCrop, loteCropAge]);
+  const assocCropMusaceaeStage = useMemo(() => getMusaceaeStage(associatedCrop, associatedCropAge), [associatedCrop, associatedCropAge]);
+
   const handleAddLote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loteName.trim()) return;
+
+    let finalAssociatedName = associatedCrop;
+    if (associatedCrop === 'Otro') finalAssociatedName = associatedCropName;
+    if (!associatedCrop) finalAssociatedName = '';
+
     onAddCostCenter(
         loteName, 
         loteBudget ? parseNumberInput(loteBudget) : 0,
@@ -105,14 +148,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         loteStage,
         lotePlants ? parseInt(lotePlants) : undefined,
         loteCrop,
-        associatedCrop || undefined,
+        finalAssociatedName || undefined,
         loteCropAge ? parseInt(loteCropAge) : undefined,
-        associatedCropDensity ? parseInt(associatedCropDensity) : undefined
+        associatedCropDensity ? parseInt(associatedCropDensity) : undefined,
+        associatedCropAge ? parseInt(associatedCropAge) : undefined
     );
-    setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); setAssociatedCrop('');
+    setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); 
+    setAssociatedCrop(''); setAssociatedCropName(''); setAssociatedCropAge(''); setAssociatedCropDensity('');
     setDistSurco(''); setDistPlanta('');
     setLoteCropAge('');
-    setAssociatedCropDensity('');
   };
 
   const handleAddSupplier = (e: React.FormEvent) => {
@@ -167,7 +211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeout(() => setFactorSaved(false), 2000);
   };
 
-  const commonCrops = ['Café', 'Cacao', 'Plátano', 'Banano', 'Aguacate', 'Cítricos', 'Maíz', 'Caña', 'Otro'];
+  const commonCrops = ['Café', 'Plátano', 'Banano', 'Otro'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
@@ -213,7 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <form onSubmit={handleAddLote} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
                 <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Lote</h4>
                 
-                {/* OPTIMIZADOR DE DENSIDAD RESTAURADO Y MEJORADO */}
+                {/* OPTIMIZADOR DE DENSIDAD */}
                 <div className="bg-slate-950 p-5 rounded-[2rem] border border-slate-800 space-y-4 shadow-inner">
                     <h5 className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-2 tracking-widest"><Sun className="w-3 h-3"/> Optimizador de Arreglo Espacial</h5>
                     <div className="grid grid-cols-2 gap-4">
@@ -228,18 +272,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     {displayDensity > 0 && (
-                        <div className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${displayDensity < 4500 ? 'bg-red-950/20 border-red-500/30' : displayDensity > 8000 ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-emerald-950/20 border-emerald-500/30'}`}>
-                            <div className={`p-2 rounded-xl ${displayDensity < 4500 ? 'bg-red-600' : displayDensity > 8000 ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
-                                {displayDensity < 4500 ? <AlertTriangle className="w-5 h-5 text-white" /> : displayDensity > 8000 ? <Zap className="w-5 h-5 text-white" /> : <ShieldCheck className="w-5 h-5 text-white" />}
+                        <div className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${displayDensity < currentSpecs.densityLow ? 'bg-red-950/20 border-red-500/30' : displayDensity > currentSpecs.densityHigh ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-emerald-950/20 border-emerald-500/30'}`}>
+                            <div className={`p-2 rounded-xl ${displayDensity < currentSpecs.densityLow ? 'bg-red-600' : displayDensity > currentSpecs.densityHigh ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
+                                {displayDensity < currentSpecs.densityLow ? <AlertTriangle className="w-5 h-5 text-white" /> : displayDensity > currentSpecs.densityHigh ? <Zap className="w-5 h-5 text-white" /> : <ShieldCheck className="w-5 h-5 text-white" />}
                             </div>
                             <div>
-                                <p className={`text-[10px] font-black uppercase ${displayDensity < 4500 ? 'text-red-400' : displayDensity > 8000 ? 'text-indigo-400' : 'text-emerald-400'}`}>
-                                    Densidad: {displayDensity.toLocaleString(undefined, {maximumFractionDigits: 0})} árb/Ha
+                                <p className={`text-[10px] font-black uppercase ${displayDensity < currentSpecs.densityLow ? 'text-red-400' : displayDensity > currentSpecs.densityHigh ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                                    Densidad: {displayDensity.toLocaleString(undefined, {maximumFractionDigits: 0})} {currentSpecs.densityUnit}
                                 </p>
                                 <p className="text-[9px] text-slate-400 leading-tight mt-1">
-                                    {displayDensity < 4500 ? 'Inviabilidad Económica: El árbol no intercepta suficiente luz solar (IAF subóptimo).' : 
-                                     displayDensity > 8000 ? 'Alto Rendimiento: Ciclo de vida corto. Requiere Zoca al 5to año por cierre de calles.' : 
-                                     'Modelo Equilibrado: Recomendado para variedades de porte medio/alto.'}
+                                    {displayDensity < currentSpecs.densityLow ? 'Baja densidad. Desaprovechamiento de área.' : 
+                                     displayDensity > currentSpecs.densityHigh ? 'Alta densidad. Ciclo productivo acelerado.' : 
+                                     'Modelo Equilibrado.'}
                                 </p>
                             </div>
                         </div>
@@ -255,7 +299,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <input type="number" value={loteArea} onChange={e => setLoteArea(e.target.value)} placeholder="0.0" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                   </div>
                   <div className="space-y-1">
-                      <label className="text-[9px] font-black text-indigo-400 uppercase ml-1">Población Total</label>
+                      <label className="text-[9px] font-black text-indigo-400 uppercase ml-1">Población ({currentSpecs.label})</label>
                       <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl p-3 text-sm text-indigo-400 font-bold" readOnly={calculatedDensityPerHa > 0} placeholder="Calculado..." />
                   </div>
                 </div>
@@ -279,19 +323,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <span className={`text-xs font-black px-2 py-1 rounded-lg uppercase ${loteStage === 'Levante' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>{loteStage}</span>
                     </div>
                     <p className="text-[9px] text-slate-500 mt-1">
-                        {parseInt(loteCropAge) < 18 ? 'Menor a 18 meses: Etapa de Inversión.' : 'Mayor a 18 meses: Etapa Productiva.'}
+                        {parseInt(loteCropAge) < currentSpecs.productionAge ? `Menor a ${currentSpecs.productionAge} meses: Etapa de Inversión.` : `Mayor a ${currentSpecs.productionAge} meses: Etapa Productiva.`}
                     </p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Cultivo de Asocio (Sombra)</label>
-                        <input type="text" value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} placeholder="Ej: Plátano" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                {/* DISPLAY MAIN CROP PHYSIOLOGY IF MUSACEAE */}
+                {mainCropMusaceaeStage && (
+                    <div className="bg-indigo-950/20 p-3 rounded-xl border border-indigo-900/50 flex items-center gap-3 animate-slide-up">
+                        <div className={`p-2 rounded-lg bg-slate-900 ${mainCropMusaceaeStage.color}`}><mainCropMusaceaeStage.icon className="w-4 h-4" /></div>
+                        <div>
+                            <p className={`text-[10px] font-black uppercase ${mainCropMusaceaeStage.color}`}>{mainCropMusaceaeStage.label}</p>
+                            <p className="text-[9px] text-slate-500">Ciclo fenológico principal</p>
+                        </div>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Densidad Asocio (sitios/Ha)</label>
-                        <input type="number" value={associatedCropDensity} onChange={e => setAssociatedCropDensity(e.target.value)} placeholder="Ej: 200" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                    </div>
+                )}
+                
+                {/* --- ASSOCIATED CROP SECTION --- */}
+                <div className="space-y-2 border-t border-slate-800 pt-4">
+                    <label className="text-[9px] font-black text-slate-500 uppercase ml-1 flex items-center gap-2"><Leaf className="w-3 h-3"/> Cultivo Asociado (Sombra/Intercalado)</label>
+                    <select value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
+                        <option value="">Ninguno</option>
+                        <option value="Plátano">Plátano</option>
+                        <option value="Banano">Banano</option>
+                        <option value="Café">Café</option>
+                        <option value="Otro">Otro (Maíz, Frijol, etc)</option>
+                    </select>
+
+                    {/* LOGIC FOR ASSOCIATED MUSACEAE */}
+                    {assocCropMusaceaeStage && (
+                        <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/50 space-y-3 animate-slide-up">
+                            <h6 className="text-[10px] font-black text-emerald-500 uppercase">Fisiología Vegetal ({associatedCrop})</h6>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase">Edad (Meses)</label>
+                                    <input type="number" value={associatedCropAge} onChange={e => setAssociatedCropAge(e.target.value)} placeholder="0" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase">Densidad (Sitios/Ha)</label>
+                                    <input type="number" value={associatedCropDensity} onChange={e => setAssociatedCropDensity(e.target.value)} placeholder="Ej: 250" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold" />
+                                </div>
+                            </div>
+                            <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 flex items-center gap-3">
+                                <div className={`p-2 rounded-lg bg-slate-900 ${assocCropMusaceaeStage.color}`}><assocCropMusaceaeStage.icon className="w-4 h-4" /></div>
+                                <div>
+                                    <p className={`text-[10px] font-black uppercase ${assocCropMusaceaeStage.color}`}>{assocCropMusaceaeStage.label}</p>
+                                    <p className="text-[9px] text-slate-500">Ciclo fenológico asociado</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* LOGIC FOR 'CAFÉ' ASSOCIATED OR 'OTRO' */}
+                    {(associatedCrop === 'Otro' || associatedCrop === 'Café') && (
+                        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3 animate-slide-up">
+                            <h6 className="text-[10px] font-black text-slate-400 uppercase">Detalles Cultivo Asociado</h6>
+                            {associatedCrop === 'Otro' && (
+                                <input type="text" value={associatedCropName} onChange={e => setAssociatedCropName(e.target.value)} placeholder="Especifique Nombre (Ej: Maíz)" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold" />
+                            )}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase">Edad (Meses)</label>
+                                    <input type="number" value={associatedCropAge} onChange={e => setAssociatedCropAge(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase">Densidad ({associatedCrop === 'Café' ? 'Árb' : 'Sit'}/Ha)</label>
+                                    <input type="number" value={associatedCropDensity} onChange={e => setAssociatedCropDensity(e.target.value)} placeholder="0" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl text-xs uppercase shadow-xl transition-all active:scale-95">Integrar Lote al Mapa</button>
