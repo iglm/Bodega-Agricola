@@ -172,23 +172,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
     <div className="space-y-6 pb-20 animate-fade-in">
        {/* FILTRO DE FECHAS */}
        <div className="bg-white dark:bg-slate-800 p-5 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl flex flex-col md:flex-row gap-4 items-center justify-between sticky top-[120px] z-30">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-600 rounded-xl"><Calendar className="w-4 h-4 text-white" /></div>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="p-2 bg-indigo-600 rounded-xl shrink-0"><Calendar className="w-4 h-4 text-white" /></div>
                 <div className="text-left">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Analítica de Negocio</p>
                     <p className="text-xs font-black text-slate-800 dark:text-white mt-1">Hacienda Tabares Franco</p>
                 </div>
             </div>
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl border dark:border-slate-700">
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent border-none text-[10px] font-black text-slate-600 dark:text-emerald-400 outline-none p-1" />
-                <ArrowRight className="w-3 h-3 text-slate-400" />
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent border-none text-[10px] font-black text-slate-600 dark:text-emerald-400 outline-none p-1" />
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-slate-100 dark:bg-slate-900 p-2 rounded-2xl border dark:border-slate-700 w-full md:w-auto">
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent border-none text-[10px] font-black text-slate-600 dark:text-emerald-400 outline-none p-1 w-full sm:w-auto text-center" />
+                <ArrowRight className="w-3 h-3 text-slate-400 hidden sm:block" />
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent border-none text-[10px] font-black text-slate-600 dark:text-emerald-400 outline-none p-1 w-full sm:w-auto text-center" />
             </div>
        </div>
 
        {/* ALERTA DE CRISIS ECONÓMICA */}
        {economicAudit.isCrisis && (
-           <div className="bg-red-950 border-4 border-red-500 p-8 rounded-[3rem] shadow-2xl animate-shake relative overflow-hidden">
+           <div className="bg-red-950 border-4 border-red-500 p-6 md:p-8 rounded-[3rem] shadow-2xl animate-shake relative overflow-hidden">
                <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldX className="w-32 h-32 text-white" /></div>
                <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
                    <div className="p-5 bg-red-600 rounded-3xl shadow-xl shadow-red-900/50"><AlertTriangle className="w-12 h-12 text-white" /></div>
@@ -211,18 +211,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
        {reportMode === 'bi' && (
            <div className="space-y-6 animate-slide-up">
                 {/* MONITOR EFICIENCIA RECOLECCIÓN */}
-                <div className="bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl relative overflow-hidden">
+                <div className="bg-slate-900 p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-800 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5"><ActivityIcon className="w-40 h-40 text-white" /></div>
                     <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="text-center md:text-left">
                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Rendimiento Cosecha (K/H/D)</p>
-                            <h4 className="text-5xl font-black text-white font-mono tracking-tighter">{collectionEfficiency.avgKgManDay.toFixed(1)} <span className="text-xl">Kg</span></h4>
+                            <h4 className="text-4xl md:text-5xl font-black text-white font-mono tracking-tighter">{collectionEfficiency.avgKgManDay.toFixed(1)} <span className="text-xl">Kg</span></h4>
                             <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase border ${collectionEfficiency.status === 'Bajo' ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-emerald-500/10 border-emerald-500 text-emerald-500'}`}>
                                 {collectionEfficiency.status === 'Bajo' ? <ZapOff className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
                                 Estatus: {collectionEfficiency.status}
                             </div>
                         </div>
-                        <div className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800 flex-1 max-w-sm">
+                        <div className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800 flex-1 max-w-sm w-full">
                             <div className="flex items-start gap-3">
                                 <Lightbulb className="w-6 h-6 text-yellow-400 shrink-0" />
                                 <div>
@@ -279,7 +279,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
        {reportMode === 'economics' && (
             <div className="space-y-6 animate-slide-up">
-                <div className="bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-8">
+                <div className="bg-slate-900 p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-slate-800 shadow-2xl space-y-8">
                     <div className="flex justify-between items-center">
                         <h4 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-3">
                             <Calculator className="w-5 h-5 text-emerald-500" /> Auditoría de Costo Unitario
@@ -289,7 +289,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="text-center md:text-left space-y-2">
                             <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Costo por Arroba CPS (12.5 Kg)</p>
-                            <p className={`text-5xl font-black font-mono tracking-tighter ${economicAudit.isCrisis ? 'text-red-500' : 'text-white'}`}>
+                            <p className={`text-4xl md:text-5xl font-black font-mono tracking-tighter ${economicAudit.isCrisis ? 'text-red-500' : 'text-white'}`}>
                                 {formatCurrency(economicAudit.costPerArroba)}
                             </p>
                         </div>
@@ -305,15 +305,15 @@ export const StatsView: React.FC<StatsViewProps> = ({
        )}
 
        {reportMode === 'global' && (
-           <div className="bg-white dark:bg-slate-800 rounded-[3rem] border border-slate-200 dark:border-slate-700 p-8 shadow-xl space-y-6 animate-slide-up">
+           <div className="bg-white dark:bg-slate-800 rounded-[2rem] md:rounded-[3rem] border border-slate-200 dark:border-slate-700 p-6 md:p-8 shadow-xl space-y-6 animate-slide-up">
                 <div className="flex justify-between items-center">
                     <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest"><Scale className="w-4 h-4" /> Utilidad Real del Período</h3>
                 </div>
                 <div className="space-y-4">
-                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Ventas Brutas</span><span className="font-mono font-black text-emerald-600 text-xl">+ {formatCurrency(economicAudit.totalRevenue)}</span></div>
-                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Gastos Operativos (Costo Real)</span><span className="font-mono font-black text-red-500 text-xl">- {formatCurrency(economicAudit.totalExpenses)}</span></div>
+                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Ventas Brutas</span><span className="font-mono font-black text-emerald-600 text-lg md:text-xl">+ {formatCurrency(economicAudit.totalRevenue)}</span></div>
+                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Gastos Operativos (Costo Real)</span><span className="font-mono font-black text-red-500 text-lg md:text-xl">- {formatCurrency(economicAudit.totalExpenses)}</span></div>
                     <div className="w-full h-px bg-slate-100 dark:bg-slate-700 my-4"></div>
-                    <div className="flex justify-between items-center"><span className="text-slate-800 dark:text-white font-black text-lg uppercase tracking-tighter">Utilidad Neta</span><span className={`text-3xl font-black font-mono ${economicAudit.totalRevenue - economicAudit.totalExpenses >= 0 ? 'text-indigo-500' : 'text-red-500'}`}>{formatCurrency(economicAudit.totalRevenue - economicAudit.totalExpenses)}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-slate-800 dark:text-white font-black text-lg uppercase tracking-tighter">Utilidad Neta</span><span className={`text-2xl md:text-3xl font-black font-mono ${economicAudit.totalRevenue - economicAudit.totalExpenses >= 0 ? 'text-indigo-500' : 'text-red-500'}`}>{formatCurrency(economicAudit.totalRevenue - economicAudit.totalExpenses)}</span></div>
                 </div>
            </div>
        )}

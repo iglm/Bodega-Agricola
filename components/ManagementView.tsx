@@ -1,15 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, BpaCriterion, PhenologyLog, PestLog } from '../types';
-import { formatCurrency, generateId } from '../services/inventoryService';
-import { 
-  Settings, Wrench, Droplets, Plus, Trash2, Fuel, PenTool, FileText, FileSpreadsheet, Download, Gauge, 
-  User, MapPin, Pickaxe, DollarSign, CheckCircle, ArrowRight, Tractor, Microscope, ShieldCheck, 
-  Recycle, Signature, UserCheck, ShieldAlert, FileCheck, Pencil, Globe, ClipboardList, Briefcase, 
-  Droplet, AlertTriangle, Bookmark, Shield, Zap, Info, Clock, CheckCircle2, Leaf, Bug, FlaskConical, 
-  Scale, Warehouse, HardHat, ChevronDown, ChevronUp, AlertCircle, Award, Sprout, Coffee, Gavel, 
-  Lock, Fingerprint, Copyright, Calendar, Target, Timer
-} from 'lucide-react';
+import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, PhenologyLog, PestLog } from '../types';
+import { Plus, Droplets, Leaf, Signature, Fingerprint, Lock, Gavel, ShieldAlert, Timer, Recycle, CheckCircle } from 'lucide-react';
 
 interface ManagementViewProps {
   machines: Machine[];
@@ -53,21 +45,16 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     onAddRain, onDeleteRain,
     onAddPPE, onDeletePPE,
     onAddWaste, onDeleteWaste,
-    onToggleBpa,
     onAddPhenologyLog, onDeletePhenologyLog,
     onAddPestLog, onDeletePestLog,
     isAdmin
 }) => {
-  const [subTab, setSubTab] = useState<'audit' | 'integrity' | 'agronomy' | 'sst' | 'tools'>('audit');
+  const [subTab, setSubTab] = useState<'integrity' | 'agronomy' | 'sst'>('integrity');
   
   // Forms State
   const [rainMm, setRainMm] = useState('');
   const [phenoLotId, setPhenoLotId] = useState('');
   const [phenoStage, setPhenoStage] = useState<'Floración' | 'Cuajado' | 'Llenado' | 'Maduración'>('Floración');
-  const [pestLotId, setPestLotId] = useState('');
-  const [pestName, setPestName] = useState('');
-  const [pestIncidence, setPestIncidence] = useState<'Baja' | 'Media' | 'Alta'>('Baja');
-
   const [ppePersonnelId, setPpePersonnelId] = useState('');
   const [ppeItems, setPpeItems] = useState('');
   const [wasteDescription, setWasteDescription] = useState('');
@@ -92,14 +79,12 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
 
   const handleAddRain = (e: React.FormEvent) => { e.preventDefault(); if(rainMm) { onAddRain({date: new Date().toISOString(), millimeters: parseFloat(rainMm)}); setRainMm(''); } };
   const handleAddPheno = (e: React.FormEvent) => { e.preventDefault(); if(phenoLotId) { onAddPhenologyLog({date: new Date().toISOString(), costCenterId: phenoLotId, stage: phenoStage}); setPhenoLotId(''); } };
-  const handleAddPest = (e: React.FormEvent) => { e.preventDefault(); if(pestLotId && pestName) { onAddPestLog({date: new Date().toISOString(), costCenterId: pestLotId, pestOrDisease: pestName, incidence: pestIncidence}); setPestLotId(''); setPestName(''); } };
   const handleAddPPEsubmit = (e: React.FormEvent) => { e.preventDefault(); if (!ppePersonnelId || !ppeItems) return; const person = personnel.find(p => p.id === ppePersonnelId); if (!person) return; onAddPPE({ date: new Date().toISOString(), personnelId: ppePersonnelId, personnelName: person.name, items: ppeItems.split(',').map(s => s.trim()) }); setPpePersonnelId(''); setPpeItems(''); };
   const handleAddWasteSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!wasteDescription || !wasteQty) return; onAddWaste({ date: new Date().toISOString(), itemDescription: wasteDescription, quantity: parseFloat(wasteQty), tripleWashed: wasteTripleWashed }); setWasteDescription(''); setWasteQty(''); setWasteTripleWashed(true); };
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
         <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto scrollbar-hide gap-1 sticky top-[120px] z-30 shadow-md">
-            <button onClick={() => setSubTab('audit')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'audit' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500'}`}><ShieldCheck className="w-3 h-3" /> Radar BPA</button>
             <button onClick={() => setSubTab('integrity')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'integrity' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}><Fingerprint className="w-3 h-3" /> Blindaje Legal</button>
             <button onClick={() => setSubTab('agronomy')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'agronomy' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}><Leaf className="w-3 h-3" /> Fenología</button>
             <button onClick={() => setSubTab('sst')} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all ${subTab === 'sst' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500'}`}><Signature className="w-3 h-3" /> SST/Ambiental</button>
@@ -197,25 +182,6 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                         <p className="text-[9px] text-slate-500 text-center italic">Basado en el referente técnico Cenicafé. Programe su mano de obra para estas fechas.</p>
                     </div>
                 )}
-            </div>
-        )}
-
-        {subTab === 'audit' && (
-            <div className="grid gap-4">
-                {costCenters.map(lot => (
-                    <div key={lot.id} className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-700 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-emerald-600/20 rounded-2xl border border-emerald-500/20 text-emerald-500"><ShieldCheck className="w-6 h-6"/></div>
-                            <div>
-                                <h4 className="text-white font-black text-sm uppercase">{lot.name}</h4>
-                                <p className="text-[9px] text-slate-500 font-bold uppercase">{lot.cropType} • {lot.area} Ha • {lot.stage}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <button className="p-3 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all"><ClipboardList className="w-5 h-5"/></button>
-                        </div>
-                    </div>
-                ))}
             </div>
         )}
 

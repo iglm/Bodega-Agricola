@@ -18,7 +18,8 @@ import {
   DatabaseZap,
   Gem,
   ArrowRight,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { generateSQLDump } from '../services/reportService';
 import { dbService } from '../services/db';
@@ -28,9 +29,10 @@ interface DataModalProps {
   onRestoreData: (data: AppState) => void;
   onClose: () => void;
   onShowNotification: (message: string, type: 'success' | 'error') => void;
+  onLoadDemoData: () => void;
 }
 
-export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, onClose, onShowNotification }) => {
+export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, onClose, onShowNotification, onLoadDemoData }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   
@@ -84,6 +86,13 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
     };
     reader.readAsText(file);
   };
+  
+  const handleLoadDemo = () => {
+    if (confirm("⚠️ ADVERTENCIA ⚠️\n\nEsto reemplazará TODOS sus datos actuales con los datos de demostración. Esta acción no se puede deshacer.\n\n¿Desea continuar?")) {
+      onLoadDemoData();
+      onClose();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-fade-in">
@@ -106,12 +115,28 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
 
         <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar">
             
-            {/* ESTRATEGIA PROFESIONAL SQL */}
+            <div className="space-y-4 bg-purple-950/40 p-8 rounded-[3rem] border border-purple-500/30">
+                <div className="flex items-center gap-3 mb-4">
+                    <Gem className="w-6 h-6 text-purple-400" />
+                    <h4 className="text-white text-base uppercase font-black tracking-tight">Modo Exploración</h4>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                    Cargue un conjunto de datos de demostración para explorar todas las funcionalidades de AgroBodega Pro sin afectar su información real.
+                </p>
+                <button 
+                    onClick={handleLoadDemo}
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white p-5 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-purple-900/40 active:scale-95"
+                >
+                    <Sparkles className="w-5 h-5 text-white" />
+                    <span className="text-sm font-black uppercase">Cargar Datos de Demostración</span>
+                </button>
+            </div>
+
             <div className="space-y-4 bg-gradient-to-br from-indigo-950/40 to-slate-900 p-8 rounded-[3rem] border border-indigo-500/30 relative overflow-hidden group">
                 <div className="absolute top-4 right-4 bg-indigo-500 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Recomendado</div>
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-4">
-                        <Gem className="w-6 h-6 text-indigo-400 animate-pulse" />
+                        <Terminal className="w-6 h-6 text-indigo-400" />
                         <h4 className="text-white text-base uppercase font-black tracking-tight">Exportación de Datos (SQL)</h4>
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed mb-6 font-medium">
@@ -123,7 +148,7 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                         className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-5 rounded-2xl flex items-center justify-between transition-all shadow-xl shadow-indigo-900/40 active:scale-95"
                     >
                         <div className="flex items-center gap-4">
-                            <Terminal className="w-6 h-6 text-indigo-200" />
+                            <Download className="w-6 h-6 text-indigo-200" />
                             <div className="text-left">
                                 <p className="text-sm font-black uppercase">Descargar .SQL</p>
                                 <p className="text-[9px] text-indigo-200 uppercase font-bold">Para análisis externo</p>
@@ -134,7 +159,6 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
                 </div>
             </div>
 
-            {/* TRANSPORTE RÁPIDO JSON */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 space-y-4 flex flex-col">
                     <h4 className="text-emerald-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">

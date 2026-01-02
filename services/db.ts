@@ -1,7 +1,7 @@
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { AppState } from '../types';
-import { loadDataFromLocalStorage, generateId } from './inventoryService';
+import { loadDataFromLocalStorage, generateId, STORAGE_KEY } from './inventoryService';
 
 const DB_NAME = 'DatosFincaVivaDB';
 const DB_VERSION = 1;
@@ -63,9 +63,9 @@ export const dbService = {
     } catch (error) {
       console.error("Error crítico guardando en IDB:", error);
       // Fallback: Solo guardamos en LS si NO hemos migrado completamente o como último recurso de emergencia
-      // pero sabiendo que loadState preferirá IDB o estado limpio.
+      // usando la MISMA clave que el loader para evitar inconsistencia.
       try {
-          localStorage.setItem('datosfinca_viva_v1_expert', JSON.stringify(state));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       } catch (lsError) {
           console.error("Fallo total de guardado", lsError);
       }

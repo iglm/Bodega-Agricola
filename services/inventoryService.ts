@@ -1,7 +1,7 @@
 
 import { InventoryItem, Movement, Unit, AppState } from '../types';
 
-const STORAGE_KEY = 'agrobodega_pro_v1';
+export const STORAGE_KEY = 'agrobodega_pro_v1';
 
 export const generateId = (): string => {
   // 1. Prioridad: API Nativa de Alto Rendimiento (Crypto)

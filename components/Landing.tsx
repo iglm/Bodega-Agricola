@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, LogIn, FileText, CheckCircle2, Gavel, Zap, Lock, Award, Package, Calculator, BarChart3, ShieldAlert, Sparkles } from 'lucide-react';
+import { ShieldCheck, LogIn, FileText, CheckCircle2, Gavel, Zap, Lock, Award, Package, Calculator, BarChart3, ShieldAlert, Sparkles, User as UserIcon } from 'lucide-react';
 import { User as UserType } from '../types';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
@@ -11,6 +11,7 @@ interface LandingProps {
 }
 
 export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onLoadDemoData }) => {
+  const [adminName, setAdminName] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
@@ -18,17 +19,19 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onLoadD
   const AUTHOR = "Lucas Mateo Tabares Franco";
 
   const handleLogin = () => {
-    if (!accepted) return;
+    if (!accepted || !adminName.trim()) return;
     setIsLoggingIn(true);
     setTimeout(() => {
       onEnter({
         id: 'local_user',
-        name: 'Administrador de Bodega',
+        name: adminName.trim(),
         email: 'gestor@agrobodega.com',
         avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroPro'
       });
     }, 1000);
   };
+
+  const canLogin = accepted && adminName.trim().length > 0 && !isLoggingIn;
 
   return (
     <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden select-none">
@@ -36,7 +39,7 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onLoadD
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-600/20 rounded-full blur-[120px]"></div>
       <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px]"></div>
 
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 text-center">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 text-center pt-16">
           <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-8 rounded-[3rem] shadow-2xl shadow-emerald-900/40 mb-8 animate-slide-up">
               <Package className="w-16 h-16 text-white" />
           </div>
@@ -52,27 +55,29 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onLoadD
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest italic">Herramienta Privada de {AUTHOR}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-12 animate-slide-up">
+          <div className="w-full max-w-2xl mb-12 animate-slide-up text-left">
               <div className="bg-slate-900/40 p-5 rounded-[2rem] border border-slate-800 flex flex-col items-center gap-2">
                   <Calculator className="w-6 h-6 text-indigo-400" />
                   <p className="text-[10px] font-black text-white uppercase">Costo al Gramo</p>
-                  <p className="text-[9px] text-slate-500 leading-tight">Precisión en bultos de 50kg y líquidos.</p>
-              </div>
-              <div className="bg-slate-900/40 p-5 rounded-[2rem] border border-slate-800 flex flex-col items-center gap-2">
-                  <BarChart3 className="w-6 h-6 text-emerald-400" />
-                  <p className="text-[10px] font-black text-white uppercase">Gestión 360°</p>
-                  <p className="text-[9px] text-slate-500 leading-tight">Inventarios, Nómina y Proyecciones.</p>
-              </div>
-              <div className="bg-slate-900/40 p-5 rounded-[2rem] border border-slate-800 flex flex-col items-center gap-2">
-                  <Lock className="w-6 h-6 text-blue-400" />
-                  <p className="text-[10px] font-black text-white uppercase">100% Offline</p>
-                  <p className="text-[9px] text-slate-500 leading-tight">Tus datos nunca salen de tu celular.</p>
+                  <p className="text-[9px] text-slate-500 leading-tight text-center">Precisión en bultos de 50kg y líquidos.</p>
               </div>
           </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-8 pb-12 bg-slate-950/80 backdrop-blur-2xl border-t border-slate-800 z-50">
+      <div className="fixed bottom-0 left-0 right-0 p-8 pb-12 bg-slate-950/80 backdrop-blur-2xl border-t border-slate-800 z-50 animate-slide-up">
           <div className="max-w-md mx-auto space-y-6">
+              
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase ml-2 flex items-center gap-2"><UserIcon className="w-3 h-3"/> Nombre del Administrador</label>
+                <input
+                    type="text"
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
+                    placeholder="Ej: Lucas Tabares"
+                    className="w-full bg-slate-900/40 border-2 border-slate-800 rounded-2xl p-4 text-center text-white font-bold tracking-wider focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+
               <label className="flex items-start gap-4 cursor-pointer group">
                   <div className="relative mt-1">
                       <input 
@@ -96,8 +101,8 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onShowManual, onLoadD
               <div className="flex flex-col gap-3">
                   <button 
                       onClick={handleLogin} 
-                      disabled={!accepted || isLoggingIn} 
-                      className={`w-full py-5 rounded-[2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-2xl active:scale-95 ${ (accepted && !isLoggingIn) ? 'bg-emerald-600 text-white shadow-emerald-900/40 hover:bg-emerald-500' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+                      disabled={!canLogin} 
+                      className={`w-full py-5 rounded-[2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-2xl active:scale-95 ${ canLogin ? 'bg-emerald-600 text-white shadow-emerald-900/40 hover:bg-emerald-500' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
                   >
                       {isLoggingIn ? <Zap className="w-6 h-6 animate-pulse" /> : <><LogIn className="w-6 h-6" /> INICIAR ADMINISTRACIÓN</>}
                   </button>

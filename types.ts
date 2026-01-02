@@ -174,6 +174,8 @@ export interface CostCenter {
   assetValue?: number;
   amortizationDuration?: number;
   activationDate?: string;
+  cropAgeMonths?: number;
+  associatedCropDensity?: number;
 }
 
 export interface InventoryItem { 

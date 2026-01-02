@@ -5,7 +5,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, HelpCircle, CalendarRange, Sprout, Calculator, Lightbulb, Sun, Moon } from 'lucide-react';
 import { generateId, processInventoryMovement } from '../services/inventoryService';
-import { generatePDF, generateExcel, generateLaborReport, generateHarvestReport } from '../services/reportService';
+import { 
+    generatePDF, generateExcel, generateLaborReport, generateHarvestReport, 
+    generateMasterPDF, generateGlobalReport, generateAgronomicDossier, 
+    generateSafetyReport, generateFieldTemplates 
+} from '../services/reportService';
 
 // Component Imports
 import { Dashboard } from '../components/Dashboard';
@@ -29,7 +33,8 @@ import { DeleteModal } from '../components/DeleteModal';
 import { PayrollModal } from '../components/PayrollModal';
 import { SecurityModal } from '../components/SecurityModal';
 import { LaborSchedulerView } from '../components/LaborSchedulerView';
-import { InventoryItem } from '../types';
+import { LaborForm } from '../components/LaborForm'; // Ensure this is imported
+import { InventoryItem, CostClassification } from '../types';
 
 interface MainLayoutProps {
   onShowNotification: (msg: string, type: 'success' | 'error') => void;
@@ -51,6 +56,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const [showManual, setShowManual] = useState(false);
   const [showPayroll, setShowPayroll] = useState(false);
   const [showGlobalHistory, setShowGlobalHistory] = useState(false);
+  const [showLaborForm, setShowLaborForm] = useState(false); // New state for direct labor entry
   const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
   
   // Item specific modals
@@ -60,6 +66,49 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
 
   const activeId = data.activeWarehouseId;
   const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
+
+  // --- QUICK ADD HANDLERS ---
+  // Estas funciones permiten crear registros al vuelo desde cualquier formulario
+  const handleAddCostCenterQuick = (name: string) => {
+      setData(prev => ({
+          ...prev,
+          costCenters: [...prev.costCenters, {
+              id: generateId(), warehouseId: activeId, name,
+              area: 0, stage: 'Produccion', cropType: 'Café', plantCount: 0 
+          }]
+      }));
+      onShowNotification(`Lote "${name}" creado. Edite detalles en Configuración.`, 'success');
+  };
+
+  const handleAddPersonnelQuick = (name: string) => {
+      setData(prev => ({
+          ...prev,
+          personnel: [...prev.personnel, {
+              id: generateId(), warehouseId: activeId, name, role: 'Trabajador'
+          }]
+      }));
+      onShowNotification(`Trabajador "${name}" registrado.`, 'success');
+  };
+
+  const handleAddSupplierQuick = (name: string) => {
+      setData(prev => ({
+          ...prev,
+          suppliers: [...prev.suppliers, { 
+              id: generateId(), warehouseId: activeId, name 
+          }]
+      }));
+      onShowNotification(`Proveedor "${name}" añadido.`, 'success');
+  };
+
+  const handleAddActivityQuick = (name: string, classification: CostClassification = 'JOINT') => {
+      setData(prev => ({
+          ...prev,
+          activities: [...prev.activities, {
+              id: generateId(), warehouseId: activeId, name, costClassification: classification
+          }]
+      }));
+      onShowNotification(`Labor "${name}" creada.`, 'success');
+  };
 
   // Helper functions
   const requestSecureAction = (action: () => void) => { setSecureAction(() => action); };
@@ -121,14 +170,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
 
       {/* MAIN CONTENT AREA */}
       <main className="max-w-4xl mx-auto p-4 pb-40">
-        {currentTab === 'inventory' && <Dashboard inventory={data.inventory.filter(i=>i.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} harvests={data.harvests.filter(h=>h.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} onAddMovement={(i, t) => setMovementModal({item:i, type:t})} onDelete={(id) => requestSecureAction(() => { const item = data.inventory.find(i => i.id === id); if (item) setDeleteItem(item); })} onViewHistory={(item) => setHistoryItem(item)} onViewGlobalHistory={() => setShowGlobalHistory(true)} isAdmin={true} />}
-        {currentTab === 'labor' && <LaborView laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} personnel={data.personnel.filter(p=>p.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} onAddLabor={()=>onShowNotification("Vaya a 'Programar' para registrar labores con rendimiento técnico.", "error")} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
-        {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} budgets={data.budgets || []} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} />}
-        {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} isAdmin={true} allMovements={data.movements} />}
+        {currentTab === 'inventory' && <Dashboard inventory={data.inventory.filter(i=>i.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} harvests={data.harvests.filter(h=>h.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} onAddMovement={(i, t) => setMovementModal({item:i, type:t})} onDelete={(id) => requestSecureAction(() => { const item = data.inventory.find(i => i.id === id); if (item) setDeleteItem(item); })} onViewHistory={(item) => setHistoryItem(item)} onViewGlobalHistory={() => setShowGlobalHistory(true)} isAdmin={true} />}
+        {currentTab === 'labor' && <LaborView laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} personnel={data.personnel.filter(p=>p.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} onAddLabor={() => setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
+        {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} onAddActivity={handleAddActivityQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} budgets={data.budgets || []} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} />}
+        {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} onAddCostCenter={handleAddCostCenterQuick} isAdmin={true} allMovements={data.movements} />}
         {currentTab === 'simulator' && <SimulatorView />} 
         {currentTab === 'management' && <ManagementView machines={data.machines.filter(m=>m.warehouseId===activeId)} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} soilAnalyses={data.soilAnalyses.filter(s=>s.warehouseId===activeId)} ppeLogs={data.ppeLogs.filter(p=>p.warehouseId===activeId)} wasteLogs={data.wasteLogs.filter(w=>w.warehouseId===activeId)} assets={data.assets.filter(a=>a.warehouseId===activeId)} bpaChecklist={data.bpaChecklist} phenologyLogs={data.phenologyLogs.filter(l=>l.warehouseId===activeId)} pestLogs={data.pestLogs.filter(l=>l.warehouseId===activeId)} onAddMachine={(m) => setData(prev=>({...prev, machines: [...prev.machines, {...m, id: generateId(), warehouseId: activeId}]}))} onUpdateMachine={(m) => setData(prev=>({...prev, machines: prev.machines.map(x=>x.id===m.id?m:x)}))} onAddMaintenance={(m) => setData(prev=>({...prev, maintenanceLogs: [...prev.maintenanceLogs, {...m, id: generateId(), warehouseId: activeId}]}))} onDeleteMachine={(id) => setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r) => setData(prev=>({...prev, rainLogs: [...prev.rainLogs, {...r, id: generateId(), warehouseId: activeId}]}))} onDeleteRain={(id) => setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s) => setData(prev=>({...prev, soilAnalyses: [...prev.soilAnalyses, {...s, id: generateId(), warehouseId: activeId}]}))} onDeleteSoilAnalysis={(id) => setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p) => setData(prev=>({...prev, ppeLogs: [...prev.ppeLogs, {...p, id: generateId(), warehouseId: activeId}]}))} onDeletePPE={(id) => setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w) => setData(prev=>({...prev, wasteLogs: [...prev.wasteLogs, {...w, id: generateId(), warehouseId: activeId}]}))} onDeleteWaste={(id) => setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={(a) => setData(prev=>({...prev, assets: [...prev.assets, {...a, id: generateId(), warehouseId: activeId}]}))} onDeleteAsset={(id) => setData(prev=>({...prev, assets: prev.assets.filter(a=>a.id!==id)}))} onToggleBpa={(code) => setData(prev=>({...prev, bpaChecklist: {...prev.bpaChecklist, [code]: !prev.bpaChecklist[code]}}))} onAddPhenologyLog={(log) => setData(prev=>({...prev, phenologyLogs: [...prev.phenologyLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePhenologyLog={(id) => setData(prev=>({...prev, phenologyLogs: prev.phenologyLogs.filter(l=>l.id!==id)}))} onAddPestLog={(log) => setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePestLog={(id) => setData(prev=>({...prev, pestLogs: prev.pestLogs.filter(l=>l.id!==id)}))} isAdmin={true} />}
         {currentTab === 'assets' && <BiologicalAssetsView costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} onUpdateLot={actions.updateCostCenter} />}
-        {currentTab === 'budget' && <BudgetView budgets={data.budgets || []} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} inventory={data.inventory.filter(i=>i.warehouseId === activeId)} warehouseId={activeId} onSaveBudget={actions.saveBudget} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} laborFactor={data.laborFactor} />}
+        {currentTab === 'budget' && <BudgetView budgets={data.budgets || []} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} inventory={data.inventory.filter(i=>i.warehouseId === activeId)} warehouseId={activeId} onSaveBudget={actions.saveBudget} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} laborFactor={data.laborFactor} onAddCostCenter={handleAddCostCenterQuick} />}
         {currentTab === 'agenda' && <AgendaView agenda={data.agenda.filter(a => a.warehouseId === activeId)} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
         {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={data.movements.filter(m=>m.warehouseId===activeId)} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId===activeId)} harvests={data.harvests.filter(h=>h.warehouseId===activeId)} maintenanceLogs={data.maintenanceLogs.filter(m=>m.warehouseId===activeId)} rainLogs={data.rainLogs.filter(r=>r.warehouseId===activeId)} machines={data.machines.filter(m=>m.warehouseId===activeId)} budgets={data.budgets || []} plannedLabors={data.plannedLabors || []} />}
         
@@ -143,16 +192,44 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       <div className="z-[100] relative">
           {secureAction && <SecurityModal existingPin={data?.adminPin} onSuccess={handlePinSuccess} onClose={() => setSecureAction(null)} />}
           {showManual && <ManualModal onClose={() => setShowManual(false)} />}
-          {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={onShowNotification} />}
-          {showSettings && data && <SettingsModal suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} fullState={data} onUpdateState={(newState) => setData(newState)} onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} onAddCostCenter={(n,b,a,s,pc,ct,ac) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac}]}))} onDeleteCostCenter={actions.deleteCostCenter} onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} onDeletePersonnel={actions.deletePersonnel} onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} onDeleteActivity={actions.deleteActivity} onClose={() => setShowSettings(false)} />}
+          {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={onShowNotification} onLoadDemoData={() => { actions.loadDemoData(); setShowData(false); }} />}
+          {showSettings && data && <SettingsModal suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} fullState={data} onUpdateState={(newState) => setData(newState)} onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density}]}))} onDeleteCostCenter={actions.deleteCostCenter} onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} onDeletePersonnel={actions.deletePersonnel} onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} onDeleteActivity={actions.deleteActivity} onClose={() => setShowSettings(false)} />}
           {showPayroll && data && <PayrollModal logs={data.laborLogs.filter(l => l.warehouseId === activeId)} personnel={data.personnel.filter(p => p.warehouseId === activeId)} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
-          {showAddForm && data && <InventoryForm suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} onSave={(item, qty, details, unit) => { actions.saveNewItem(item, qty, details, unit); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} />}
-          {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onSave={handleSaveMovement} onCancel={() => setMovementModal(null)} />}
+          {showAddForm && data && <InventoryForm suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} onSave={(item, qty, details, unit) => { actions.saveNewItem(item, qty, details, unit); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} onAddSupplier={handleAddSupplierQuick} />}
+          {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onSave={handleSaveMovement} onCancel={() => setMovementModal(null)} onAddSupplier={handleAddSupplierQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} />}
           {historyItem && data && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
           {showGlobalHistory && data && <HistoryModal item={{ name: 'Historial Bodega Global' } as any} movements={data.movements.filter(m => m.warehouseId === activeId)} onClose={() => setShowGlobalHistory(false)} />}
           {deleteItem && <DeleteModal itemName={deleteItem.name} onConfirm={() => { setData(prev => ({ ...prev, inventory: prev.inventory.filter(i => i.id !== deleteItem.id), movements: prev.movements.filter(m => m.itemId !== deleteItem.id) })); setDeleteItem(null); }} onCancel={() => setDeleteItem(null)} />}
           {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString(), ownerId: session?.id || 'local_user'}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
-          {showExport && data && <ExportModal onExportPDF={() => generatePDF(data)} onExportExcel={() => generateExcel(data)} onGenerateOrder={() => {alert('Orden generada.')}} onExportLaborPDF={() => generateLaborReport(data)} onExportLaborExcel={() => {alert('Excel nómina generado.')}} onExportHarvestPDF={() => generateHarvestReport(data)} onClose={() => setShowExport(false)} activeData={data} />}
+          {showExport && data && <ExportModal 
+              onClose={() => setShowExport(false)}
+              onExportExcel={() => generateExcel(data)}
+              onExportMasterPDF={() => generateMasterPDF(data)}
+              onExportPDF={() => generatePDF(data)}
+              onExportLaborPDF={() => generateLaborReport(data)}
+              onExportHarvestPDF={() => generateHarvestReport(data)}
+              onExportGlobalReport={() => generateGlobalReport(data)}
+              onExportAgronomicDossier={() => generateAgronomicDossier(data)}
+              onExportSafetyReport={() => generateSafetyReport(data)}
+              onExportFieldTemplates={() => generateFieldTemplates(data)}
+          />}
+          {showLaborForm && data && (
+            <LaborForm 
+              personnel={data.personnel.filter(p => p.warehouseId === activeId)} 
+              costCenters={data.costCenters.filter(c => c.warehouseId === activeId)} 
+              activities={data.activities.filter(a => a.warehouseId === activeId)} 
+              onSave={(log) => { 
+                setData(prev => ({ ...prev, laborLogs: [...prev.laborLogs, { ...log, id: generateId(), warehouseId: activeId, paid: false }] })); 
+                setShowLaborForm(false); 
+                onShowNotification("Jornal registrado correctamente", 'success'); 
+              }} 
+              onCancel={() => setShowLaborForm(false)} 
+              onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} 
+              onAddPersonnel={handleAddPersonnelQuick}
+              onAddCostCenter={handleAddCostCenterQuick}
+              onAddActivity={(name) => handleAddActivityQuick(name, 'JOINT')}
+            />
+          )}
       </div>
     </>
   );

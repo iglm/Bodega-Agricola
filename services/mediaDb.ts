@@ -1,5 +1,5 @@
 
-import { openDB, DBSchema } from 'idb';
+import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 const DB_NAME = 'FincaVivaMedia';
 const STORE_NAME = 'images';
@@ -11,14 +11,23 @@ interface MediaDBSchema extends DBSchema {
   };
 }
 
+let dbPromise: Promise<IDBPDatabase<MediaDBSchema>> | null = null;
+
 export const getMediaDB = async () => {
-  return openDB<MediaDBSchema>(DB_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    },
-  });
+  if (!dbPromise) {
+    dbPromise = openDB<MediaDBSchema>(DB_NAME, 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      },
+      terminated() {
+        console.error("MediaDB terminated unexpectedly");
+        dbPromise = null;
+      },
+    });
+  }
+  return dbPromise;
 };
 
 export const saveBlob = async (id: string, blob: Blob): Promise<void> => {

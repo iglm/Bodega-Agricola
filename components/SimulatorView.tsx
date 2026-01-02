@@ -44,7 +44,7 @@ export const SimulatorView: React.FC = () => {
     const [jornalValue, setJornalValue] = useState('75000');
     const [initialCapital, setInitialCapital] = useState('50000000');
     
-    // Selectores Tácticos Cenicafé & Autorizados
+    // Selectores Tácticos
     const [renovationType, setRenovationType] = useState<RenovationType>('Siembra');
     const [producedInFinca, setProducedInFinca] = useState(false); // Almácigo en Finca (-53% Costo)
     const [useMIA, setUseMIA] = useState(false); // Manejo Integrado de Arvenses
@@ -232,8 +232,9 @@ export const SimulatorView: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800/50">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2"><Landmark className="w-4 h-4 text-amber-500" /> Capital Inicial</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-2"><Wallet className="w-4 h-4 text-amber-500" /> Su Presupuesto Disponible</label>
                         <input type="text" value={formatNumberInput(initialCapital)} onChange={e => setInitialCapital(parseNumberInput(e.target.value).toString())} className="w-full bg-slate-800 border-none rounded-2xl p-4 text-lg font-black text-amber-500 font-mono outline-none" />
+                        <p className="text-[9px] text-slate-500 pl-2 italic">Dinero disponible en caja para iniciar el proyecto.</p>
                     </div>
                     <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
                         <div>
@@ -250,7 +251,7 @@ export const SimulatorView: React.FC = () => {
                     <div className="p-4 bg-red-600 rounded-2xl shadow-lg"><ShieldAlert className="w-10 h-10 text-white" /></div>
                     <div>
                         <h4 className="text-red-500 font-black text-lg uppercase tracking-tight">Iliquidez Detectada</h4>
-                        <p className="text-xs text-slate-300 leading-tight">Su capital se agota en el <strong>Mes {simulation.firstMonthCrisis}</strong>. {producedInFinca ? '' : 'Active "Almácigo Finca" para reducir el gasto inicial un 53%.'}</p>
+                        <p className="text-xs text-slate-300 leading-tight">Su presupuesto se agota en el <strong>Mes {simulation.firstMonthCrisis}</strong>. {producedInFinca ? '' : 'Active "Almácigo Finca" para reducir el gasto inicial un 53%.'}</p>
                     </div>
                 </div>
             )}
@@ -266,7 +267,8 @@ export const SimulatorView: React.FC = () => {
                     <p className="text-2xl font-black text-white">Año {simulation.paybackYear || '-'}</p>
                     <p className="text-[8px] text-slate-500 font-bold uppercase">Recuperación Capital</p>
                 </div>
-                <button onClick={() => generateSimulationPDF(simulation, { varietyLabel: `Café ${renovationType}`, techLabel: "Referente Cenicafé 2025", numTrees: parseNumberInput(numTrees), density: parseNumberInput(density), marketPrice, harvestCostKg: useAssistedHarvest ? "650" : "800", qualityFactor: 94 })} className="bg-indigo-600 hover:bg-indigo-500 p-6 rounded-[2.5rem] shadow-xl text-white flex flex-col items-center justify-center transition-all active:scale-95">
+                {/* Se cambia el string 'Referente Cenicafé 2025' por un genérico para evitar líos legales */}
+                <button onClick={() => generateSimulationPDF(simulation, { varietyLabel: `Café ${renovationType}`, techLabel: "Estándar Técnico 2025", numTrees: parseNumberInput(numTrees), density: parseNumberInput(density), marketPrice, harvestCostKg: useAssistedHarvest ? "650" : "800", qualityFactor: 94 })} className="bg-indigo-600 hover:bg-indigo-500 p-6 rounded-[2.5rem] shadow-xl text-white flex flex-col items-center justify-center transition-all active:scale-95">
                     <FileDown className="w-6 h-6 mb-1" />
                     <span className="text-[10px] font-black uppercase">Descargar Reporte</span>
                 </button>
@@ -323,15 +325,6 @@ export const SimulatorView: React.FC = () => {
                         );
                     })}
                 </div>
-            </div>
-
-            <div className="bg-indigo-950/20 p-8 rounded-[3rem] border border-indigo-500/20 text-center">
-                <Info className="w-8 h-8 text-indigo-400 mx-auto mb-3" />
-                <p className="text-xs text-indigo-200/70 italic leading-relaxed">
-                    Este simulador incorpora las estrategias de rentabilidad de Cenicafé: Más Agronomía, Más Productividad. 
-                    La activación de **Almácigo en Finca** reduce drásticamente el CAPEX inicial, optimizando el VPN desde el Año 1. 
-                    Desarrollado para el sector caficultor por Lucas Mateo Tabares Franco.
-                </p>
             </div>
         </div>
     );

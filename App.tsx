@@ -2,15 +2,13 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider, useData } from './contexts/DataContext';
 import { MainLayout } from './layouts/MainLayout';
-import { Landing } from './components/Landing';
 import { Notification } from './components/Notification';
 
 const AppContent = () => {
-  const { isDataLoaded, actions } = useData();
-  const { session, login } = useAuth();
+  const { isDataLoaded } = useData();
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
@@ -29,23 +27,12 @@ const AppContent = () => {
   return (
     <>
       {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-      {!session ? (
-        <Landing 
-          onEnter={login} 
-          onShowManual={() => { /* Implementar lógica de manual si necesario en landing */ }} 
-          onLoadDemoData={actions.loadDemoData} 
-        />
-      ) : (
-        <MainLayout onShowNotification={showNotification} />
-      )}
+      <MainLayout onShowNotification={showNotification} />
     </>
   );
 };
 
 function App() {
-  // Wrapper provisional para pasar la notificación al provider si fuera necesario, 
-  // aunque en esta arquitectura el DataProvider es agnóstico a la UI y AppContent maneja la UI.
-  // El prop 'notify' en DataProvider es opcional o se puede usar un no-op si la UI maneja el estado.
   const [tempNotification, setTempNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
   return (

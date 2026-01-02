@@ -1,24 +1,31 @@
 
 import React from 'react';
 import { X, FileSpreadsheet, FileText, Download, ShoppingCart, Pickaxe, Sprout, Tractor, PieChart, Clipboard, GraduationCap, Lock, ShieldCheck, Calculator, Briefcase, FileCheck, Landmark, Thermometer, CloudRain, Shield, Recycle, FlaskConical, Map, ArrowRight, FileDown, FileJson } from 'lucide-react';
-import { AppState } from '../types';
-import { generateGlobalReport, generateFieldTemplates, generateExecutiveReport, generateExcel, generatePDF, generateLaborReport, generateHarvestReport, generateAgronomicDossier, generateSafetyReport, generateMasterPDF } from '../services/reportService';
 
 interface ExportModalProps {
-  onExportPDF: () => void;
-  onExportExcel: () => void;
-  onGenerateOrder: () => void;
-  onExportLaborPDF: () => void;
-  onExportLaborExcel: () => void;
-  onExportHarvestPDF?: () => void;
-  onExportMachineryPDF?: () => void;
   onClose: () => void;
-  activeData?: AppState; 
+  onExportExcel: () => void;
+  onExportMasterPDF: () => void;
+  onExportPDF: () => void;
+  onExportLaborPDF: () => void;
+  onExportHarvestPDF: () => void;
+  onExportGlobalReport: () => void;
+  onExportAgronomicDossier: () => void;
+  onExportSafetyReport: () => void;
+  onExportFieldTemplates: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ 
     onClose,
-    activeData
+    onExportExcel,
+    onExportMasterPDF,
+    onExportPDF,
+    onExportLaborPDF,
+    onExportHarvestPDF,
+    onExportGlobalReport,
+    onExportAgronomicDossier,
+    onExportSafetyReport,
+    onExportFieldTemplates,
 }) => {
 
   return (
@@ -53,7 +60,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 
                 <div className="grid grid-cols-1 gap-2">
                     <button 
-                        onClick={() => generateExcel(activeData!)}
+                        onClick={onExportExcel}
                         className="w-full p-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center justify-between transition-all shadow-xl active:scale-95 group"
                     >
                         <div className="flex items-center gap-4">
@@ -67,7 +74,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
 
                     <button 
-                        onClick={() => generateMasterPDF(activeData!)}
+                        onClick={onExportMasterPDF}
                         className="w-full p-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl flex items-center justify-between transition-all shadow-xl active:scale-95 group"
                     >
                         <div className="flex items-center gap-4">
@@ -88,19 +95,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <FlaskConical className="w-3 h-3" /> Reportes Administrativos y Técnicos
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => generatePDF(activeData!)} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
+                    <button onClick={onExportPDF} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
                         <FileCheck className="w-5 h-5 text-emerald-400" />
                         <span className="text-[9px] font-black text-white uppercase text-left">Bodega Valorizada</span>
                     </button>
-                    <button onClick={() => generateLaborReport(activeData!)} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
+                    <button onClick={onExportLaborPDF} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
                         <Briefcase className="w-5 h-5 text-amber-400" />
                         <span className="text-[9px] font-black text-white uppercase text-left">Libro de Nómina</span>
                     </button>
-                    <button onClick={() => generateHarvestReport(activeData!)} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
+                    <button onClick={onExportHarvestPDF} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex flex-col gap-2 transition-all">
                         <Sprout className="w-5 h-5 text-indigo-400" />
                         <span className="text-[9px] font-black text-white uppercase text-left">Bitácora Ventas</span>
                     </button>
-                    <button onClick={() => generateGlobalReport(activeData!)} className="p-4 bg-indigo-900/20 hover:bg-indigo-900/30 rounded-3xl border border-indigo-500/30 flex flex-col gap-2 transition-all">
+                    <button onClick={onExportGlobalReport} className="p-4 bg-indigo-900/20 hover:bg-indigo-900/30 rounded-3xl border border-indigo-500/30 flex flex-col gap-2 transition-all">
                         <PieChart className="w-5 h-5 text-amber-400" />
                         <span className="text-[9px] font-black text-white uppercase text-left">Balance Gerencial</span>
                     </button>
@@ -115,7 +122,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 
                 <div className="grid grid-cols-1 gap-3">
                     <button 
-                        onClick={() => generateAgronomicDossier(activeData!)}
+                        onClick={onExportAgronomicDossier}
                         className="w-full p-4 bg-blue-900/20 hover:bg-blue-900/30 rounded-3xl border border-blue-500/30 flex items-center gap-4 group transition-all"
                     >
                         <div className="p-3 bg-blue-500/20 rounded-2xl"><Thermometer className="w-6 h-6 text-blue-400" /></div>
@@ -126,7 +133,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
 
                     <button 
-                        onClick={() => generateSafetyReport(activeData!)}
+                        onClick={onExportSafetyReport}
                         className="w-full p-4 bg-red-900/20 hover:bg-red-900/30 rounded-3xl border border-red-500/30 flex items-center gap-4 group transition-all"
                     >
                         <div className="p-3 bg-red-500/20 rounded-2xl"><Shield className="w-6 h-6 text-red-400" /></div>
@@ -137,7 +144,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </button>
 
                     <button 
-                        onClick={() => generateFieldTemplates(activeData!)}
+                        onClick={onExportFieldTemplates}
                         className="w-full p-4 bg-slate-800 hover:bg-slate-700 rounded-3xl border border-slate-700 flex items-center gap-4 group transition-all"
                     >
                         <div className="p-3 bg-slate-700 rounded-2xl"><Clipboard className="w-6 h-6 text-slate-400" /></div>

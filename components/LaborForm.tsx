@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Personnel, CostCenter, Activity, LaborLog } from '../types';
-import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle, Users, CheckSquare, Square, Ruler, Clock, Calculator, Zap, Wand2, Gauge, Percent, TrendingUp } from 'lucide-react';
+import { X, Save, DollarSign, Calendar, User, MapPin, Pickaxe, AlertCircle, Users, CheckSquare, Square, Ruler, Clock, Calculator, Zap, Wand2, Gauge, Percent, TrendingUp, Plus } from 'lucide-react';
 import { formatNumberInput, parseNumberInput, formatCurrency } from '../services/inventoryService';
 
 interface LaborFormProps {
@@ -11,6 +11,9 @@ interface LaborFormProps {
   onSave: (log: Omit<LaborLog, 'id' | 'warehouseId' | 'paid'>) => void;
   onCancel: () => void;
   onOpenSettings: () => void;
+  onAddPersonnel: (name: string) => void;
+  onAddCostCenter: (name: string) => void;
+  onAddActivity: (name: string) => void;
 }
 
 export const LaborForm: React.FC<LaborFormProps> = ({ 
@@ -19,7 +22,10 @@ export const LaborForm: React.FC<LaborFormProps> = ({
   activities, 
   onSave, 
   onCancel,
-  onOpenSettings
+  onOpenSettings,
+  onAddPersonnel,
+  onAddCostCenter,
+  onAddActivity
 }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedPersonnelIds, setSelectedPersonnelIds] = useState<string[]>([]);
@@ -37,6 +43,16 @@ export const LaborForm: React.FC<LaborFormProps> = ({
   const [techYield, setTechYield] = useState('');
   const [yieldUnit, setYieldUnit] = useState<'Ha/Jornal' | 'Ha/Hora'>('Ha/Jornal');
 
+  // STATES PARA CREACIÓN RÁPIDA
+  const [isCreatingLot, setIsCreatingLot] = useState(false);
+  const [newLotName, setNewLotName] = useState('');
+
+  const [isCreatingActivity, setIsCreatingActivity] = useState(false);
+  const [newActivityName, setNewActivityName] = useState('');
+
+  const [isCreatingPerson, setIsCreatingPerson] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
+
   const togglePerson = (id: string) => {
     setSelectedPersonnelIds(prev => 
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
@@ -49,6 +65,34 @@ export const LaborForm: React.FC<LaborFormProps> = ({
     } else {
       setSelectedPersonnelIds(personnel.map(p => p.id));
     }
+  };
+
+  // HANDLERS CREACIÓN RÁPIDA
+  const handleCreateLot = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newLotName.trim()) {
+          onAddCostCenter(newLotName);
+          setIsCreatingLot(false);
+          setNewLotName('');
+      }
+  };
+
+  const handleCreateActivity = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newActivityName.trim()) {
+          onAddActivity(newActivityName);
+          setIsCreatingActivity(false);
+          setNewActivityName('');
+      }
+  };
+
+  const handleCreatePerson = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newPersonName.trim()) {
+          onAddPersonnel(newPersonName);
+          setIsCreatingPerson(false);
+          setNewPersonName('');
+      }
   };
 
   // Función Proyectar: Tiempo = Area / (Rendimiento * Eficiencia)
@@ -128,8 +172,6 @@ export const LaborForm: React.FC<LaborFormProps> = ({
     });
   };
 
-  const missingMasters = personnel.length === 0 || costCenters.length === 0 || activities.length === 0;
-
   return (
     <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[95vh]">
@@ -151,36 +193,51 @@ export const LaborForm: React.FC<LaborFormProps> = ({
         
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
           
-          {missingMasters && (
-              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-200 dark:border-red-800 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-black">
-                      <AlertCircle className="w-4 h-4" /> Faltan datos en Maestros
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Para registrar un jornal necesitas tener creados: Trabajadores, Lotes y Labores.</p>
-                  <button type="button" onClick={() => { onCancel(); onOpenSettings(); }} className="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 py-3 rounded-xl font-bold mt-1">Ir a Crear Maestros</button>
-              </div>
-          )}
-
           <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><Calendar className="w-3 h-3" /> Fecha</label>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white font-bold text-xs" required />
               </div>
+              
               <div className="space-y-1">
-                <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><MapPin className="w-3 h-3" /> Lote</label>
-                <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white text-xs font-bold" required>
-                  <option value="">Seleccionar...</option>
-                  {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><MapPin className="w-3 h-3" /> Lote</label>
+                    <button type="button" onClick={() => setIsCreatingLot(!isCreatingLot)} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase flex items-center gap-1 transition-colors">
+                        {isCreatingLot ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} {isCreatingLot ? 'Cancelar' : 'Crear'}
+                    </button>
+                </div>
+                {isCreatingLot ? (
+                    <div className="flex gap-2 animate-fade-in-down">
+                        <input type="text" value={newLotName} onChange={e => setNewLotName(e.target.value)} placeholder="Nuevo Lote" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" autoFocus />
+                        <button type="button" onClick={handleCreateLot} disabled={!newLotName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                    </div>
+                ) : (
+                    <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-white text-xs font-bold" required>
+                      <option value="">Seleccionar...</option>
+                      {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                )}
               </div>
           </div>
 
           <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><Pickaxe className="w-3 h-3" /> Labor Realizada</label>
-            <select value={activityId} onChange={e => setActivityId(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-4 text-slate-800 dark:text-white text-sm font-bold" required>
-                <option value="">Seleccionar Labor...</option>
-                {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><Pickaxe className="w-3 h-3" /> Labor Realizada</label>
+                <button type="button" onClick={() => setIsCreatingActivity(!isCreatingActivity)} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase flex items-center gap-1 transition-colors">
+                    {isCreatingActivity ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} {isCreatingActivity ? 'Cancelar' : 'Crear'}
+                </button>
+            </div>
+            {isCreatingActivity ? (
+                <div className="flex gap-2 animate-fade-in-down">
+                    <input type="text" value={newActivityName} onChange={e => setNewActivityName(e.target.value)} placeholder="Nueva Labor" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" autoFocus />
+                    <button type="button" onClick={handleCreateActivity} disabled={!newActivityName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                </div>
+            ) : (
+                <select value={activityId} onChange={e => setActivityId(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-4 text-slate-800 dark:text-white text-sm font-bold" required>
+                    <option value="">Seleccionar Labor...</option>
+                    {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+            )}
           </div>
 
           {/* CALCULADORA TÉCNICA DE DÍAS/HOMBRE */}
@@ -241,8 +298,21 @@ export const LaborForm: React.FC<LaborFormProps> = ({
           <div className="space-y-2">
              <div className="flex justify-between items-center px-1">
                  <label className="block text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><Users className="w-3 h-3" /> Equipo de Trabajo ({selectedPersonnelIds.length})</label>
-                 <button type="button" onClick={selectAll} className="text-[10px] text-amber-500 font-black uppercase hover:text-amber-400 tracking-tighter">{selectedPersonnelIds.length === personnel.length ? 'Limpiar' : 'Todos'}</button>
+                 <div className="flex gap-2">
+                    <button type="button" onClick={() => setIsCreatingPerson(!isCreatingPerson)} className="text-[10px] text-emerald-500 font-black uppercase hover:text-emerald-400 tracking-tighter flex items-center gap-1">
+                        {isCreatingPerson ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} {isCreatingPerson ? 'Cancelar' : 'Nuevo'}
+                    </button>
+                    <button type="button" onClick={selectAll} className="text-[10px] text-amber-500 font-black uppercase hover:text-amber-400 tracking-tighter">{selectedPersonnelIds.length === personnel.length ? 'Limpiar' : 'Todos'}</button>
+                 </div>
              </div>
+             
+             {isCreatingPerson && (
+                <div className="flex gap-2 animate-fade-in-down mb-2">
+                    <input type="text" value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder="Nombre Nuevo Trabajador" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" autoFocus />
+                    <button type="button" onClick={handleCreatePerson} disabled={!newPersonName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                </div>
+             )}
+
              <div className="max-h-40 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 space-y-1">
                  {personnel.map(p => {
                      const isSelected = selectedPersonnelIds.includes(p.id);
@@ -253,7 +323,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
                          </div>
                      )
                  })}
-                 {personnel.length === 0 && <p className="text-center text-[10px] text-slate-400 py-4">No hay personal registrado.</p>}
+                 {personnel.length === 0 && !isCreatingPerson && <p className="text-center text-[10px] text-slate-400 py-4">No hay personal registrado.</p>}
              </div>
           </div>
 
@@ -277,7 +347,7 @@ export const LaborForm: React.FC<LaborFormProps> = ({
         </form>
 
         <div className="p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 shrink-0">
-            <button onClick={handleSubmit} disabled={missingMasters || !value || selectedPersonnelIds.length === 0} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:bg-slate-600 text-white font-black py-5 px-4 rounded-[2rem] flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-900/40 active:scale-95">
+            <button onClick={handleSubmit} disabled={!value || selectedPersonnelIds.length === 0} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:bg-slate-600 text-white font-black py-5 px-4 rounded-[2rem] flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-900/40 active:scale-95">
                 <Zap className="w-5 h-5" /> REGISTRAR {selectedPersonnelIds.length > 1 ? `(${selectedPersonnelIds.length}) JORNALES` : 'LABOR'}
             </button>
         </div>

@@ -14,7 +14,7 @@ interface SettingsModalProps {
   onUpdateState: (data: AppState) => void;
   onAddSupplier: (name: string, phone: string, email: string, address: string) => void;
   onDeleteSupplier: (id: string) => void;
-  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string) => void;
+  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string, cropAgeMonths?: number, associatedCropDensity?: number) => void;
   onDeleteCostCenter: (id: string) => void;
   onAddPersonnel?: (person: Omit<Personnel, 'id' | 'warehouseId'>) => void;
   onDeletePersonnel?: (id: string) => void;
@@ -53,7 +53,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [lotePlants, setLotePlants] = useState('');
   const [loteCrop, setLoteCrop] = useState('Café');
   const [associatedCrop, setAssociatedCrop] = useState('');
-  
+  const [loteCropAge, setLoteCropAge] = useState('');
+  const [associatedCropDensity, setAssociatedCropDensity] = useState('');
+
   // Distancia de Siembra
   const [distSurco, setDistSurco] = useState('');
   const [distPlanta, setDistPlanta] = useState('');
@@ -81,10 +83,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         loteStage,
         lotePlants ? parseInt(lotePlants) : undefined,
         loteCrop,
-        associatedCrop || undefined
+        associatedCrop || undefined,
+        loteCropAge ? parseInt(loteCropAge) : undefined,
+        associatedCropDensity ? parseInt(associatedCropDensity) : undefined
     );
     setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); setAssociatedCrop('');
     setDistSurco(''); setDistPlanta('');
+    setLoteCropAge('');
+    setAssociatedCropDensity('');
   };
 
   const handleAddSupplier = (e: React.FormEvent) => {
@@ -109,6 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [perEps, setPerEps] = useState('');
   const [perArl, setPerArl] = useState(false);
   const [perBirth, setPerBirth] = useState('');
+  const [perDisability, setPerDisability] = useState('');
 
   // Activity State
   const [actName, setActName] = useState('');
@@ -119,9 +126,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!perName.trim() || !onAddPersonnel) return;
     onAddPersonnel({
       name: perName, role: perRole, documentId: perDoc, phone: perPhone,
-      emergencyContact: perEmergency, eps: perEps, arl: perArl, birthDate: perBirth
+      emergencyContact: perEmergency, eps: perEps, arl: perArl, birthDate: perBirth,
+      disability: perDisability || undefined
     });
-    setPerName(''); setPerRole(''); setPerDoc(''); setPerPhone(''); setPerEmergency(''); setPerEps(''); setPerArl(false); setPerBirth('');
+    setPerName(''); setPerRole(''); setPerDoc(''); setPerPhone(''); setPerEmergency(''); setPerEps(''); setPerArl(false); setPerBirth(''); setPerDisability('');
   }
 
   const handleAddActivity = (e: React.FormEvent) => {
@@ -196,7 +204,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                     </div>
 
-                    {/* DIAGNÓSTICO EN TIEMPO REAL */}
                     {currentDensity > 0 && (
                         <div className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${currentDensity < 4500 ? 'bg-red-950/20 border-red-500/30' : currentDensity > 8000 ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-emerald-950/20 border-emerald-500/30'}`}>
                             <div className={`p-2 rounded-xl ${currentDensity < 4500 ? 'bg-red-600' : currentDensity > 8000 ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
@@ -217,6 +224,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <input type="text" value={loteName} onChange={e => setLoteName(e.target.value)} placeholder="Nombre del Lote (Ej: La Ladera)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
+                <input type="number" value={loteBudget} onChange={e => setLoteBudget(e.target.value)} placeholder="Presupuesto Anual ($)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -224,21 +232,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <input type="number" value={loteArea} onChange={e => setLoteArea(e.target.value)} placeholder="0.0" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                   </div>
                   <div className="space-y-1">
+                      <label className="text-[9px] font-black text-indigo-400 uppercase ml-1">Población Total</label>
+                      <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl p-3 text-sm text-indigo-400 font-bold" readOnly />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Cultivo Principal</label>
                       <select value={loteCrop} onChange={e => setLoteCrop(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
                           {commonCrops.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Edad Cultivo (Meses)</label>
+                    <input type="number" value={loteCropAge} onChange={e => setLoteCropAge(e.target.value)} placeholder="Ej: 24" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                  </div>
                 </div>
-
+                
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Cultivo de Asocio (Sombra)</label>
                         <input type="text" value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} placeholder="Ej: Plátano" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[9px] font-black text-indigo-400 uppercase ml-1">Población Total</label>
-                        <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl p-3 text-sm text-indigo-400 font-bold" readOnly />
+                        <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Densidad Asocio (sitios/Ha)</label>
+                        <input type="number" value={associatedCropDensity} onChange={e => setAssociatedCropDensity(e.target.value)} placeholder="Ej: 200" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                     </div>
                 </div>
 
@@ -252,10 +271,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="p-2 bg-slate-800 rounded-xl"><MapPin className="w-4 h-4 text-slate-500" /></div>
                       <div>
                         <p className="text-sm font-bold text-white">{c.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{c.area} Ha • {c.cropType} • {(c.plantCount || 0).toLocaleString()} árb</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{c.area} Ha • {c.cropType}</p>
                       </div>
                     </div>
-                    <button onClick={() => onDeleteCostCenter(c.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => onDeleteCostCenter(c.id)} className="p-2 text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
@@ -264,168 +283,99 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {activeTab === 'proveedores' && (
             <div className="space-y-6 animate-fade-in">
-              <form onSubmit={handleAddSupplier} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Proveedor</h4>
-                <input type="text" value={supName} onChange={e => setSupName(e.target.value)} placeholder="Nombre del Proveedor" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
-                <div className="grid grid-cols-2 gap-3">
-                    <input type="text" value={supPhone} onChange={e => setSupPhone(e.target.value)} placeholder="Teléfono" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                    <input type="email" value={supEmail} onChange={e => setSupEmail(e.target.value)} placeholder="Email" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                </div>
-                <input type="text" value={supAddress} onChange={e => setSupAddress(e.target.value)} placeholder="Dirección" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Proveedor</button>
+              <form onSubmit={handleAddSupplier} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 space-y-3">
+                 <h4 className="text-emerald-500 text-xs uppercase font-black flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Proveedor</h4>
+                 <input type="text" value={supName} onChange={e => setSupName(e.target.value)} placeholder="Nombre del Proveedor" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" required />
+                 <input type="text" value={supPhone} onChange={e => setSupPhone(e.target.value)} placeholder="Teléfono" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
+                 <input type="email" value={supEmail} onChange={e => setSupEmail(e.target.value)} placeholder="Email" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
+                 <input type="text" value={supAddress} onChange={e => setSupAddress(e.target.value)} placeholder="Dirección" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
+                 <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg text-xs uppercase">Guardar Proveedor</button>
               </form>
-              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
                 {suppliers.map(s => (
-                  <div key={s.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <Users className="w-4 h-4 text-slate-500" />
-                      <div>
-                        <p className="text-sm font-bold text-white">{s.name}</p>
-                        <p className="text-[10px] text-slate-400">{s.phone || 'Sin teléfono'}</p>
-                      </div>
+                  <div key={s.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center border border-slate-700/50">
+                    <div>
+                      <p className="text-sm font-bold text-white">{s.name}</p>
+                      <p className="text-xs text-slate-400">{s.phone}</p>
                     </div>
-                    <button onClick={() => onDeleteSupplier(s.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => onDeleteSupplier(s.id)} className="p-2 text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {activeTab === 'personal' && (
+          {activeTab === 'personal' && onAddPersonnel && (
             <div className="space-y-6 animate-fade-in">
-              <form onSubmit={handleAddPersonnel} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                  <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Trabajador</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                      <input type="text" value={perName} onChange={e => setPerName(e.target.value)} placeholder="Nombre Completo" className="col-span-2 w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
-                      <input type="text" value={perRole} onChange={e => setPerRole(e.target.value)} placeholder="Rol (Ej: Operario)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                      <input type="text" value={perDoc} onChange={e => setPerDoc(e.target.value)} placeholder="Documento ID" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                      <input type="tel" value={perPhone} onChange={e => setPerPhone(e.target.value)} placeholder="Teléfono" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                      <input type="tel" value={perEmergency} onChange={e => setPerEmergency(e.target.value)} placeholder="Contacto Emergencia" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                      <input type="text" value={perEps} onChange={e => setPerEps(e.target.value)} placeholder="EPS" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                      <input type="date" value={perBirth} onChange={e => setPerBirth(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
-                  </div>
-                  <label className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
-                      <input type="checkbox" checked={perArl} onChange={e => setPerArl(e.target.checked)} className="h-4 w-4 rounded text-emerald-500 bg-slate-800 border-slate-600 focus:ring-emerald-500"/>
-                      <span className="text-sm font-bold text-white">Afiliado a ARL</span>
-                  </label>
-                  <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Trabajador</button>
+              <form onSubmit={handleAddPersonnel} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 space-y-3">
+                <h4 className="text-emerald-500 text-xs uppercase font-black flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Trabajador</h4>
+                <div className="grid grid-cols-2 gap-2">
+                    <input type="text" value={perName} onChange={e => setPerName(e.target.value)} placeholder="Nombre Completo" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" required />
+                    <input type="text" value={perRole} onChange={e => setPerRole(e.target.value)} placeholder="Cargo (Ej: Operario)" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" required />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <input type="date" value={perBirth} onChange={e => setPerBirth(e.target.value)} placeholder="Fecha Nacimiento" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
+                    <input type="text" value={perDisability} onChange={e => setPerDisability(e.target.value)} placeholder="Discapacidad (Opcional)" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" />
+                </div>
+                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg text-xs uppercase">Guardar Trabajador</button>
               </form>
-              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
                 {personnel.map(p => (
-                  <div key={p.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <UserCheck className="w-4 h-4 text-slate-500" />
-                      <div>
-                        <p className="text-sm font-bold text-white">{p.name}</p>
-                        <p className="text-[10px] text-slate-400">{p.role}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => onDeletePersonnel && onDeletePersonnel(p.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  <div key={p.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center border border-slate-700/50">
+                    <div><p className="text-sm font-bold text-white">{p.name}</p><p className="text-xs text-slate-400">{p.role}</p></div>
+                    <button onClick={() => onDeletePersonnel && onDeletePersonnel(p.id)} className="p-2 text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {activeTab === 'labores' && (
+          {activeTab === 'labores' && onAddActivity && (
             <div className="space-y-6 animate-fade-in">
-              <form onSubmit={handleAddActivity} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nueva Labor</h4>
-                <input type="text" value={actName} onChange={e => setActName(e.target.value)} placeholder="Nombre de la Labor (Ej: Plateo)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
-                <select value={actClass} onChange={e => setActClass(e.target.value as CostClassification)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
-                    <option value="JOINT">Costo Conjunto</option>
-                    <option value="COFFEE">Solo Café</option>
-                    <option value="PLANTAIN">Solo Plátano</option>
-                    <option value="OTHER">Otro Cultivo</option>
+              <form onSubmit={handleAddActivity} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 space-y-3">
+                <h4 className="text-emerald-500 text-xs uppercase font-black flex items-center gap-2"><Plus className="w-4 h-4" /> Nueva Labor</h4>
+                <input type="text" value={actName} onChange={e => setActName(e.target.value)} placeholder="Nombre de la Labor" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" required />
+                <select value={actClass} onChange={e => setActClass(e.target.value as CostClassification)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white">
+                    <option value="JOINT">Costo Conjunto</option><option value="COFFEE">Costo Café</option><option value="PLANTAIN">Costo Plátano</option><option value="OTHER">Otro</option>
                 </select>
-                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase">Añadir Labor</button>
+                <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg text-xs uppercase">Guardar Labor</button>
               </form>
-              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                {activities.map(a => (
-                  <div key={a.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <Pickaxe className="w-4 h-4 text-slate-500" />
-                      <div>
-                        <p className="text-sm font-bold text-white">{a.name}</p>
-                        <p className="text-[10px] text-slate-400">{a.costClassification}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => onDeleteActivity && onDeleteActivity(a.id)} className="p-2 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                ))}
+              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                {activities.map(a => (<div key={a.id} className="bg-slate-900/50 p-3 rounded-xl flex justify-between items-center border border-slate-700/50"><div><p className="text-sm font-bold text-white">{a.name}</p></div><button onClick={() => onDeleteActivity && onDeleteActivity(a.id)} className="p-2 text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button></div>))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'config' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 space-y-4">
+                <h4 className="text-emerald-500 text-xs uppercase font-black flex items-center gap-2"><Scale className="w-4 h-4"/> Parámetros de Rentabilidad</h4>
+                <div className="space-y-2">
+                  <label className="text-sm text-white font-bold">Factor Prestacional de Nómina</label>
+                  <p className="text-xs text-slate-400">Multiplicador sobre el pago neto para estimar el costo real (con carga social). Colombia: 1.52</p>
+                  <input type="number" step="0.01" value={localFactor} onChange={e => setLocalFactor(parseFloat(e.target.value))} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-lg text-white font-mono" />
+                </div>
+                <button onClick={handleSaveFactor} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg text-xs uppercase flex items-center justify-center gap-2">
+                  {factorSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />} {factorSaved ? 'Guardado' : 'Guardar Factor'}
+                </button>
               </div>
             </div>
           )}
 
           {activeTab === 'legal' && (
-              <div className="space-y-6 animate-fade-in">
-                  <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                      <h4 className="text-emerald-500 text-xs uppercase font-black mb-4 flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4" /> Centro de Transparencia
-                      </h4>
-                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                          Consulta en cualquier momento los términos legales, tu política de privacidad y tus derechos como usuario.
-                      </p>
-                      <button 
-                          onClick={() => setShowLegalDetail(true)}
-                          className="w-full bg-slate-950 border border-slate-700 p-6 rounded-3xl flex items-center justify-between hover:bg-slate-900 transition-all group"
-                      >
-                          <div className="flex items-center gap-4">
-                              <FileText className="w-6 h-6 text-emerald-500" />
-                              <div className="text-left">
-                                  <p className="font-black text-sm text-white uppercase">Política de Privacidad</p>
-                                  <p className="text-[9px] text-slate-500 font-bold">Habeas Data & Uso de Datos 2025</p> 
-                              </div>
-                          </div>
-                          <Zap className="w-5 h-5 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-
-                      <div className="bg-blue-900/10 p-4 rounded-2xl border border-blue-500/30 flex gap-3 items-start mt-4">
-                          <Info className="w-5 h-5 text-blue-400 shrink-0" />
-                          <p className="text-[9px] text-slate-400 leading-tight italic">
-                              DatosFinca Viva se adhiere estrictamente a la Ley 1581 de 2012. Tus datos de finca son privados y se almacenan exclusivamente de forma local.
-                          </p>
-                      </div>
-                  </div>
-              </div>
-          )}
-
-          {activeTab === 'config' && (
-              <div className="space-y-6 animate-fade-in">
-                  <div className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
-                      <h4 className="text-amber-500 text-xs uppercase font-black mb-4 flex items-center gap-2">
-                          <Scale className="w-4 h-4" /> Costeo de Mano de Obra
-                      </h4>
-                      <p className="text-xs text-slate-400 font-medium">
-                          Define el factor prestacional para calcular el costo real de la empresa por cada jornal pagado.
-                      </p>
-                      <div>
-                          <label className="block text-xs font-black text-slate-400 uppercase ml-2">Factor Multiplicador</label>
-                          <div className="flex items-center gap-2 mt-1">
-                              <input 
-                                  type="number"
-                                  step="0.01"
-                                  value={localFactor}
-                                  onChange={(e) => setLocalFactor(parseFloat(e.target.value) || 1.0)}
-                                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-4 text-amber-500 font-mono font-black text-lg outline-none focus:ring-2 focus:ring-amber-500"
-                              />
-                              <button onClick={handleSaveFactor} className="p-4 bg-emerald-600 text-white rounded-xl disabled:bg-slate-600">
-                                  {factorSaved ? <CheckCircle className="w-5 h-5" /> : <Save className="w-5 h-5" />}
-                              </button>
-                          </div>
-                      </div>
-                      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 flex items-start gap-3">
-                         <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                         <p className="text-[9px] text-slate-400 leading-tight">
-                             <strong>Guía:</strong> Factor <strong>1.0</strong> para jornal informal. Factor <strong>1.52</strong> para empresa formal (incluye parafiscales y prestaciones). Puede ajustarlo a su medida.
-                         </p>
-                      </div>
-                  </div>
-              </div>
+            <div className="space-y-4 animate-fade-in">
+                <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 space-y-4">
+                    <h4 className="text-emerald-500 text-xs uppercase font-black flex items-center gap-2"><Gavel className="w-4 h-4"/> Cumplimiento y Soporte</h4>
+                    <button onClick={() => setShowLegalDetail(true)} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg text-xs uppercase flex items-center justify-center gap-2">
+                        <FileText className="w-4 h-4" /> Ver Marco Jurídico Completo
+                    </button>
+                </div>
+            </div>
           )}
         </div>
+
+        {showLegalDetail && <LegalComplianceModal onClose={() => setShowLegalDetail(false)} />}
       </div>
-      {showLegalDetail && <LegalComplianceModal onClose={() => setShowLegalDetail(false)} />}
     </div>
   );
 };

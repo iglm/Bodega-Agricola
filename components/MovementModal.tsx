@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine, Category } from '../types';
 import { getBaseUnitType, convertToBase, formatBaseQuantity, formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
-import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Image as ImageIcon, Tag, UserCheck, ShieldCheck, Calculator } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Image as ImageIcon, Tag, UserCheck, ShieldCheck, Calculator, Plus, Save } from 'lucide-react';
 
 interface MovementModalProps {
   item: InventoryItem;
@@ -13,11 +13,14 @@ interface MovementModalProps {
   movements?: Movement[];
   onSave: (movement: Omit<Movement, 'id' | 'date' | 'warehouseId'>, newUnitPrice?: number, newExpirationDate?: string) => void;
   onCancel: () => void;
+  onAddSupplier: (name: string) => void;
+  onAddCostCenter: (name: string) => void;
+  onAddPersonnel: (name: string) => void;
 }
 
 export const MovementModal: React.FC<MovementModalProps> = ({ 
   item, type, suppliers, costCenters, personnel = [],
-  onSave, onCancel
+  onSave, onCancel, onAddSupplier, onAddCostCenter, onAddPersonnel
 }) => {
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState<Unit>(item.lastPurchaseUnit);
@@ -28,6 +31,16 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
   const [selectedCostCenterId, setSelectedCostCenterId] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Inline Creation States
+  const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  
+  const [isCreatingLot, setIsCreatingLot] = useState(false);
+  const [newLotName, setNewLotName] = useState('');
+
+  const [isCreatingPerson, setIsCreatingPerson] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
 
   const isOut = type === 'OUT';
   const baseType = getBaseUnitType(item.lastPurchaseUnit);
@@ -58,6 +71,33 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         return { total, costPerBase: total / baseQty };
     }
   }, [quantity, unit, manualUnitPrice, isOut, item.averageCost]);
+
+  const handleCreateSupplier = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newSupplierName.trim()) {
+          onAddSupplier(newSupplierName);
+          setIsCreatingSupplier(false);
+          setNewSupplierName('');
+      }
+  };
+
+  const handleCreateLot = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newLotName.trim()) {
+          onAddCostCenter(newLotName);
+          setIsCreatingLot(false);
+          setNewLotName('');
+      }
+  };
+
+  const handleCreatePerson = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newPersonName.trim()) {
+          onAddPersonnel(newPersonName);
+          setIsCreatingPerson(false);
+          setNewPersonName('');
+      }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,55 +181,89 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><Users className="w-3 h-3"/> Proveedor</label>
-                    <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs">
-                        <option value="">Seleccionar Proveedor...</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><Users className="w-3 h-3"/> Proveedor</label>
+                        <button type="button" onClick={() => setIsCreatingSupplier(!isCreatingSupplier)} className="text-[10px] font-black text-indigo-400 hover:text-white uppercase flex items-center gap-1 transition-colors">
+                            {isCreatingSupplier ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
+                            {isCreatingSupplier ? 'Cancelar' : 'Crear'}
+                        </button>
+                    </div>
+                    {isCreatingSupplier ? (
+                        <div className="flex gap-2 animate-fade-in-down">
+                            <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="Nuevo Proveedor" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" />
+                            <button type="button" onClick={handleCreateSupplier} disabled={!newSupplierName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                        </div>
+                    ) : (
+                        <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs">
+                            <option value="">Seleccionar Proveedor...</option>
+                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    )}
                   </div>
               </div>
           ) : (
               <div className="space-y-4">
                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><MapPin className="w-3 h-3"/> Destino / Lote</label>
-                      <select value={selectedCostCenterId} onChange={e => setSelectedCostCenterId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs" required>
-                          <option value="">¿A qué lote va?</option>
-                          {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
+                      <div className="flex justify-between items-center px-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><MapPin className="w-3 h-3"/> Destino / Lote</label>
+                          <button type="button" onClick={() => setIsCreatingLot(!isCreatingLot)} className="text-[10px] font-black text-indigo-400 hover:text-white uppercase flex items-center gap-1 transition-colors">
+                              {isCreatingLot ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
+                              {isCreatingLot ? 'Cancelar' : 'Crear'}
+                          </button>
+                      </div>
+                      {isCreatingLot ? (
+                          <div className="flex gap-2 animate-fade-in-down">
+                              <input type="text" value={newLotName} onChange={e => setNewLotName(e.target.value)} placeholder="Nuevo Lote" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" />
+                              <button type="button" onClick={handleCreateLot} disabled={!newLotName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                          </div>
+                      ) : (
+                          <select value={selectedCostCenterId} onChange={e => setSelectedCostCenterId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs" required>
+                              <option value="">¿A qué lote va?</option>
+                              {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                      )}
                   </div>
+                  
                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-500 uppercase ml-2 flex items-center gap-1"><UserCheck className="w-3 h-3"/> Aplicador / Responsable</label>
-                      <select value={selectedPersonnelId} onChange={e => setSelectedPersonnelId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs">
-                          <option value="">¿Quién lo retira?</option>
-                          {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
+                      <div className="flex justify-between items-center px-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1"><UserCheck className="w-3 h-3"/> Responsable (Opcional)</label>
+                          <button type="button" onClick={() => setIsCreatingPerson(!isCreatingPerson)} className="text-[10px] font-black text-indigo-400 hover:text-white uppercase flex items-center gap-1 transition-colors">
+                              {isCreatingPerson ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
+                              {isCreatingPerson ? 'Cancelar' : 'Crear'}
+                          </button>
+                      </div>
+                      {isCreatingPerson ? (
+                          <div className="flex gap-2 animate-fade-in-down">
+                              <input type="text" value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder="Nuevo Trabajador" className="flex-1 bg-indigo-900/20 border border-indigo-500/50 rounded-xl p-3 text-white text-sm font-bold outline-none" />
+                              <button type="button" onClick={handleCreatePerson} disabled={!newPersonName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                          </div>
+                      ) : (
+                          <select value={selectedPersonnelId} onChange={e => setSelectedPersonnelId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold text-xs">
+                              <option value="">Seleccionar Trabajador...</option>
+                              {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                      )}
                   </div>
               </div>
           )}
 
-          {error && <div className="bg-red-900/40 border border-red-500 p-3 rounded-xl text-red-200 text-[10px] font-black uppercase flex items-center gap-2 animate-shake"><AlertTriangle className="w-4 h-4" /> {error}</div>}
-
-          <div className="bg-indigo-950/40 rounded-3xl p-5 border border-indigo-500/20 space-y-4">
-             <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Calculator className="w-4 h-4" /> Desglose Matemático</span>
-                <span className="bg-indigo-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase">Pre-Visualización</span>
-             </div>
-             
-             <div className="flex justify-between items-end">
-                <div>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase">Costo Total del Movimiento</p>
-                    <p className="text-2xl font-mono font-black text-white">{formatCurrency(mathPreview.total)}</p>
-                </div>
-                <div className="text-right">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase">Valor por {baseType === 'g' ? 'Gramo' : 'ml'}</p>
-                    <p className="text-sm font-mono font-black text-indigo-400">{formatCurrency(mathPreview.costPerBase, 2)}</p>
-                </div>
-             </div>
+          <div className="space-y-1">
+             <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Notas Adicionales</label>
+             <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-sm outline-none resize-none h-20" placeholder="Detalles de la operación..."></textarea>
           </div>
 
-          <button type="submit" disabled={!!error || !quantity} className={`w-full py-5 rounded-[2rem] font-black text-white text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 ${isOut ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-600 hover:bg-emerald-500'} disabled:opacity-50 disabled:bg-slate-800`}>
-            {isOut ? 'CONFIRMAR SALIDA DE BODEGA' : 'REGISTRAR COMPRA Y AJUSTAR CPP'}
-          </button>
+          {error && <div className="bg-red-900/20 border border-red-500/50 p-3 rounded-xl text-red-400 text-xs font-bold flex items-center gap-2 animate-shake"><AlertTriangle className="w-4 h-4"/> {error}</div>}
+
+          <div className="pt-2">
+             <div className="flex justify-between items-center bg-slate-950 rounded-xl p-4 mb-4 border border-slate-800">
+                 <span className="text-[10px] font-black text-slate-500 uppercase">Costo Total Estimado</span>
+                 <span className="text-xl font-mono font-black text-white">{formatCurrency(mathPreview.total)}</span>
+             </div>
+             <button type="submit" className={`w-full py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all ${isOut ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/40' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'}`}>
+                 <Save className="w-5 h-5" /> CONFIRMAR {isOut ? 'SALIDA' : 'ENTRADA'}
+             </button>
+          </div>
+
         </form>
       </div>
     </div>

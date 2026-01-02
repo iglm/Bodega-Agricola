@@ -51,6 +51,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         ref={fileInputRef} 
         className="hidden" 
         accept="image/*" 
+        onClick={(e) => { (e.target as HTMLInputElement).value = '' }} 
         onChange={onImageSelect}
         tabIndex={-1} // Evita foco en el input oculto
       />
@@ -108,9 +109,10 @@ interface InventoryFormProps {
       initialUnit?: Unit
   ) => void;
   onCancel: () => void;
+  onAddSupplier: (name: string) => void; // Nuevo
 }
 
-export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave, onCancel }) => {
+export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave, onCancel, onAddSupplier }) => {
   // State: Identification
   const [name, setName] = useState('');
   const [category, setCategory] = useState<Category>(Category.FERTILIZANTE);
@@ -135,6 +137,10 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
+
+  // Inline Supplier Creation
+  const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
 
   // Logic
   const showSafetyFields = [Category.INSECTICIDA, Category.FUNGICIDA, Category.HERBICIDA].includes(category);
@@ -168,11 +174,20 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
         isInvoice ? setInvoiceImage(imageId) : setImage(imageId);
       } catch (err) { 
         console.error("Error al procesar imagen:", err);
-        alert("Error al procesar la imagen. Intente nuevamente."); 
+        alert("Error al procesar la imagen. Espacio insuficiente o archivo inválido."); 
       } finally { 
         isInvoice ? setIsProcessingInvoiceImg(false) : setIsProcessingImg(false); 
       }
     }
+  };
+
+  const handleCreateSupplier = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if(newSupplierName.trim()) {
+          onAddSupplier(newSupplierName);
+          setIsCreatingSupplier(false);
+          setNewSupplierName('');
+      }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -324,11 +339,24 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><Users className="w-3 h-3" /> Proveedor (Opcional)</label>
-                <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-slate-800 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="">Sin Proveedor</option>
-                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1"><Users className="w-3 h-3" /> Proveedor (Opcional)</label>
+                    <button type="button" onClick={() => setIsCreatingSupplier(!isCreatingSupplier)} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase flex items-center gap-1 transition-colors">
+                        {isCreatingSupplier ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>} 
+                        {isCreatingSupplier ? 'Cancelar' : 'Crear'}
+                    </button>
+                </div>
+                {isCreatingSupplier ? (
+                    <div className="flex gap-2 animate-fade-in-down">
+                        <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="Nombre Proveedor" className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-sm font-bold outline-none" autoFocus />
+                        <button type="button" onClick={handleCreateSupplier} disabled={!newSupplierName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-2xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                    </div>
+                ) : (
+                    <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-slate-800 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+                      <option value="">Sin Proveedor</option>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

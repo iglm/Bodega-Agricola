@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BudgetPlan, CostCenter, Activity, InventoryItem, BudgetItem, LaborLog, Movement } from '../types';
 import { formatCurrency, generateId } from '../services/inventoryService';
-import { Calculator, Plus, Trash2, Save, Calendar, TrendingUp, Pickaxe, Package, ArrowRight, BarChart3, AlertCircle, CheckCircle2, Target, Gauge, MousePointer2, TrendingDown, Info, DollarSign, ChevronRight } from 'lucide-react';
+import { Calculator, Plus, Trash2, Save, Calendar, TrendingUp, Pickaxe, Package, ArrowRight, BarChart3, AlertCircle, CheckCircle2, Target, Gauge, MousePointer2, TrendingDown, Info, DollarSign, ChevronRight, X } from 'lucide-react';
 import { HeaderCard, Modal } from './UIElements';
 
 interface BudgetViewProps {
@@ -12,6 +12,7 @@ interface BudgetViewProps {
   inventory: InventoryItem[];
   warehouseId: string;
   onSaveBudget: (budget: BudgetPlan) => void;
+  onAddCostCenter: (name: string) => void;
   laborLogs?: LaborLog[];
   movements?: Movement[];
   laborFactor?: number;
@@ -24,6 +25,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
   inventory,
   warehouseId,
   onSaveBudget,
+  onAddCostCenter,
   laborLogs = [],
   movements = [],
   laborFactor = 1.0
@@ -42,6 +44,16 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
   const [qtyPerHa, setQtyPerHa] = useState('');
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
 
+  // Quick Create Lot State
+  const [isCreatingLot, setIsCreatingLot] = useState(false);
+  const [newLotName, setNewLotName] = useState('');
+
+  useEffect(() => {
+    if (!selectedLotId && costCenters.length > 0) {
+        setSelectedLotId(costCenters[0].id);
+    }
+  }, [costCenters, selectedLotId]);
+
   useEffect(() => {
     if (!selectedLotId) return;
     const existing = budgets.find(b => b.warehouseId === warehouseId && b.year === selectedYear && b.costCenterId === selectedLotId);
@@ -55,6 +67,14 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
   const selectedLot = costCenters.find(c => c.id === selectedLotId);
   const lotArea = selectedLot?.area || 1;
   const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+  const handleCreateLot = () => {
+      if (newLotName.trim()) {
+          onAddCostCenter(newLotName);
+          setIsCreatingLot(false);
+          setNewLotName('');
+      }
+  };
 
   // --- ENGINE DE CÁLCULO MENSUAL (PLAN vs REAL) ---
   const financialData = useMemo(() => {
@@ -238,7 +258,10 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
       if (activeBudget) { onSaveBudget(activeBudget); alert('Presupuesto guardado exitosamente.'); }
   };
 
-  if (!selectedLot) return <div className="p-8 text-center text-slate-500">Seleccione un lote para comenzar.</div>;
+  if (!selectedLot && !isCreatingLot && costCenters.length === 0) {
+      // Allow creation if no lots exist
+      // We handle this via the main conditional rendering below which will show creation UI
+  }
 
   const grandTotalPlanned = financialData.totalLaborPlan + financialData.totalSupplyPlan;
   const executionTotalReal = financialData.realFlow.reduce((a, b) => a + b, 0);
@@ -248,7 +271,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
     <div className="space-y-8 pb-32 animate-fade-in">
         <HeaderCard 
             title={viewMode === 'plan' ? "Presupuesto Anual" : "Control Financiero"}
-            subtitle={`Hacienda Tabares Franco • ${selectedLot.name}`}
+            subtitle={`Hacienda Tabares Franco • ${selectedLot?.name || 'Nuevo Lote'}`}
             valueLabel={viewMode === 'plan' ? "Inversión Planeada" : "Ejecución Real"}
             value={viewMode === 'plan' ? formatCurrency(grandTotalPlanned) : formatCurrency(executionTotalReal)}
             gradientClass="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950"
@@ -267,8 +290,41 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                 </div>
                 <div className="h-10 w-px bg-slate-200 dark:bg-slate-700"></div>
                 <div className="flex-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Lote / Unidad de Costo</label>
-                    <select value={selectedLotId} onChange={e => setSelectedLotId(e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-800 dark:text-white border-none outline-none cursor-pointer">{costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase block">Lote / Unidad de Costo</label>
+                        <button 
+                            onClick={() => setIsCreatingLot(!isCreatingLot)} 
+                            className="text-[9px] font-black text-indigo-500 uppercase hover:text-indigo-400 transition-colors flex items-center gap-1"
+                        >
+                            {isCreatingLot ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>}
+                            {isCreatingLot ? 'Cancelar' : 'Crear Nuevo'}
+                        </button>
+                    </div>
+                    
+                    {isCreatingLot ? (
+                        <div className="flex gap-2 items-center animate-fade-in-down">
+                            <input 
+                                type="text" 
+                                value={newLotName} 
+                                onChange={e => setNewLotName(e.target.value)} 
+                                placeholder="Nombre Nuevo Lote" 
+                                className="flex-1 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-lg px-3 py-2 text-sm font-bold outline-none text-slate-800 dark:text-white placeholder-indigo-300"
+                                autoFocus
+                                onKeyDown={(e) => e.key === 'Enter' && handleCreateLot()}
+                            />
+                            <button 
+                                onClick={handleCreateLot} 
+                                disabled={!newLotName.trim()}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg shadow-md disabled:opacity-50 transition-colors"
+                            >
+                                <Save className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <select value={selectedLotId} onChange={e => setSelectedLotId(e.target.value)} className="w-full bg-transparent font-black text-xl text-slate-800 dark:text-white border-none outline-none cursor-pointer">
+                            {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    )}
                 </div>
             </div>
             
@@ -284,7 +340,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
         </div>
 
         {/* --- DETAILS SECTION --- */}
-        {viewMode === 'plan' && (
+        {viewMode === 'plan' && selectedLot && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-4">
                     <div className="flex justify-between items-center px-4">
