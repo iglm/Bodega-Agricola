@@ -23,7 +23,6 @@
             },
             colors: {
               agro: { 50: '#ecfdf5', 100: '#d1fae5', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b' },
-              // Paleta de colores más rica y adaptada al tema oscuro
               slate: { 
                 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 
                 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a', 950: '#020617' 
@@ -95,24 +94,21 @@
         overflow-x: hidden;
       }
       input, textarea, select { -webkit-user-select: text; user-select: text; }
-      .custom-scrollbar::-webkit-scrollbar { width: 6px; } /* Más ancho para visibilidad */
-      .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; } /* Fondo del track */
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
       .custom-scrollbar::-webkit-scrollbar-thumb { 
-        background: #475569; /* Color del thumb */
+        background: #475569; 
         border-radius: 10px; 
-        border: 2px solid #1e293b; /* Borde para separarlo del track */
+        border: 2px solid #1e293b; 
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; } /* Hover effect */
-
-      /* Hide scrollbar for specific elements but allow scrolling */
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
       .scrollbar-hide {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
       .scrollbar-hide::-webkit-scrollbar {
-        display: none; /* Chrome, Safari, Opera*/
+        display: none;
       }
-
       .scroll-container {
         height: 100%;
         overflow-y: auto;
@@ -130,9 +126,9 @@
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
     "xlsx": "https://esm.sh/xlsx-js-style@1.2.0",
     "xlsx-js-style": "https://esm.sh/xlsx-js-style@1.2.0",
-    "@google/genai": "https://esm.sh/@google/genai@1.34.0",
     "idb": "https://esm.sh/idb@8.0.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "react/": "https://esm.sh/react@^19.2.3/"
   }
 }

@@ -24,45 +24,26 @@ import { PayrollModal } from './components/PayrollModal';
 import { SecurityModal } from './components/SecurityModal';
 import { Notification } from './components/Notification';
 import { LaborSchedulerView } from './components/LaborSchedulerView';
-import { AppState, InventoryItem, Movement, User, Unit, SWOT, LaborLog, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine, PlannedLabor, CostCenter, BudgetPlan } from './types';
+import { AppState, InventoryItem, Movement, User, Unit, LaborLog, Asset, Personnel, PhenologyLog, PestLog, MaintenanceLog, Machine, PlannedLabor, CostCenter, BudgetPlan } from './types';
 import { processInventoryMovement, generateId, getBaseUnitType, loadDataFromLocalStorage, saveDataToLocalStorage } from './services/inventoryService';
 import { dbService } from './services/db'; 
 import { getDemoData, generateExcel, generatePDF, generateLaborReport, generateHarvestReport } from './services/reportService';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Sprout, Calculator, Lightbulb, LayoutGrid, Sun, Moon } from 'lucide-react';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, TrendingUp, HelpCircle, Calendar, Zap, CalendarRange, Sprout, Calculator, Lightbulb, LayoutGrid, Sun, Moon, Loader2 } from 'lucide-react';
 
 function App() {
+  // 1. TODOS LOS HOOKS DEBEN IR AL PRINCIPIO (Regla de Hooks)
   const [session, setSession] = useState<User | null>(null);
   const [view, setView] = useState<'landing' | 'app'>('landing');
   const [currentTab, setCurrentTab] = useState('inventory');
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
-  const [data, setData] = useState<AppState>(() => {
-      try {
-          return loadDataFromLocalStorage();
-      } catch (error) {
-          return {
-              warehouses: [], activeWarehouseId: '', inventory: [], movements: [], suppliers: [], costCenters: [], personnel: [], activities: [], laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], assets: [], laborFactor: 1.0
-          };
-      }
-  });
+  const [data, setData] = useState<AppState>(() => ({
+      warehouses: [], activeWarehouseId: '', inventory: [], movements: [], suppliers: [], costCenters: [], personnel: [], activities: [], laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], assets: [], laborFactor: 1.0
+  }));
   
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
-
-  useEffect(() => {
-    if (!data || !data.activeWarehouseId) return;
-    saveDataToLocalStorage(data);
-    dbService.saveState(data).catch(err => console.warn("IDB Save Fallback:", err));
-  }, [data]);
-
-  useEffect(() => {
-    document.documentElement.className = theme;
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-  
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-      setNotification({ message, type });
-  };
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -77,10 +58,53 @@ function App() {
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<InventoryItem | null>(null);
 
-  if (!data) return null;
-
   const activeId = data.activeWarehouseId;
   const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
+
+  // 2. EFECTOS DE PERSISTENCIA (SISTEMA ANTI-PÉRDIDA)
+  useEffect(() => {
+    const initData = async () => {
+        try {
+            const savedState = await dbService.loadState();
+            if (savedState && savedState.activeWarehouseId) {
+                setData(savedState);
+            } else {
+                const legacy = loadDataFromLocalStorage();
+                setData(legacy);
+            }
+        } catch (e) {
+            console.error("Error cargando DB local:", e);
+        } finally {
+            setIsDataLoaded(true);
+        }
+    };
+    initData();
+  }, []);
+
+  useEffect(() => {
+    if (!isDataLoaded || !data.activeWarehouseId) return;
+    saveDataToLocalStorage(data);
+    dbService.saveState(data).catch(err => console.warn("Guardado asíncrono:", err));
+  }, [data, isDataLoaded]);
+
+  useEffect(() => {
+    document.documentElement.className = theme;
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // 3. RETORNO TEMPRANO SOLO DESPUÉS DE DECLARAR TODOS LOS HOOKS
+  if (!isDataLoaded) {
+      return (
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+              <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+              <p className="text-emerald-400 font-black text-xs uppercase tracking-widest">Asegurando Base de Datos Local...</p>
+          </div>
+      );
+  }
+
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+      setNotification({ message, type });
+  };
 
   const requestSecureAction = (action: () => void) => { setSecureAction(() => action); };
   const handlePinSuccess = (pin: string) => { if (!data.adminPin) { setData(prev => ({ ...prev, adminPin: pin })); } if (secureAction) { secureAction(); } setSecureAction(null); };
@@ -110,7 +134,7 @@ function App() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
       {view === 'landing' && (
-        <Landing onEnter={(u) => { setSession(u); setView('app'); }} onShowManual={() => setShowManual(true)} onLoadDemoData={handleLoadDemoData} />
+        <Landing onEnter={(u) => { setSession(u); setView('app'); }} onShowManual={() => setShowManual(false)} onLoadDemoData={handleLoadDemoData} />
       )}
       {view === 'app' && data && (
         <>
@@ -155,7 +179,6 @@ function App() {
           <main className="max-w-4xl mx-auto p-4 pb-40">
             {currentTab === 'inventory' && <Dashboard inventory={data.inventory.filter(i=>i.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} harvests={data.harvests.filter(h=>h.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} onAddMovement={(i, t) => setMovementModal({item:i, type:t})} onDelete={(id) => requestSecureAction(() => { const item = data.inventory.find(i => i.id === id); if (item) setDeleteItem(item); })} onViewHistory={(item) => setHistoryItem(item)} onViewGlobalHistory={() => setShowGlobalHistory(true)} isAdmin={true} />}
             {currentTab === 'labor' && <LaborView laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} personnel={data.personnel.filter(p=>p.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} onAddLabor={()=>showNotification("Vaya a 'Programar' para registrar labores con rendimiento técnico.", "error")} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
-            {/* Added the required personnel prop to LaborSchedulerView to prevent rendering errors */}
             {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onAddPlannedLabor={handleAddPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} budgets={data.budgets || []} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} />}
             {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} isAdmin={true} allMovements={data.movements} />}
             {currentTab === 'simulator' && <SimulatorView />} 

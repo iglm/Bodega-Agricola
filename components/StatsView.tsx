@@ -63,7 +63,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const filteredLabor = useMemo(() => laborLogs.filter(l => filterByDate(l.date)), [laborLogs, startDate, endDate, useDateFilter]);
   const filteredHarvests = useMemo(() => harvests.filter(h => filterByDate(h.date)), [harvests, startDate, endDate, useDateFilter]);
 
-  // --- KPI: COSTO POR ARROBA CPS ---
+  // --- KPI: COSTO POR ARROBA CPS (CENICAFÉ) ---
   const economicAudit = useMemo(() => {
       const totalSupplies = filteredMovements.filter(m => m.type === 'OUT').reduce((a, b) => a + b.calculatedCost, 0);
       const totalLabor = filteredLabor.reduce((a, b) => a + b.value, 0) * laborFactor;
@@ -84,7 +84,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   // --- MOTOR DE BI: EFICIENCIA DE RECOLECCIÓN (Kg/Hombre/Día) ---
   const collectionEfficiency = useMemo(() => {
       const logs = filteredHarvests.filter(h => h.collectorsCount && h.collectorsCount > 0);
-      if (logs.length === 0) return { avgKgManDay: 0, status: 'N/A', suggestion: 'Registrar datos de recolectores en ventas.' };
+      if (logs.length === 0) return { avgKgManDay: 0, status: 'N/A', suggestion: 'Inicie el registro de recolectores en Ventas para ver métricas.' };
       
       const totalKg = logs.reduce((a, b) => a + b.quantity, 0);
       const totalCollectors = logs.reduce((a, b) => a + (b.collectorsCount || 0), 0);
@@ -94,16 +94,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
       let suggestion = 'Mantener ritmo actual. Rendimiento competitivo.';
       if (avg < 80) {
           status = 'Bajo';
-          suggestion = 'Eficiencia Laboral Crítica. Implementar Lonas de Cosecha Asistida o Retener pases por baja oferta de fruto.';
+          suggestion = 'Sugerencia Táctica: Implementar Lonas de Cosecha Asistida o Retener pases por baja oferta de fruto.';
       } else if (avg < 120) {
           status = 'Normal';
-          suggestion = 'Rendimiento estándar. Evaluar incentivos por calidad.';
+          suggestion = 'Rendimiento estándar del sector. Evaluar incentivos.';
       }
 
       return { avgKgManDay: avg, status, suggestion };
   }, [filteredHarvests]);
 
-  // --- ANÁLISIS DE PARETO (LEY DEL 80/20 EN COSTOS) ---
+  // --- ANÁLISIS DE PARETO (DISTRIBUCIÓN REAL DE COSTOS) ---
   const paretoAnalysis = useMemo(() => {
       const costs = {
           'Recolección': 0,
@@ -138,12 +138,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
           const lotHarvests = filteredHarvests.filter(h => h.costCenterId === lot.id);
           const totalProd = lotHarvests.reduce((a, b) => a + b.quantity, 0);
           const density = lot.area > 0 ? (lot.plantCount || 0) / lot.area : 0;
-          const prodPerTree = lot.plantCount ? totalProd / lot.plantCount : 0;
           
           return {
               name: lot.name,
               density,
-              prodPerTree,
               isUnderperforming: density < 5000 && lot.area > 0
           };
       });
@@ -156,7 +154,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-600 rounded-xl"><Calendar className="w-4 h-4 text-white" /></div>
                 <div className="text-left">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Business Intelligence</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Analítica de Negocio</p>
                     <p className="text-xs font-black text-slate-800 dark:text-white mt-1">Hacienda Tabares Franco</p>
                 </div>
             </div>
@@ -167,16 +165,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
        </div>
 
-       {/* ALERTA ROJA - INTERVENCIÓN ADMINISTRATIVA */}
+       {/* ALERTA DE CRISIS ECONÓMICA */}
        {economicAudit.isCrisis && (
            <div className="bg-red-950 border-4 border-red-500 p-8 rounded-[3rem] shadow-2xl animate-shake relative overflow-hidden">
                <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldX className="w-32 h-32 text-white" /></div>
                <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
                    <div className="p-5 bg-red-600 rounded-3xl shadow-xl shadow-red-900/50"><AlertTriangle className="w-12 h-12 text-white" /></div>
                    <div className="text-center md:text-left flex-1">
-                       <h3 className="text-white font-black text-2xl uppercase tracking-tighter mb-1">¡Intervención Administrativa Inmediata!</h3>
+                       <h3 className="text-white font-black text-2xl uppercase tracking-tighter mb-1">¡Sobrecosto de Producción!</h3>
                        <p className="text-red-200 text-sm font-bold leading-snug">
-                           El costo de producción (<span className="text-white font-mono">{formatCurrency(economicAudit.costPerArroba)}</span>/Arroba) supera el precio promedio de venta. <strong>Pérdida por unidad detectada.</strong>
+                           El costo por arroba (<span className="text-white font-mono">{formatCurrency(economicAudit.costPerArroba)}</span>) supera el precio de venta. Revise la eficiencia de recolección.
                        </p>
                    </div>
                </div>
@@ -184,7 +182,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
        )}
 
        <div className="flex p-1.5 bg-slate-200 dark:bg-slate-900 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
-           <button onClick={() => setReportMode('bi')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'bi' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>BI Analysis</button>
+           <button onClick={() => setReportMode('bi')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'bi' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Monitor BI</button>
            <button onClick={() => setReportMode('economics')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'economics' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Costo/@ CPS</button>
            <button onClick={() => setReportMode('global')} className={`flex-1 min-w-[80px] py-3 text-[10px] font-black uppercase rounded-xl transition-all ${reportMode === 'global' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Balance Real</button>
        </div>
@@ -207,7 +205,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                             <div className="flex items-start gap-3">
                                 <Lightbulb className="w-6 h-6 text-yellow-400 shrink-0" />
                                 <div>
-                                    <p className="text-xs font-black text-white uppercase mb-1 italic">Sugerencia de Inteligencia</p>
+                                    <p className="text-xs font-black text-white uppercase mb-1 italic">Análisis Táctico</p>
                                     <p className="text-[11px] text-slate-400 leading-snug">{collectionEfficiency.suggestion}</p>
                                 </div>
                             </div>
@@ -234,31 +232,28 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                 </div>
                             ))}
                         </div>
-                        <p className="text-[8px] text-slate-500 mt-4 italic">* La recolección debe mantenerse bajo el 50% de la estructura de costos.</p>
                     </div>
 
                     {/* CORRELACIÓN DENSIDAD */}
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl">
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-indigo-500" /> Capacidad Productiva (Plantas/Ha)
+                            <Layers className="w-4 h-4 text-indigo-500" /> Auditoría de Población (árb/Ha)
                         </h4>
                         <div className="space-y-3">
                             {densityCorrelation.map(d => (
                                 <div key={d.name} className={`p-3 rounded-2xl border flex items-center justify-between ${d.isUnderperforming ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
                                     <div>
                                         <p className="text-xs font-black text-slate-800 dark:text-white uppercase">{d.name}</p>
-                                        <p className={`text-[9px] font-bold ${d.isUnderperforming ? 'text-red-500' : 'text-slate-500'}`}>{d.density.toLocaleString()} plantas/Ha</p>
+                                        <p className={`text-[9px] font-bold ${d.isUnderperforming ? 'text-red-500' : 'text-slate-500'}`}>{d.density.toLocaleString()} árb/Ha</p>
                                     </div>
                                     {d.isUnderperforming && (
                                         <div className="flex flex-col items-end">
                                             <span className="text-[8px] bg-red-600 text-white px-2 py-0.5 rounded-full font-black animate-pulse">BAJA DENSIDAD</span>
-                                            <span className="text-[7px] text-slate-400 mt-1 uppercase font-bold italic">Renovación Urgente</span>
                                         </div>
                                     )}
                                 </div>
                             ))}
                         </div>
-                        <p className="text-[8px] text-slate-500 mt-4 italic">* Densidades &lt; 5.000 plantas/Ha diluyen la rentabilidad frente a costos fijos.</p>
                     </div>
                 </div>
            </div>
@@ -269,7 +264,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <div className="bg-slate-900 p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-8">
                     <div className="flex justify-between items-center">
                         <h4 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-3">
-                            <Calculator className="w-5 h-5 text-emerald-500" /> Auditoría de Costo por Arroba
+                            <Calculator className="w-5 h-5 text-emerald-500" /> Auditoría de Costo Unitario
                         </h4>
                     </div>
 
@@ -281,7 +276,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                             </p>
                         </div>
                         <div className="bg-slate-950 p-6 rounded-3xl border border-slate-800 flex flex-col justify-center">
-                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase mb-2"><span>Precio de Venta Mercado</span><span>{formatCurrency(economicAudit.avgPricePerArroba)} / @</span></div>
+                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase mb-2"><span>Referencia Mercado</span><span>{formatCurrency(economicAudit.avgPricePerArroba)} / @</span></div>
                             <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden flex border border-slate-800">
                                 <div className={`h-full transition-all duration-1000 ${economicAudit.isCrisis ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min((economicAudit.costPerArroba / (economicAudit.avgPricePerArroba || 1)) * 100, 100)}%` }}></div>
                             </div>
@@ -294,20 +289,20 @@ export const StatsView: React.FC<StatsViewProps> = ({
        {reportMode === 'global' && (
            <div className="bg-white dark:bg-slate-800 rounded-[3rem] border border-slate-200 dark:border-slate-700 p-8 shadow-xl space-y-6 animate-slide-up">
                 <div className="flex justify-between items-center">
-                    <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest"><Scale className="w-4 h-4" /> Utilidad Operativa del Período</h3>
+                    <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest"><Scale className="w-4 h-4" /> Utilidad Real del Período</h3>
                 </div>
                 <div className="space-y-4">
-                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Ventas Brutas Totales</span><span className="font-mono font-black text-emerald-600 text-xl">+ {formatCurrency(economicAudit.totalRevenue)}</span></div>
-                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Costos Operativos Directos</span><span className="font-mono font-black text-red-500 text-xl">- {formatCurrency(economicAudit.totalExpenses)}</span></div>
+                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Ventas Brutas</span><span className="font-mono font-black text-emerald-600 text-xl">+ {formatCurrency(economicAudit.totalRevenue)}</span></div>
+                    <div className="flex justify-between items-end"><span className="text-slate-500 font-bold text-sm">Gastos Operativos (Costo Real)</span><span className="font-mono font-black text-red-500 text-xl">- {formatCurrency(economicAudit.totalExpenses)}</span></div>
                     <div className="w-full h-px bg-slate-100 dark:bg-slate-700 my-4"></div>
-                    <div className="flex justify-between items-center"><span className="text-slate-800 dark:text-white font-black text-lg uppercase tracking-tighter">Utilidad Neta Real</span><span className={`text-3xl font-black font-mono ${economicAudit.totalRevenue - economicAudit.totalExpenses >= 0 ? 'text-indigo-500' : 'text-red-500'}`}>{formatCurrency(economicAudit.totalRevenue - economicAudit.totalExpenses)}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-slate-800 dark:text-white font-black text-lg uppercase tracking-tighter">Utilidad Neta</span><span className={`text-3xl font-black font-mono ${economicAudit.totalRevenue - economicAudit.totalExpenses >= 0 ? 'text-indigo-500' : 'text-red-500'}`}>{formatCurrency(economicAudit.totalRevenue - economicAudit.totalExpenses)}</span></div>
                 </div>
            </div>
        )}
 
        <div className="p-8 text-center bg-slate-900/10 rounded-[3rem] border border-slate-800/30">
             <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest italic">Propiedad Intelectual de Lucas Mateo Tabares Franco</p>
-            <p className="text-[8px] text-slate-600 mt-1">Cumplimiento Ley 23 de 1982 | DatosFinca Viva PRO</p>
+            <p className="text-[8px] text-slate-600 mt-1">Software de Gestión Local Offline | DatosFinca Viva PRO</p>
        </div>
     </div>
   );
