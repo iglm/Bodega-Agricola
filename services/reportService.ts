@@ -1,4 +1,3 @@
-
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -21,6 +20,7 @@ interface SimulationYear {
   totalIncome: number;
   totalExpenses: number;
   netCashFlow: number;
+  cumulativeFlow: number;
 }
 
 interface SimulationData {
@@ -30,16 +30,6 @@ interface SimulationData {
   paybackYear: number | null;
   totalCapex: number;
   yearlyData: SimulationYear[];
-}
-
-interface SimulationParams {
-  varietyLabel: string;
-  numTrees: number;
-  density: number;
-  marketPrice: string | number;
-  harvestCostKg: string | number;
-  techLabel?: string;
-  qualityFactor?: number;
 }
 
 const BRAND_COLORS = {
@@ -78,6 +68,114 @@ const addFooter = (doc: jsPDF) => {
         doc.text(`DATOSFINCA VIVA - PROPIEDAD INTELECTUAL: ${AUTHOR} | Pág ${i} de ${pageCount}`, 105, 290, { align: 'center' });
     }
 };
+
+// --- NEW FUNCTIONS FOR FARM STRUCTURE REPORT ---
+
+export const generateFarmStructureExcel = (costCenters: CostCenter[]): void => {
+    const wb = XLSX.utils.book_new();
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    // Transform data
+    const data = costCenters.map(c => {
+        const density = c.area > 0 ? Math.round((c.plantCount || 0) / c.area) : 0;
+        return {
+            'Nombre Lote': c.name,
+            'Área (Hectáreas)': c.area,
+            'Etapa Productiva': c.stage as string,
+            'Cultivo Principal': c.cropType,
+            'Variedad/Detalle': '', // Placeholder for future use
+            'Cultivo Asocio': c.associatedCrop || 'Ninguno',
+            'Densidad Asocio (sitios/Ha)': c.associatedCropDensity || 0,
+            'Edad del Cultivo (Meses)': c.cropAgeMonths || 0,
+            'Población Total (Árboles)': c.plantCount || 0,
+            'Densidad Calc. (Árb/Ha)': density,
+            'Estado Densidad': density < 4000 ? 'Baja' : density > 8000 ? 'Alta' : 'Óptima'
+        };
+    });
+
+    // Calculate Totals
+    const totalArea = costCenters.reduce((sum, c) => sum + (c.area || 0), 0);
+    const totalTrees = costCenters.reduce((sum, c) => sum + (c.plantCount || 0), 0);
+    
+    // Append Totals Row
+    data.push({
+        'Nombre Lote': 'TOTAL HACIENDA',
+        'Área (Hectáreas)': totalArea,
+        'Etapa Productiva': '',
+        'Cultivo Principal': '',
+        'Variedad/Detalle': '',
+        'Cultivo Asocio': '',
+        'Densidad Asocio (sitios/Ha)': 0,
+        'Edad del Cultivo (Meses)': 0,
+        'Población Total (Árboles)': totalTrees,
+        'Densidad Calc. (Árb/Ha)': totalArea > 0 ? Math.round(totalTrees / totalArea) : 0,
+        'Estado Densidad': ''
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    
+    // Auto-width adjustment (Simple approximation)
+    const wscols = [
+        {wch: 25}, {wch: 15}, {wch: 15}, {wch: 20}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 20}, {wch: 20}, {wch: 20}, {wch: 15}
+    ];
+    ws['!cols'] = wscols;
+
+    XLSX.utils.book_append_sheet(wb, ws, "Estructura_Finca");
+    XLSX.writeFile(wb, `ESTRUCTURA_FINCA_${dateStr}.xlsx`);
+};
+
+export const generateFarmStructurePDF = (costCenters: CostCenter[]): void => {
+    const doc = new jsPDF();
+    const dateStr = new Date().toISOString().split('T')[0];
+    let y = addHeader(doc, "Estructura de la Finca", "Censo de Lotes y Población", "Reporte Técnico", BRAND_COLORS.indigo);
+    
+    const rows = costCenters.map(c => {
+        const density = c.area > 0 ? Math.round((c.plantCount || 0) / c.area) : 0;
+        return [
+            c.name,
+            `${c.area.toFixed(2)} Ha`,
+            c.cropType,
+            c.associatedCrop || '-',
+            `${c.cropAgeMonths || 0} Meses`,
+            (c.plantCount || 0).toLocaleString(),
+            density.toLocaleString(),
+            c.stage
+        ];
+    });
+
+    // Totals
+    const totalArea = costCenters.reduce((sum, c) => sum + (c.area || 0), 0);
+    const totalTrees = costCenters.reduce((sum, c) => sum + (c.plantCount || 0), 0);
+    const avgDensity = totalArea > 0 ? Math.round(totalTrees / totalArea) : 0;
+
+    autoTable(doc, { 
+        startY: y + 5, 
+        head: [['Lote', 'Área', 'Cultivo', 'Asocio', 'Edad', 'Población', 'Densidad', 'Etapa']], 
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: BRAND_COLORS.indigo },
+        styles: { fontSize: 8, halign: 'center' },
+        columnStyles: {
+            0: { halign: 'left', fontStyle: 'bold' }
+        },
+        foot: [[
+            'TOTALES', 
+            `${totalArea.toFixed(2)} Ha`, 
+            '-', 
+            '-', 
+            '-', 
+            totalTrees.toLocaleString(), 
+            `~${avgDensity}`, 
+            '-'
+        ]],
+        footStyles: { fillColor: BRAND_COLORS.slate, fontStyle: 'bold', textColor: 255 }
+    });
+
+    addFooter(doc);
+    doc.save(`ESTRUCTURA_FINCA_${dateStr}.pdf`);
+};
+
+// --- EXISTING EXPORTS ---
 
 export const generateExcel = (data: AppState): void => {
     const wb = XLSX.utils.book_new();
@@ -261,11 +359,11 @@ export const generateFieldTemplates = (data: AppState) => {
     const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId)?.name || "Hacienda Viva";
     
     const forms = [
-        { title: "1. Registro de Recolección Diaria", head: [['Fecha', 'Lote', 'Recolector', 'Kilos/Arrobas', 'Factor', 'Firma']] },
+        { title: "1. Registro de Recolección (Diario)", head: [['Fecha', 'Lote', 'Recolector', 'Kilos/Arrobas', 'Factor', 'Firma']] },
         { title: "2. Aplicación de Agroinsumos", head: [['Fecha', 'Lote', 'Producto', 'Dosis/Tanque', 'Bomba N°', 'Aplicador']] },
-        { title: "3. Monitoreo de Plagas y Enfermedades", head: [['Fecha', 'Lote', 'Plaga/Patógeno', 'Sitios Revisados', 'Incidencia %', 'Acción']] },
+        { title: "3. Monitoreo de Broca y Roya", head: [['Fecha', 'Lote', 'Sitios', 'Ramas Totales', 'Ramas Afectadas', 'Incidencia %']] },
         { title: "4. Control de Arvenses (Malezas)", head: [['Fecha', 'Lote', 'Método (Quím/Mec)', 'Producto/Herramienta', 'Área', 'Operario']] },
-        { title: "5. Registro de Pluviometría (Lluvias)", head: [['Fecha', 'Hora Lectura', 'Milímetros (mm)', 'Observaciones Clima', 'Responsable']] },
+        { title: "5. Registro Pluviométrico (Lluvias)", head: [['Fecha', 'Hora Lectura', 'Milímetros (mm)', 'Observaciones Clima', 'Responsable']] },
         { title: "6. Labores Culturales (Poda/Deshije)", head: [['Fecha', 'Lote', 'Labor Realizada', 'N° Árboles/Surcos', 'Avance %', 'Trabajador']] },
         { title: "7. Entrega de EPP y Seguridad", head: [['Fecha', 'Trabajador', 'Elemento Entregado', 'Estado (N/R)', 'Vencimiento', 'Firma']] },
         { title: "8. Limpieza y Desinfección de Equipos", head: [['Fecha', 'Equipo/Herramienta', 'Detergente/Desinfectante', 'Método', 'Operario', 'Verificó']] },
@@ -278,37 +376,50 @@ export const generateFieldTemplates = (data: AppState) => {
     forms.forEach((form, index) => {
         if (index > 0) doc.addPage();
         
-        let y = addHeader(doc, "Planillas de Control Técnico", form.title, activeW, BRAND_COLORS.slate);
+        // Header
+        doc.setFillColor(...BRAND_COLORS.slate);
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("Planilla de Campo - Registro Físico", 105, 15, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text(`Finca: ${activeW} | Formato: ${form.title}`, 105, 25, { align: 'center' });
         
+        let y = 40;
         doc.setFontSize(8);
         doc.setTextColor(100);
-        doc.text("Este formato es un documento de trazabilidad oficial. Favor diligenciar con letra clara y tinta negra.", 14, y - 5);
+        doc.text("Este formato es un documento de trazabilidad oficial. Favor diligenciar con letra clara y tinta negra para posterior digitalización en la App.", 14, y - 5);
 
         autoTable(doc, {
             startY: y,
             head: form.head,
             body: Array(15).fill(Array(form.head[0].length).fill('')),
             theme: 'grid',
-            headStyles: { fillColor: [40, 40, 40], fontSize: 8, fontStyle: 'bold' },
-            styles: { fontSize: 8, cellPadding: 5, minCellHeight: 12 },
+            headStyles: { fillColor: [40, 40, 40], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+            styles: { fontSize: 9, cellPadding: 6, minCellHeight: 12, lineColor: [200, 200, 200] },
             columnStyles: {
-                [form.head[0].length - 1]: { cellWidth: 30 }
+                [form.head[0].length - 1]: { cellWidth: 35 } // Make signature column wider
             }
         });
 
         // Type casting to custom interface for type safety
-        const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
-        if (finalY < 270) {
-            doc.setDrawColor(200);
-            doc.line(14, finalY, 80, finalY);
-            doc.line(130, finalY, 196, finalY);
-            doc.setFontSize(7);
-            doc.text("Firma del Responsable de Campo", 14, finalY + 5);
-            doc.text("Visto Bueno Administración / Auditor", 130, finalY + 5);
+        const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 20;
+        
+        // Signature box at the bottom
+        if (finalY < 250) {
+            doc.setDrawColor(150);
+            doc.line(20, finalY, 90, finalY);
+            doc.line(120, finalY, 190, finalY);
+            doc.setFontSize(8);
+            doc.setTextColor(50);
+            doc.text("Firma del Responsable de Campo / Mayordomo", 55, finalY + 5, { align: 'center' });
+            doc.text("Visto Bueno Administración / Auditor", 155, finalY + 5, { align: 'center' });
         }
+        
+        addFooter(doc);
     });
 
-    addFooter(doc);
     doc.save(`PAQUETE_PLANILLAS_CAMPO_12_FORMATOS_${new Date().getFullYear()}.pdf`);
 };
 
@@ -369,6 +480,45 @@ export const generatePaymentReceipt = (personName: string, logs: LaborLog[], war
     doc.save(`Recibo_${personName.replace(/\s/g, '_')}.pdf`);
 };
 
+export const generateSimulationPDF = (sim: any, params: any) => {
+    const doc = new jsPDF();
+    let y = addHeader(doc, "Proyección Financiera 2025", `Escenario: ${params.varietyLabel}`, "Simulación", BRAND_COLORS.indigo);
+    
+    doc.setFontSize(10);
+    doc.text(`Árboles: ${params.numTrees} | Densidad: ${params.density} | Precio Base: ${formatCurrency(params.marketPrice)}`, 14, y + 5);
+    
+    // Convert generic objects to arrays for autoTable
+    const rows = sim.yearlyData.map((d: any) => [
+        d.year,
+        d.label,
+        formatCurrency(d.totalIncome),
+        formatCurrency(d.totalExpenses),
+        formatCurrency(d.netCashFlow),
+        formatCurrency(d.cumulativeFlow)
+    ]);
+
+    autoTable(doc, {
+        startY: y + 15,
+        head: [['Año', 'Fase', 'Ingresos', 'Egresos', 'Flujo Neto', 'Acumulado']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: BRAND_COLORS.indigo }
+    });
+
+    // Results Box
+    const nextY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 10;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, nextY, 180, 30, 'F');
+    doc.setTextColor(0);
+    doc.setFontSize(12);
+    doc.text(`VPN: ${formatCurrency(sim.vpn)}`, 20, nextY + 10);
+    doc.text(`TIR Estimada: ${sim.roi.toFixed(2)}% (ROI Simple)`, 20, nextY + 20);
+    doc.text(`Recuperación: Año ${sim.paybackYear || 'N/A'}`, 100, nextY + 10);
+
+    addFooter(doc);
+    doc.save("Simulacion_Financiera.pdf");
+};
+
 export const generateSQLDump = (d: AppState) => {
     const sql = `-- Backup AgroBodega Pro\n-- Autor: Lucas Mateo Tabares Franco\n-- Fecha: ${new Date().toISOString()}\n\n`;
     const blob = new Blob([sql], {type: 'text/sql'});
@@ -409,239 +559,103 @@ export const generateManualPDF = () => {
     doc.save(`MANUAL_TECNICO_DATOSFINCA_VIVA_${new Date().getFullYear()}.pdf`);
 };
 
-export const generateSimulationPDF = (simulation: SimulationData, params: SimulationParams) => {
+export const generateSpecsPDF = () => {
     const doc = new jsPDF();
-    let y = addHeader(doc, "Simulación de Rentabilidad", "Proyección Financiera a 6 Años", "Planificación Estratégica", BRAND_COLORS.purple);
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Parámetros de Entrada", 14, y);
-    
-    autoTable(doc, {
-        startY: y + 5,
-        head: [['Parámetro', 'Valor']],
-        body: [
-            ['Variedad/Estrategia', params.varietyLabel],
-            ['Referente Técnico', params.techLabel || 'N/A'],
-            ['Árboles Totales', params.numTrees.toLocaleString()],
-            ['Densidad (árb/Ha)', params.density.toLocaleString()],
-            ['Área Total (Ha)', (params.numTrees / params.density).toFixed(2)],
-            ['Precio Mercado (@)', formatCurrency(parseNumberInput(params.marketPrice))],
-            ['Costo Cosecha (Kg)', formatCurrency(parseNumberInput(params.harvestCostKg))],
-            ['Factor Calidad', params.qualityFactor || '94'],
-            ['Capital Inicial', formatCurrency(simulation.initCap)]
-        ],
-        theme: 'striped',
-        headStyles: { fillColor: BRAND_COLORS.purple }
-    });
+    let y = addHeader(doc, "Ficha Técnica y Funcional", "Prompt Maestro de Diseño", "VIVA CORE", BRAND_COLORS.indigo);
+    doc.setFontSize(10);
+    doc.setTextColor(0);
 
-    // Type casting to custom interface for type safety
-    const nextY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
-    doc.text("Resultados Financieros (KPIs)", 14, nextY);
-    autoTable(doc, {
-        startY: nextY + 5,
-        head: [['KPI', 'Resultado']],
-        body: [
-            ['Valor Presente Neto (VPN)', formatCurrency(simulation.vpn)],
-            ['TIR / ROI Estimado', `${simulation.roi.toFixed(2)}%`],
-            ['Punto de Equilibrio', simulation.paybackYear ? `Año ${simulation.paybackYear}` : 'No alcanza'],
-            ['Capex Total (Establecimiento)', formatCurrency(simulation.totalCapex)]
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: BRAND_COLORS.slate }
-    });
-
-    doc.addPage();
-    y = addHeader(doc, "Flujo de Caja Detallado", "Proyección Anualizada", "Planificación Estratégica", BRAND_COLORS.purple);
+    const fullText = `
+    1. RESUMEN GENERAL Y ARQUITECTURA
     
-    autoTable(doc, {
-        startY: y,
-        head: [['Año', 'Hito', 'Ingresos', 'Costos', 'Flujo Neto']],
-        body: simulation.yearlyData.map((y: SimulationYear) => [
-            y.year,
-            y.label,
-            formatCurrency(y.totalIncome),
-            formatCurrency(y.totalExpenses),
-            formatCurrency(y.netCashFlow)
-        ]),
-        headStyles: { fillColor: BRAND_COLORS.purple }
+    Tipo de App: Web App Progresiva (PWA) optimizada para móviles.
+    Stack Tecnológico: React 19, TypeScript, Vite, Tailwind CSS.
+    Persistencia de Datos: Arquitectura "Local-First" usando IndexedDB (vía librería idb) para almacenamiento masivo y manejo de imágenes, con respaldo en localStorage. Funciona 100% Offline.
+    Librerías Clave: jspdf (reportes PDF), xlsx (exportación Excel), lucide-react (iconos), recharts (gráficos).
+
+    2. MÓDULOS PRINCIPALES Y FUNCIONES
+
+    A. Gestión de Inventario y Bodega (El Corazón Matemático)
+    El sistema gestiona insumos agrícolas con alta precisión matemática.
+    - Conversión de Unidades Inteligente: Maneja unidades de compra (Bulto 50kg, Galón, Litro) vs. unidades de consumo (Gramo, Mililitro).
+    - Cálculo de Costos (CPP): Implementa el Costo Promedio Ponderado.
+      * Lógica: Si compraste Urea a precios diferentes, el sistema promedia el valor del stock actual.
+      * Desglose: Al sacar un insumo, calcula el costo exacto. (Ej: Si un bulto de 50kg costó $120.000, y sacas 1kg, el sistema registra una salida de costo $2.400).
+    - Categorías: Fertilizantes, Herbicidas, Fungicidas, Insecticidas, EPP, Herramientas.
+    - Kárdex: Historial inmutable de entradas (compras con foto de factura) y salidas (asignadas a un lote específico).
+    - Alertas: Stock mínimo y semáforos de inventario.
+
+    B. Gestión de Lotes (Centros de Costo)
+    - Estructura: Creación de lotes con nombre, área (Hectáreas), número de árboles y cultivo principal.
+    - Ciclo de Vida (NIC 41):
+      * Etapa Levante (CAPEX): Los costos se acumulan como inversión (Activo Biológico).
+      * Etapa Producción (OPEX): El activo se activa y comienza a amortizarse; los costos se vuelven gastos operativos.
+    - Diagnóstico de Densidad: Calcula árboles/hectárea y sugiere si la densidad es óptima, baja (pérdida de potencial) o alta (requiere renovación pronta).
+
+    C. Nómina y Labores (Recursos Humanos)
+    - Registro de Jornales: Asignación de labores (ej: "Plateo", "Recolección") a trabajadores en lotes específicos.
+    - Cálculo de Rendimiento: Permite ingresar el área trabajada para calcular la eficiencia (Ej: Ha/Jornal o Kg/Día).
+    - Factor Prestacional: Configurable (ej: 1.52 para Colombia) para calcular el costo real empresa vs. el pago neto al trabajador.
+    - Liquidación: Generación de colillas de pago en PDF y control de saldos pendientes ("Deuda de Nómina").
+
+    D. Cosecha y Ventas (Ingresos)
+    - Registro de Producción: Ingreso de Kilos cosechados por lote.
+    - Control de Calidad (Broca/Factor): Calculadora integrada para determinar el porcentaje de afectación y castigo en el precio.
+    - Tipos de Cultivo: Formulario dinámico que cambia si es Café (Factor, Broca) o Plátano/Frutas (Calidad 1ra, 2da, Rechazo).
+    - Ingresos: Registro del valor total de la venta para cruzar contra costos.
+
+    E. Inteligencia Financiera y Estratégica (Simulador)
+    - Simulador de Proyectos: Calculadora de VPN (Valor Presente Neto) y TIR (Tasa Interna de Retorno) proyectada a 6 años.
+    - Análisis de Flujo de Caja: Proyección de ingresos vs. gastos operativos y CAPEX. Detecta meses de iliquidez ("Meses de crisis").
+    - Punto de Equilibrio: Calcula cuánto debe producir un lote para pagar sus costos.
+    - Costo por Arroba: Determina el costo de producción unitario (Ej: Costo por Carga de Café) para comparar con el precio de mercado.
+
+    F. Gestión Técnica y Cumplimiento (BPA)
+    - Lluvias (Pluviometría): Registro diario de milímetros de agua.
+    - Maquinaria: Bitácora de mantenimientos y costos de operación.
+    - Sanidad: Monitoreo de plagas y enfermedades.
+    - Fenología: Registro de etapas (Floración) para proyectar la cosecha futura (T+8 meses).
+    - Seguridad (SST): Registro de entrega de EPP y gestión de residuos (triple lavado).
+
+    3. REPORTES Y EXPORTACIÓN
+    El sistema genera documentos profesionales para auditoría y gestión:
+    - Libro Maestro (Excel): Exporta TODA la base de datos en múltiples pestañas.
+    - PDFs Gerenciales: Informe Ejecutivo, Inventario Valorizado, Comprobantes de Egreso, Dossier Agronómico.
+    - Backup: Generación de archivos JSON y SQL para respaldo local.
+
+    4. INTERFAZ DE USUARIO (UI/UX)
+    - Diseño: Estilo "Glassmorphism" oscuro/claro (Dark Mode).
+    - Navegación intuitiva con menús táctiles grandes para trabajo en campo.
+    
+    5. REQUISITOS LEGALES
+    - Cumplimiento de leyes de Habeas Data y Derechos de Autor (Lucas Mateo Tabares Franco).
+    `;
+
+    const splitText = doc.splitTextToSize(fullText, 180);
+    
+    let currentY = y + 10;
+    splitText.forEach((line: string) => {
+        if (currentY > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
+        doc.text(line, 15, currentY);
+        currentY += 5;
     });
 
     addFooter(doc);
-    doc.save(`Simulacion_Viabilidad_${params.varietyLabel.replace(/ /g,"_")}.pdf`);
+    doc.save(`FICHA_TECNICA_DATOSFINCA_VIVA.pdf`);
 };
 
 export const getDemoData = (): AppState => {
-    // --- 1. SETUP MULTI-FINCA ---
-    const w1_id = 'wh_main_hacienda';
-    const w2_id = 'wh_el_mirador';
-    const warehouses: Warehouse[] = [
-        { id: w1_id, name: 'Hacienda Principal (120Ha)', created: new Date().toISOString(), ownerId: 'demo_master' },
-        { id: w2_id, name: 'Finca El Mirador (85Ha)', created: new Date().toISOString(), ownerId: 'demo_master' },
-    ];
-    const activeWarehouseId = w1_id;
-
-    // --- 2. MAESTROS (PERSONNEL, ACTIVITIES, SUPPLIERS) ---
-    const personnel: Personnel[] = Array.from({ length: 50 }, (_, i) => ({
-        id: `per_${i+1}`, warehouseId: w1_id, name: `Operario ${i+1}`, role: 'Operario de Campo'
-    }));
-    personnel.push({id: 'per_admin', warehouseId: w1_id, name: 'Jefe de Campo', role: 'Administrador'});
-    personnel.push({id: 'per_mayor', warehouseId: w1_id, name: 'Mayordomo Finca', role: 'Supervisor'});
-
-
-    const activities: Activity[] = [
-        { id: 'act_recol', warehouseId: w1_id, name: 'Recolección de Café', costClassification: 'COFFEE' },
-        { id: 'act_fert_prod', warehouseId: w1_id, name: 'Fertilización Lotes Producción', costClassification: 'COFFEE' },
-        { id: 'act_fert_lev', warehouseId: w1_id, name: 'Fertilización Lotes Levante', costClassification: 'COFFEE' },
-        { id: 'act_pest', warehouseId: w1_id, name: 'Control Fitosanitario (Fung/Ins)', costClassification: 'COFFEE' },
-        { id: 'act_arv', warehouseId: w1_id, name: 'Control de Arvenses (Malezas)', costClassification: 'JOINT' },
-        { id: 'act_renov', warehouseId: w1_id, name: 'Renovación por Zoca', costClassification: 'COFFEE' },
-        { id: 'act_platano', warehouseId: w1_id, name: 'Mantenimiento Plátano', costClassification: 'PLANTAIN' },
-        { id: 'act_admin', warehouseId: w1_id, name: 'Administrativo', costClassification: 'JOINT' }
-    ];
-
-    const suppliers: Supplier[] = [
-        { id: 'sup_1', warehouseId: w1_id, name: 'Agroinsumos del Café S.A.S', phone: '3101234567' },
-        { id: 'sup_2', warehouseId: w1_id, name: 'Fertilizantes de Colombia', phone: '3129876543' }
-    ];
-
-    // --- 3. ESTRUCTURA DE LOTES (COST CENTERS) ---
-    const costCenters: CostCenter[] = [];
-    for (let i = 1; i <= 15; i++) {
-        const isLevante = i > 12;
-        const area = 7 + Math.random() * 2;
-        const density = isLevante ? 7800 : (i % 3 === 0 ? 5500 : 7200);
-        costCenters.push({
-            id: `lot_w1_${i}`, warehouseId: w1_id, name: `Lote ${i}`, area: parseFloat(area.toFixed(1)),
-            stage: isLevante ? 'Levante' : 'Produccion', cropType: 'Café',
-            associatedCrop: 'Plátano', plantCount: Math.round(area * density)
-        });
-    }
-    const lotToActivate = costCenters.find(c => c.name === 'Lote 1');
-    if(lotToActivate) {
-        lotToActivate.assetValue = 18000000 * lotToActivate.area;
-        lotToActivate.activationDate = new Date(new Date().setFullYear(new Date().getFullYear() - 2)).toISOString();
-        lotToActivate.amortizationDuration = 7;
-    }
-    for (let i = 1; i <= 8; i++) {
-        const area = 10 + Math.random() * 2;
-        costCenters.push({
-            id: `lot_w2_${i}`, warehouseId: w2_id, name: `Lote M${i}`, area: parseFloat(area.toFixed(1)),
-            stage: 'Produccion', cropType: 'Café', plantCount: Math.round(area * 7000)
-        });
-    }
-
-    // --- 4. INVENTARIO COMPLEJO Y AMPLIO ---
-    const inventory: InventoryItem[] = [
-        // Fertilizantes
-        { id: 'inv_urea', warehouseId: w1_id, name: 'Urea (46-0-0)', category: Category.FERTILIZANTE, currentQuantity: 1500 * 1000, baseUnit: 'g', averageCost: 3.2, lastPurchasePrice: 160000, lastPurchaseUnit: Unit.BULTO_50KG, minStock: 500 * 1000 },
-        { id: 'inv_dap', warehouseId: w1_id, name: 'DAP (18-46-0)', category: Category.FERTILIZANTE, currentQuantity: 2500 * 1000, baseUnit: 'g', averageCost: 4.1, lastPurchasePrice: 205000, lastPurchaseUnit: Unit.BULTO_50KG },
-        { id: 'inv_kcl', warehouseId: w1_id, name: 'Cloruro de Potasio (KCL)', category: Category.FERTILIZANTE, currentQuantity: 800 * 1000, baseUnit: 'g', averageCost: 2.9, lastPurchasePrice: 145000, lastPurchaseUnit: Unit.BULTO_50KG },
-        { id: 'inv_menores', warehouseId: w1_id, name: 'Fuente Menores (B, Zn, Mg)', category: Category.FERTILIZANTE, currentQuantity: 250 * 1000, baseUnit: 'g', averageCost: 5.5, lastPurchasePrice: 130000, lastPurchaseUnit: Unit.KILO, minStock: 50 * 1000 },
-        // Fitosanitarios
-        { id: 'inv_fung_amistar', warehouseId: w1_id, name: 'Amistar Top (Fungicida)', category: Category.FUNGICIDA, currentQuantity: 30 * 1000, baseUnit: 'ml', averageCost: 180, lastPurchasePrice: 180000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 21 },
-        { id: 'inv_fung_cobre', warehouseId: w1_id, name: 'Oxicloruro de Cobre (Roya)', category: Category.FUNGICIDA, currentQuantity: 15 * 1000, baseUnit: 'g', averageCost: 45, lastPurchasePrice: 45000, lastPurchaseUnit: Unit.KILO, safetyIntervalDays: 15 },
-        { id: 'inv_ins_lorsban', warehouseId: w1_id, name: 'Lorsban (Clorpirifos Broca)', category: Category.INSECTICIDA, currentQuantity: 5 * 1000, baseUnit: 'ml', averageCost: 95, lastPurchasePrice: 95000, lastPurchaseUnit: Unit.LITRO, safetyIntervalDays: 45, minStock: 2 * 1000 },
-        { id: 'inv_herb_glifo', warehouseId: w1_id, name: 'Glifosato 480SL', category: Category.HERBICIDA, currentQuantity: 80 * 1000, baseUnit: 'ml', averageCost: 25, lastPurchasePrice: 100000, lastPurchaseUnit: Unit.GALON, safetyIntervalDays: 30 },
-        { id: 'inv_herb_paraquat', warehouseId: w1_id, name: 'Paraquat (Gramoxone)', category: Category.HERBICIDA, currentQuantity: 20 * 1000, baseUnit: 'ml', averageCost: 45, lastPurchasePrice: 180000, lastPurchaseUnit: Unit.GALON, safetyIntervalDays: 40 },
-        // Otros
-        { id: 'inv_bio', warehouseId: w1_id, name: 'Bioestimulante Marino', category: Category.BIOESTIMULANTE, currentQuantity: 15 * 1000, baseUnit: 'ml', averageCost: 90, lastPurchasePrice: 90000, lastPurchaseUnit: Unit.LITRO },
-        { id: 'inv_coad', warehouseId: w1_id, name: 'Adherente No Iónico (Coadyuvante)', category: Category.OTRO, currentQuantity: 10 * 1000, baseUnit: 'ml', averageCost: 30, lastPurchasePrice: 30000, lastPurchaseUnit: Unit.LITRO },
-        { id: 'inv_bioabono', warehouseId: w1_id, name: 'Compost Orgánico Certificado', category: Category.BIOABONO, currentQuantity: 5000 * 1000, baseUnit: 'g', averageCost: 1.2, lastPurchasePrice: 60000, lastPurchaseUnit: Unit.BULTO_50KG },
-        // Sede 2
-        { id: 'inv_w2_urea', warehouseId: w2_id, name: 'Urea (46-0-0)', category: Category.FERTILIZANTE, currentQuantity: 800 * 1000, baseUnit: 'g', averageCost: 3.3, lastPurchasePrice: 165000, lastPurchaseUnit: Unit.BULTO_50KG }
-    ];
-
-    // --- 5. GENERACIÓN DE HISTÓRICOS ---
-    const movements: Movement[] = [];
-    const laborLogs: LaborLog[] = [];
-    const harvests: HarvestLog[] = [];
-    const rainLogs: RainLog[] = [];
-    const phenologyLogs: PhenologyLog[] = [];
-    const pestLogs: PestLog[] = [];
-    
-    const today = new Date();
-    for (let i = 180; i > 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dateStr = date.toISOString();
-
-        if (Math.random() > 0.4) rainLogs.push({ id: generateId(), warehouseId: w1_id, date: dateStr, millimeters: Math.random() * 25 });
-        
-        if (i % 15 === 0) {
-            const productionLots = costCenters.filter(c => c.stage === 'Produccion' && c.warehouseId === w1_id);
-            const fert = inventory.find(inv => inv.id === 'inv_dap')!;
-            const lot = productionLots[i % productionLots.length];
-            movements.push({
-                id: generateId(), warehouseId: w1_id, itemId: fert.id, itemName: fert.name, type: 'OUT',
-                quantity: 1.5, unit: Unit.BULTO_50KG, calculatedCost: 1.5 * 50000 * fert.averageCost,
-                date: dateStr, costCenterId: lot.id, costCenterName: lot.name
-            });
-            const fertActivity = activities.find(a => a.id === 'act_fert_prod')!;
-            for(let k=0; k<3; k++) {
-                const worker = personnel[k];
-                laborLogs.push({
-                    id: generateId(), warehouseId: w1_id, date: dateStr.split('T')[0], personnelId: worker.id, personnelName: worker.name,
-                    activityId: fertActivity.id, activityName: fertActivity.name, costCenterId: lot.id, costCenterName: lot.name,
-                    value: 80000, paid: Math.random() > 0.3
-                });
-            }
-        }
-        
-        if (date.getMonth() >= 9 && date.getMonth() <= 11) {
-            if (i % 5 === 0) {
-                const lot = costCenters.filter(c => c.stage === 'Produccion' && c.warehouseId === w1_id)[i % 5];
-                const qty = 800 + Math.random() * 500;
-                const collectors = 5 + Math.floor(Math.random() * 5);
-                const pestPct = lot.plantCount! < 6000 * lot.area ? 3.5 : 1.5;
-                harvests.push({
-                    id: generateId(), warehouseId: w1_id, costCenterId: lot.id, costCenterName: lot.name,
-                    date: dateStr.split('T')[0], cropName: 'Café Pergamino Seco', quantity: qty, unit: 'Kg',
-                    totalValue: qty * 14800, collectorsCount: collectors,
-                    yieldFactor: 92 + Math.random() * 2, pestPercentage: pestPct + Math.random(),
-                    brocaLossValue: (qty * 14800) * (pestPct/100) * 0.5
-                });
-            }
-        }
-        
-        if (i > 150 && i < 160) {
-             const lot = costCenters.filter(c => c.stage === 'Produccion' && c.warehouseId === w1_id)[0];
-             phenologyLogs.push({ id: generateId(), warehouseId: w1_id, costCenterId: lot.id, date: dateStr, stage: 'Floración'});
-        }
-    }
-    
-    // --- 6. DATOS DE CUMPLIMIENTO Y PLANIFICACIÓN ---
-    const ppeLogs: PPELog[] = [{
-        id: generateId(), warehouseId: w1_id, personnelId: personnel[0].id, personnelName: personnel[0].name,
-        date: new Date().toISOString(), items: ['Guantes de Nitrilo', 'Careta de Protección']
-    }];
-    const wasteLogs: WasteLog[] = [{
-        id: generateId(), warehouseId: w1_id, date: new Date().toISOString(), itemDescription: 'Envases de Amistar Top 1L',
-        quantity: 5, tripleWashed: true
-    }];
-    const nextWeekDate = new Date(today);
-    nextWeekDate.setDate(today.getDate() + 7);
-    const plannedLabors: PlannedLabor[] = [{
-        id: generateId(), warehouseId: w1_id, completed: false, date: nextWeekDate.toISOString().split('T')[0],
-        activityId: 'act_arv', activityName: 'Control de Arvenses (Malezas)',
-        costCenterId: costCenters[0].id, costCenterName: costCenters[0].name,
-        targetArea: 5, technicalYield: 0.5, unitCost: 75000, efficiency: 90,
-        calculatedPersonDays: 11.1, calculatedTotalCost: 833333
-    }];
-    const budgetItems: BudgetItem[] = [
-        { id: generateId(), type: 'LABOR', conceptId: 'act_fert_prod', conceptName: 'Fertilización', quantityPerHa: 10, unitCost: 80000, months: [2, 5, 8] },
-        { id: generateId(), type: 'SUPPLY', conceptId: 'inv_dap', conceptName: 'DAP', quantityPerHa: 8, unitCost: 205000, months: [2, 5, 8] }
-    ];
-    const budgets: BudgetPlan[] = [{
-        id: generateId(), warehouseId: w1_id, year: today.getFullYear(), costCenterId: costCenters[0].id, items: budgetItems
-    }];
-
-    // --- 7. ENSAMBLAJE FINAL ---
+    const id = generateId();
     return {
-        warehouses, activeWarehouseId, inventory, movements, suppliers, costCenters,
-        personnel, activities, laborLogs, harvests, rainLogs, phenologyLogs, pestLogs,
-        ppeLogs, wasteLogs, plannedLabors, budgets,
-        machines: [], maintenanceLogs: [], financeLogs: [], soilAnalyses: [], agenda: [],
-        bpaChecklist: {}, assets: [], laborFactor: 1.52
+        warehouses: [{ id, name: 'Finca Demo', created: new Date().toISOString(), ownerId: 'demo_user' }],
+        activeWarehouseId: id,
+        inventory: [], movements: [], suppliers: [], costCenters: [], personnel: [], 
+        activities: [], laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], 
+        rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], 
+        agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], 
+        assets: [], bpaChecklist: {}, laborFactor: 1.0
     };
 };

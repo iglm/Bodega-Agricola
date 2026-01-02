@@ -3,12 +3,13 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, HelpCircle, CalendarRange, Sprout, Calculator, Lightbulb, Sun, Moon } from 'lucide-react';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, HelpCircle, CalendarRange, Sprout, Calculator, Lightbulb, Sun, Moon, LayoutGrid } from 'lucide-react';
 import { generateId, processInventoryMovement } from '../services/inventoryService';
 import { 
     generatePDF, generateExcel, generateLaborReport, generateHarvestReport, 
     generateMasterPDF, generateGlobalReport, generateAgronomicDossier, 
-    generateSafetyReport, generateFieldTemplates 
+    generateSafetyReport, generateFieldTemplates, generateFarmStructurePDF, 
+    generateFarmStructureExcel
 } from '../services/reportService';
 
 // Component Imports
@@ -28,12 +29,13 @@ import { BiologicalAssetsView } from '../components/BiologicalAssetsView';
 import { BudgetView } from '../components/BudgetView'; 
 import { SimulatorView } from '../components/SimulatorView'; 
 import { ManagementView } from '../components/ManagementView';
+import { LotManagementView } from '../components/LotManagementView'; // NEW IMPORT
 import { HistoryModal } from '../components/HistoryModal';
 import { DeleteModal } from '../components/DeleteModal';
 import { PayrollModal } from '../components/PayrollModal';
 import { SecurityModal } from '../components/SecurityModal';
 import { LaborSchedulerView } from '../components/LaborSchedulerView';
-import { LaborForm } from '../components/LaborForm'; // Ensure this is imported
+import { LaborForm } from '../components/LaborForm'; 
 import { InventoryItem, CostClassification } from '../types';
 
 interface MainLayoutProps {
@@ -56,7 +58,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const [showManual, setShowManual] = useState(false);
   const [showPayroll, setShowPayroll] = useState(false);
   const [showGlobalHistory, setShowGlobalHistory] = useState(false);
-  const [showLaborForm, setShowLaborForm] = useState(false); // New state for direct labor entry
+  const [showLaborForm, setShowLaborForm] = useState(false); 
   const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
   
   // Item specific modals
@@ -68,7 +70,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
 
   // --- QUICK ADD HANDLERS ---
-  // Estas funciones permiten crear registros al vuelo desde cualquier formulario
   const handleAddCostCenterQuick = (name: string) => {
       setData(prev => ({
           ...prev,
@@ -153,6 +154,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
             <div className="flex bg-slate-300 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide border border-slate-400 dark:border-transparent">
                 {[
                     { id: 'inventory', label: 'Bodega', icon: Package },
+                    { id: 'lots', label: 'Lotes', icon: LayoutGrid }, // NEW TAB
                     { id: 'labor', label: 'Personal', icon: Pickaxe },
                     { id: 'scheduler', label: 'Programar', icon: CalendarRange }, 
                     { id: 'harvest', label: 'Ventas', icon: Target },
@@ -171,6 +173,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       {/* MAIN CONTENT AREA */}
       <main className="max-w-4xl mx-auto p-4 pb-40">
         {currentTab === 'inventory' && <Dashboard inventory={data.inventory.filter(i=>i.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} harvests={data.harvests.filter(h=>h.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} onAddMovement={(i, t) => setMovementModal({item:i, type:t})} onDelete={(id) => requestSecureAction(() => { const item = data.inventory.find(i => i.id === id); if (item) setDeleteItem(item); })} onViewHistory={(item) => setHistoryItem(item)} onViewGlobalHistory={() => setShowGlobalHistory(true)} isAdmin={true} />}
+        
+        {currentTab === 'lots' && <LotManagementView costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} movements={data.movements.filter(m=>m.warehouseId === activeId)} harvests={data.harvests.filter(h=>h.warehouseId === activeId)} plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} onUpdateLot={actions.updateCostCenter} onAddPlannedLabor={actions.addPlannedLabor} activities={data.activities.filter(a=>a.warehouseId===activeId)} onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density}]}))} onDeleteCostCenter={actions.deleteCostCenter} />}
+
         {currentTab === 'labor' && <LaborView laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} personnel={data.personnel.filter(p=>p.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} activities={data.activities.filter(a=>a.warehouseId === activeId)} onAddLabor={() => setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
         {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={data.plannedLabors ? data.plannedLabors.filter(l=>l.warehouseId===activeId) : []} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} onAddActivity={handleAddActivityQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} budgets={data.budgets || []} laborLogs={data.laborLogs.filter(l=>l.warehouseId === activeId)} laborFactor={data.laborFactor} />}
         {currentTab === 'harvest' && <HarvestView harvests={data.harvests.filter(h=>h.warehouseId === activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId === activeId)} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} onAddCostCenter={handleAddCostCenterQuick} isAdmin={true} allMovements={data.movements} />}
@@ -212,6 +217,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
               onExportAgronomicDossier={() => generateAgronomicDossier(data)}
               onExportSafetyReport={() => generateSafetyReport(data)}
               onExportFieldTemplates={() => generateFieldTemplates(data)}
+              onExportStructurePDF={() => generateFarmStructurePDF(data.costCenters)}
+              onExportStructureExcel={() => generateFarmStructureExcel(data.costCenters)}
           />}
           {showLaborForm && data && (
             <LaborForm 

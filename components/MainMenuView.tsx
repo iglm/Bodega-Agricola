@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   Home, Sprout, Leaf, TreePine, Scissors, TrendingUp, Pickaxe, 
   Bug, Target, Warehouse, Fuel, Package, Calculator, BarChart3, 
-  Settings, Database, DollarSign, ChevronRight
+  Settings, Database, DollarSign, ChevronRight, LayoutGrid
 } from 'lucide-react';
 
 interface MenuOption {
@@ -21,10 +21,10 @@ interface MainMenuViewProps {
 export const MainMenuView: React.FC<MainMenuViewProps> = ({ onSelectTab }) => {
   const menuOptions: MenuOption[] = [
     { id: 'inventory', label: 'Inicio / Bodega', icon: Home, color: 'bg-emerald-500', category: 'General' },
+    { id: 'lots', label: 'Gestión de Lotes', icon: LayoutGrid, color: 'bg-emerald-700', category: 'Estructura' },
     { id: 'scheduler', label: 'Germinador y Semilleros', icon: Sprout, color: 'bg-green-600', category: 'Etapas' },
     { id: 'assets', label: 'Almácigo y Vivero', icon: Leaf, color: 'bg-emerald-400', category: 'Etapas' },
-    { id: 'management', label: 'Siembra de Lotes', icon: TreePine, color: 'bg-emerald-700', category: 'Etapas' },
-    { id: 'management', label: 'Zoqueo y Renovación', icon: Scissors, color: 'bg-amber-700', category: 'Mantenimiento' },
+    { id: 'lots', label: 'Renovación y Siembra', icon: Scissors, color: 'bg-amber-700', category: 'Mantenimiento' },
     { id: 'labor', label: 'Lotes en Levante (0-12m)', icon: TrendingUp, color: 'bg-blue-500', category: 'Producción' },
     { id: 'scheduler', label: 'Fertilización en Producción', icon: Pickaxe, color: 'bg-indigo-600', category: 'Nutrición' },
     { id: 'management', label: 'Control de Broca y Plagas', icon: Bug, color: 'bg-red-600', category: 'Sanidad' },

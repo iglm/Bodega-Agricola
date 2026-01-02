@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Supplier, CostCenter, Personnel, AppState, Activity, CostClassification } from '../types';
 import { X, Users, MapPin, Plus, Trash2, Settings, Mail, Home, Phone, Briefcase, UserCheck, DollarSign, Database, Download, Upload, AlertTriangle, LandPlot, Pickaxe, HardDrive, Sprout, Leaf, Bookmark, Info, Scale, ShieldCheck, Zap, Gavel, FileText, Save, CheckCircle, Ruler, Sun, CloudSun, AlertCircle } from 'lucide-react';
-import { formatCurrency } from '../services/inventoryService';
+import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { LegalComplianceModal } from './LegalComplianceModal';
 
 interface SettingsModalProps {
@@ -60,25 +60,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [distSurco, setDistSurco] = useState('');
   const [distPlanta, setDistPlanta] = useState('');
 
-  // Diagnóstico Agronómico
-  const densityDiagnostic = useEffect(() => {
+  // Diagnóstico Agronómico Inmediato (Calculado)
+  const calculatedDensityPerHa = useMemo(() => {
       const s = parseFloat(distSurco);
       const p = parseFloat(distPlanta);
+      if (s > 0 && p > 0) return Math.round(10000 / (s * p));
+      return 0;
+  }, [distSurco, distPlanta]);
+
+  // Efecto para autocompletar la población total si hay área
+  useEffect(() => {
       const a = parseFloat(loteArea);
-      if (s > 0 && p > 0 && a > 0) {
-          const plants = Math.round((a * 10000) / (s * p));
+      if (calculatedDensityPerHa > 0 && a > 0) {
+          const plants = Math.round(calculatedDensityPerHa * a);
           setLotePlants(plants.toString());
       }
-  }, [distSurco, distPlanta, loteArea]);
+  }, [calculatedDensityPerHa, loteArea]);
 
-  const currentDensity = parseFloat(lotePlants) / (parseFloat(loteArea) || 1);
+  // Densidad visual para las alertas (Prioriza el cálculo directo de distancias)
+  const displayDensity = calculatedDensityPerHa > 0 
+      ? calculatedDensityPerHa 
+      : (parseFloat(lotePlants) > 0 && parseFloat(loteArea) > 0 ? parseFloat(lotePlants) / parseFloat(loteArea) : 0);
 
   const handleAddLote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loteName.trim()) return;
     onAddCostCenter(
         loteName, 
-        loteBudget ? parseFloat(loteBudget) : 0,
+        loteBudget ? parseNumberInput(loteBudget) : 0,
         loteArea ? parseFloat(loteArea) : undefined,
         loteStage,
         lotePlants ? parseInt(lotePlants) : undefined,
@@ -191,6 +200,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <form onSubmit={handleAddLote} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-4">
                 <h4 className="text-emerald-500 text-xs uppercase font-black mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> Nuevo Lote</h4>
                 
+                {/* OPTIMIZADOR DE DENSIDAD RESTAURADO Y MEJORADO */}
                 <div className="bg-slate-950 p-5 rounded-[2rem] border border-slate-800 space-y-4 shadow-inner">
                     <h5 className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-2 tracking-widest"><Sun className="w-3 h-3"/> Optimizador de Arreglo Espacial</h5>
                     <div className="grid grid-cols-2 gap-4">
@@ -204,18 +214,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                     </div>
 
-                    {currentDensity > 0 && (
-                        <div className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${currentDensity < 4500 ? 'bg-red-950/20 border-red-500/30' : currentDensity > 8000 ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-emerald-950/20 border-emerald-500/30'}`}>
-                            <div className={`p-2 rounded-xl ${currentDensity < 4500 ? 'bg-red-600' : currentDensity > 8000 ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
-                                {currentDensity < 4500 ? <AlertTriangle className="w-5 h-5 text-white" /> : currentDensity > 8000 ? <Zap className="w-5 h-5 text-white" /> : <ShieldCheck className="w-5 h-5 text-white" />}
+                    {displayDensity > 0 && (
+                        <div className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${displayDensity < 4500 ? 'bg-red-950/20 border-red-500/30' : displayDensity > 8000 ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-emerald-950/20 border-emerald-500/30'}`}>
+                            <div className={`p-2 rounded-xl ${displayDensity < 4500 ? 'bg-red-600' : displayDensity > 8000 ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
+                                {displayDensity < 4500 ? <AlertTriangle className="w-5 h-5 text-white" /> : displayDensity > 8000 ? <Zap className="w-5 h-5 text-white" /> : <ShieldCheck className="w-5 h-5 text-white" />}
                             </div>
                             <div>
-                                <p className={`text-[10px] font-black uppercase ${currentDensity < 4500 ? 'text-red-400' : currentDensity > 8000 ? 'text-indigo-400' : 'text-emerald-400'}`}>
-                                    Densidad: {currentDensity.toLocaleString()} á/Ha
+                                <p className={`text-[10px] font-black uppercase ${displayDensity < 4500 ? 'text-red-400' : displayDensity > 8000 ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                                    Densidad: {displayDensity.toLocaleString(undefined, {maximumFractionDigits: 0})} árb/Ha
                                 </p>
                                 <p className="text-[9px] text-slate-400 leading-tight mt-1">
-                                    {currentDensity < 4500 ? 'Inviabilidad Económica: El árbol no intercepta suficiente luz solar (IAF subóptimo).' : 
-                                     currentDensity > 8000 ? 'Alto Rendimiento: Ciclo de vida corto. Requiere Zoca al 5to año por cierre de calles.' : 
+                                    {displayDensity < 4500 ? 'Inviabilidad Económica: El árbol no intercepta suficiente luz solar (IAF subóptimo).' : 
+                                     displayDensity > 8000 ? 'Alto Rendimiento: Ciclo de vida corto. Requiere Zoca al 5to año por cierre de calles.' : 
                                      'Modelo Equilibrado: Recomendado para variedades de porte medio/alto.'}
                                 </p>
                             </div>
@@ -224,7 +234,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <input type="text" value={loteName} onChange={e => setLoteName(e.target.value)} placeholder="Nombre del Lote (Ej: La Ladera)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" required />
-                <input type="number" value={loteBudget} onChange={e => setLoteBudget(e.target.value)} placeholder="Presupuesto Anual ($)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
+                <input type="text" inputMode="decimal" value={loteBudget} onChange={e => setLoteBudget(formatNumberInput(e.target.value))} placeholder="Presupuesto Anual ($)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -233,7 +243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="space-y-1">
                       <label className="text-[9px] font-black text-indigo-400 uppercase ml-1">Población Total</label>
-                      <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl p-3 text-sm text-indigo-400 font-bold" readOnly />
+                      <input type="number" value={lotePlants} onChange={e => setLotePlants(e.target.value)} className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl p-3 text-sm text-indigo-400 font-bold" readOnly={calculatedDensityPerHa > 0} placeholder="Calculado..." />
                   </div>
                 </div>
 

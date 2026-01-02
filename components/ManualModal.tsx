@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, BookOpen, Calculator, TrendingUp, Sprout, Pickaxe, Package, BarChart3, ArrowRight, HelpCircle, Download, DollarSign, Tractor, Umbrella, Globe, Database, FileText, Mic, Target, Lightbulb, Scale, PieChart, Leaf, Gauge, Microscope, ShieldCheck, Signature, Recycle, Gem, Coins, Timer, Camera, Info, Loader2, FileDown, Lock, Zap, Award, Search, CheckCircle2, FlaskConical, Map, ShieldAlert, Coffee, ClipboardList, Wrench, Landmark, FileSpreadsheet, Activity as ActivityIcon } from 'lucide-react';
-import { generateManualPDF } from '../services/reportService';
+import { generateManualPDF, generateSpecsPDF } from '../services/reportService';
 
 interface ManualModalProps {
   onClose: () => void;
@@ -12,6 +12,7 @@ type Section = 'intro' | 'operations' | 'finances' | 'strategic' | 'technical' |
 export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
   const [activeSection, setActiveSection] = useState<Section>('intro');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingSpecs, setIsDownloadingSpecs] = useState(false);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -229,6 +230,18 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
     }
   };
 
+  const handleDownloadSpecs = () => {
+    setIsDownloadingSpecs(true);
+    try {
+        generateSpecsPDF();
+    } catch (e) {
+        console.error(e);
+        alert("Error generando la Ficha Técnica. Intente de nuevo.");
+    } finally {
+        setTimeout(() => setIsDownloadingSpecs(false), 1500);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/95 backdrop-blur-md p-2 animate-fade-in">
       <div className="bg-slate-900 w-full max-w-6xl h-[92vh] rounded-[3rem] border border-slate-700 shadow-2xl flex flex-col md:flex-row overflow-hidden animate-slide-up">
@@ -270,7 +283,7 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                 </button>
             </div>
 
-            <div className="p-8 border-t border-slate-800">
+            <div className="p-8 border-t border-slate-800 space-y-3">
                 <button 
                     onClick={handleDownloadManual} 
                     disabled={isDownloading}
@@ -278,6 +291,15 @@ export const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
                 >
                     {isDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileDown className="w-5 h-5 text-emerald-400" />}
                     {isDownloading ? 'Generando...' : 'Descargar Guía PDF'}
+                </button>
+
+                <button 
+                    onClick={handleDownloadSpecs} 
+                    disabled={isDownloadingSpecs}
+                    className={`w-full p-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase transition-all shadow-xl border border-slate-700 ${isDownloadingSpecs ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-300 border-indigo-500/30'}`}
+                >
+                    {isDownloadingSpecs ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+                    {isDownloadingSpecs ? 'Generando...' : 'Descargar Ficha Técnica (Prompt)'}
                 </button>
             </div>
         </div>
