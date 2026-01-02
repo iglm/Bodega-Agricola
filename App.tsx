@@ -114,6 +114,87 @@ function App() {
   const handleUpdateCostCenter = (updatedLot: CostCenter) => { setData(prev => ({ ...prev, costCenters: prev.costCenters.map(c => c.id === updatedLot.id ? updatedLot : c) })); showNotification('Lote actualizado.', 'success'); };
   const handleSaveBudget = (budget: BudgetPlan) => { const exists = data.budgets?.find(b => b.id === budget.id); let newBudgets = data.budgets || []; if (exists) { newBudgets = newBudgets.map(b => b.id === budget.id ? budget : b); } else { newBudgets = [...newBudgets, budget]; } setData(prev => ({ ...prev, budgets: newBudgets })); };
 
+  // --- INTEGRIDAD REFERENCIAL 360° (ANTI-CRASH) ---
+
+  // 1. Eliminación de Lotes (Centros de Costo)
+  const handleDeleteCostCenter = (id: string) => {
+      const deps = {
+          labor: data.laborLogs.filter(l => l.costCenterId === id).length,
+          harvests: data.harvests.filter(h => h.costCenterId === id).length,
+          movements: data.movements.filter(m => m.costCenterId === id).length,
+          planned: (data.plannedLabors || []).filter(p => p.costCenterId === id).length,
+          budgets: (data.budgets || []).filter(b => b.costCenterId === id).length,
+          others: (data.phenologyLogs || []).filter(p => p.costCenterId === id).length + (data.pestLogs || []).filter(p => p.costCenterId === id).length + (data.soilAnalyses || []).filter(s => s.costCenterId === id).length
+      };
+      const totalDeps = Object.values(deps).reduce((a, b) => a + b, 0);
+
+      if (totalDeps > 0) {
+          const message = `⚠️ ALERTA DE INTEGRIDAD:\n\nEste lote tiene ${totalDeps} registros vinculados:\n- ${deps.harvests} Ventas/Cosechas\n- ${deps.labor} Pagos de Nómina\n- ${deps.movements} Insumos Aplicados\n\nPROTOCOLO DE SEGURIDAD:\n1. Los registros financieros (Ventas/Nómina) NO SE BORRARÁN para proteger su contabilidad histórica. Se marcarán como "Lote Eliminado".\n2. Las planificaciones futuras y registros técnicos sí se eliminarán.\n\n¿Confirma la eliminación?`;
+          if (!confirm(message)) return;
+      } else {
+          if (!confirm("¿Está seguro de eliminar este Lote?")) return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          costCenters: prev.costCenters.filter(c => c.id !== id),
+          // Soft-Delete para Financieros (Preserva la contabilidad)
+          laborLogs: prev.laborLogs.map(l => l.costCenterId === id ? { ...l, costCenterId: 'deleted', costCenterName: `${l.costCenterName} (Eliminado)` } : l),
+          harvests: prev.harvests.map(h => h.costCenterId === id ? { ...h, costCenterId: 'deleted', costCenterName: `${h.costCenterName} (Eliminado)` } : h),
+          movements: prev.movements.map(m => m.costCenterId === id ? { ...m, costCenterId: undefined, costCenterName: `${m.costCenterName} (Eliminado)` } : m),
+          // Hard-Delete para Operativos (Limpieza)
+          plannedLabors: (prev.plannedLabors || []).filter(p => p.costCenterId !== id),
+          budgets: (prev.budgets || []).filter(b => b.costCenterId !== id),
+          phenologyLogs: (prev.phenologyLogs || []).filter(p => p.costCenterId !== id),
+          pestLogs: (prev.pestLogs || []).filter(p => p.costCenterId !== id),
+          soilAnalyses: (prev.soilAnalyses || []).filter(s => s.costCenterId !== id)
+      }));
+      showNotification('Lote eliminado. Historial financiero preservado.', 'success');
+  };
+
+  // 2. Eliminación de Personal
+  const handleDeletePersonnel = (id: string) => {
+      const pendingPay = data.laborLogs.filter(l => l.personnelId === id && !l.paid).length;
+      if (pendingPay > 0) {
+          alert(`⛔ NO SE PUEDE ELIMINAR:\n\nEste trabajador tiene ${pendingPay} jornales pendientes de pago. Liquide la deuda antes de retirarlo del sistema.`);
+          return;
+      }
+
+      const historyCount = data.laborLogs.filter(l => l.personnelId === id).length;
+      if (historyCount > 0) {
+          if (!confirm(`Este trabajador tiene ${historyCount} registros históricos de nómina.\n\nEl sistema conservará estos registros para cuadre de caja, pero el perfil será eliminado de la lista activa.\n\n¿Confirmar retiro?`)) return;
+      } else {
+          if (!confirm("¿Eliminar trabajador?")) return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          personnel: prev.personnel.filter(p => p.id !== id),
+          laborLogs: prev.laborLogs.map(l => l.personnelId === id ? { ...l, personnelId: 'deleted', personnelName: `${l.personnelName} (Retirado)` } : l),
+          movements: prev.movements.map(m => m.personnelId === id ? { ...m, personnelId: undefined, personnelName: `${m.personnelName} (Retirado)` } : m),
+          plannedLabors: (prev.plannedLabors || []).map(p => p.assignedPersonnelIds?.includes(id) ? { ...p, assignedPersonnelIds: p.assignedPersonnelIds.filter(pid => pid !== id) } : p)
+      }));
+      showNotification('Trabajador retirado correctamente.', 'success');
+  };
+
+  // 3. Eliminación de Actividades
+  const handleDeleteActivity = (id: string) => {
+      const usage = data.laborLogs.filter(l => l.activityId === id).length;
+      if (usage > 0) {
+          if (!confirm(`Esta labor se ha usado en ${usage} registros de pago.\n\nSe conservará el historial contable, pero la labor ya no estará disponible para nuevos registros.\n\n¿Proceder?`)) return;
+      } else {
+          if (!confirm("¿Eliminar labor?")) return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          activities: prev.activities.filter(a => a.id !== id),
+          laborLogs: prev.laborLogs.map(l => l.activityId === id ? { ...l, activityId: 'deleted', activityName: `${l.activityName} (Obsolescente)` } : l),
+          plannedLabors: (prev.plannedLabors || []).filter(p => p.activityId !== id) // Eliminar planificaciones futuras de esta labor
+      }));
+      showNotification('Labor eliminada del catálogo.', 'success');
+  };
+
   const handleSaveNewItem = (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string }, initialUnit?: Unit) => {
       const baseUnit = getBaseUnitType(item.lastPurchaseUnit);
       const newItem: InventoryItem = { ...item, id: generateId(), warehouseId: activeId, baseUnit: baseUnit, currentQuantity: 0, averageCost: 0 };
@@ -200,7 +281,8 @@ function App() {
           {secureAction && <SecurityModal existingPin={data?.adminPin} onSuccess={handlePinSuccess} onClose={() => setSecureAction(null)} />}
           {showManual && <ManualModal onClose={() => setShowManual(false)} />}
           {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={showNotification} />}
-          {showSettings && data && <SettingsModal suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} fullState={data} onUpdateState={(newState) => setData(newState)} onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} onAddCostCenter={(n,b,a,s,pc,ct,ac) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac}]}))} onDeleteCostCenter={(id) => setData(prev=>({...prev, costCenters: prev.costCenters.filter(c=>c.id!==id)}))} onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} onDeletePersonnel={(id) => setData(prev=>({...prev, personnel: prev.personnel.filter(p=>p.id!==id)}))} onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} onDeleteActivity={(id) => setData(prev=>({...prev, activities: prev.activities.filter(a=>a.id!==id)}))} onClose={() => setShowSettings(false)} />}
+          {/* PASAR FUNCIONES DE INTEGRIDAD REFERENCIAL AL MODAL DE CONFIGURACIÓN */}
+          {showSettings && data && <SettingsModal suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} activities={data.activities.filter(a=>a.warehouseId===activeId)} fullState={data} onUpdateState={(newState) => setData(newState)} onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} onAddCostCenter={(n,b,a,s,pc,ct,ac) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac}]}))} onDeleteCostCenter={handleDeleteCostCenter} onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} onDeletePersonnel={handleDeletePersonnel} onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} onDeleteActivity={handleDeleteActivity} onClose={() => setShowSettings(false)} />}
           {showPayroll && data && <PayrollModal logs={data.laborLogs.filter(l => l.warehouseId === activeId)} personnel={data.personnel.filter(p => p.warehouseId === activeId)} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
           {showAddForm && data && <InventoryForm suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} onSave={handleSaveNewItem} onCancel={() => setShowAddForm(false)} />}
           {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={data.suppliers.filter(s=>s.warehouseId===activeId)} costCenters={data.costCenters.filter(c=>c.warehouseId===activeId)} personnel={data.personnel.filter(p=>p.warehouseId===activeId)} onSave={(mov, price, exp) => { const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); setData(prev => ({ ...prev, inventory: updatedInventory, movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] })); setMovementModal(null); }} onCancel={() => setMovementModal(null)} />}
