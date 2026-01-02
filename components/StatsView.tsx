@@ -9,6 +9,7 @@ import {
   Calculator, ChevronRight, PieChart as PieIcon, ArrowRight, Activity as ActivityIcon, Split, Coffee, 
   ClipboardList, ShieldAlert, ShieldX, Lightbulb, TrendingUp as TrendUpIcon, Scissors
 } from 'lucide-react';
+import { Modal } from './UIElements';
 
 interface StatsViewProps {
   laborFactor: number;
@@ -48,6 +49,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [endDate, setEndDate] = useState<string>(lastDayOfYear);
   const [useDateFilter, setUseDateFilter] = useState(true);
   const [reportMode, setReportMode] = useState<'bi' | 'economics' | 'global'>('bi');
+  const [showDensityAnalysis, setShowDensityAnalysis] = useState(false);
 
   const filterByDate = (dateString: string) => {
       if (!useDateFilter) return true;
@@ -132,20 +134,39 @@ export const StatsView: React.FC<StatsViewProps> = ({
       })).sort((a, b) => b.value - a.value);
   }, [filteredLabor, filteredMovements, laborFactor]);
 
-  // --- CORRELACIÓN DENSIDAD VS PRODUCTIVIDAD ---
-  const densityCorrelation = useMemo(() => {
-      return costCenters.map(lot => {
-          const lotHarvests = filteredHarvests.filter(h => h.costCenterId === lot.id);
-          const totalProd = lotHarvests.reduce((a, b) => a + b.quantity, 0);
-          const density = lot.area > 0 ? (lot.plantCount || 0) / lot.area : 0;
-          
-          return {
-              name: lot.name,
-              density,
-              isUnderperforming: density < 5000 && lot.area > 0
-          };
-      });
-  }, [costCenters, filteredHarvests]);
+  // --- CORRELACIÓN DENSIDAD VS RENTABILIDAD ---
+  const densityAnalysis = useMemo(() => {
+    const results = costCenters.map(lot => {
+        if (!lot.area || lot.area === 0) {
+            return { ...lot, density: 0, productivityKgHa: 0, profitabilityHa: 0, isLowDensity: false, totalCost: 0, totalIncome: 0 };
+        }
+        
+        const density = (lot.plantCount || 0) / lot.area;
+
+        const lotHarvests = filteredHarvests.filter(h => h.costCenterId === lot.id);
+        const totalKg = lotHarvests.reduce((sum, h) => sum + h.quantity, 0);
+        const productivityKgHa = totalKg / lot.area;
+        const totalIncome = lotHarvests.reduce((sum, h) => sum + h.totalValue, 0);
+
+        const lotLabor = filteredLabor.filter(l => l.costCenterId === lot.id).reduce((sum, l) => sum + l.value, 0) * laborFactor;
+        const lotInputs = filteredMovements.filter(m => m.costCenterId === lot.id && m.type === 'OUT').reduce((sum, m) => sum + m.calculatedCost, 0);
+        const totalCost = lotLabor + lotInputs;
+
+        const profitabilityHa = (totalIncome - totalCost) / lot.area;
+
+        return { ...lot, density, productivityKgHa, profitabilityHa, isLowDensity: density < 6000, totalCost, totalIncome };
+    }).sort((a,b) => b.profitabilityHa - a.profitabilityHa);
+
+    const lowDensityLots = results.filter(r => r.isLowDensity);
+    const optimalLots = results.filter(r => !r.isLowDensity);
+
+    const avgProfitLow = lowDensityLots.length > 0 ? lowDensityLots.reduce((sum, l) => sum + l.profitabilityHa, 0) / lowDensityLots.length : 0;
+    const avgProfitOptimal = optimalLots.length > 0 ? optimalLots.reduce((sum, l) => sum + l.profitabilityHa, 0) / optimalLots.length : 0;
+    
+    const profitDifference = avgProfitOptimal > 0 && avgProfitLow < avgProfitOptimal ? ((avgProfitOptimal - avgProfitLow) / avgProfitOptimal) * 100 : 0;
+
+    return { lots: results, avgProfitLow, avgProfitOptimal, profitDifference };
+  }, [costCenters, filteredHarvests, filteredLabor, filteredMovements, laborFactor]);
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
@@ -234,26 +255,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
                         </div>
                     </div>
 
-                    {/* CORRELACIÓN DENSIDAD */}
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl">
+                    {/* NUEVA TARJETA DE ANÁLISIS DE DENSIDAD */}
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-xl flex flex-col">
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-indigo-500" /> Auditoría de Población (árb/Ha)
+                            <Split className="w-4 h-4 text-indigo-500" /> Densidad vs. Rentabilidad
                         </h4>
-                        <div className="space-y-3">
-                            {densityCorrelation.map(d => (
-                                <div key={d.name} className={`p-3 rounded-2xl border flex items-center justify-between ${d.isUnderperforming ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
-                                    <div>
-                                        <p className="text-xs font-black text-slate-800 dark:text-white uppercase">{d.name}</p>
-                                        <p className={`text-[9px] font-bold ${d.isUnderperforming ? 'text-red-500' : 'text-slate-500'}`}>{d.density.toLocaleString()} árb/Ha</p>
-                                    </div>
-                                    {d.isUnderperforming && (
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[8px] bg-red-600 text-white px-2 py-0.5 rounded-full font-black animate-pulse">BAJA DENSIDAD</span>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                        <div className="flex-1 flex flex-col items-center justify-center text-center bg-slate-100 dark:bg-slate-900/50 rounded-2xl p-6 border dark:border-slate-800">
+                            <p className="text-3xl font-black text-white font-mono">
+                                {densityAnalysis.profitDifference.toFixed(1)}<span className="text-lg text-red-500">%</span>
+                            </p>
+                            <p className="text-[10px] text-red-400 font-black uppercase mt-1">Menos Rentables</p>
+                            <p className="text-[10px] text-slate-500 mt-2 max-w-xs">
+                                Lotes con menos de 6,000 árb/Ha están subutilizando el área y diluyendo menos los costos fijos.
+                            </p>
                         </div>
+                        <button onClick={() => setShowDensityAnalysis(true)} className="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl text-xs uppercase flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95">
+                            <BarChart3 className="w-4 h-4" /> Ver Análisis Detallado
+                        </button>
                     </div>
                 </div>
            </div>
@@ -304,6 +322,52 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest italic">Propiedad Intelectual de Lucas Mateo Tabares Franco</p>
             <p className="text-[8px] text-slate-600 mt-1">Software de Gestión Local Offline | DatosFinca Viva PRO</p>
        </div>
+
+        <Modal isOpen={showDensityAnalysis} onClose={() => setShowDensityAnalysis(false)} title="Análisis Densidad vs. Productividad" icon={Split} maxWidth="max-w-3xl">
+            <div className="space-y-4">
+                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex items-start gap-3">
+                    <Info className="w-5 h-5 text-indigo-400 shrink-0" />
+                    <p className="text-[11px] text-slate-400 italic">
+                        Este análisis cruza la densidad de siembra con los costos y ventas reales para identificar lotes sub-óptimos que impactan la rentabilidad global.
+                    </p>
+                </div>
+                <div className="bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden shadow-inner max-h-80 overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-[10px] text-left">
+                        <thead className="bg-slate-950 text-slate-500 font-black uppercase tracking-tighter sticky top-0">
+                            <tr>
+                                <th className="p-3">Lote</th>
+                                <th className="p-3 text-center">Densidad<br/>(á/Ha)</th>
+                                <th className="p-3 text-center">Productividad<br/>(Kg/Ha)</th>
+                                <th className="p-3 text-right">Rentabilidad<br/>($/Ha)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                            {densityAnalysis.lots.map(lot => (
+                                <tr key={lot.id} className={`${lot.isLowDensity ? 'bg-red-900/10 hover:bg-red-900/20' : 'hover:bg-slate-800/50'}`}>
+                                    <td className="p-3 font-bold text-slate-200">{lot.name}</td>
+                                    <td className={`p-3 text-center font-mono font-black ${lot.isLowDensity ? 'text-red-400' : 'text-slate-300'}`}>
+                                        {lot.density.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                    </td>
+                                    <td className="p-3 text-center font-mono font-black text-slate-300">
+                                        {lot.productivityKgHa.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                    </td>
+                                    <td className={`p-3 text-right font-mono font-black ${lot.profitabilityHa > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                        {formatCurrency(lot.profitabilityHa)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/20 flex items-start gap-3">
+                    <Lightbulb className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <p className="text-[11px] text-emerald-200">
+                        <strong className="uppercase">Recomendación Estratégica:</strong> Los lotes con densidades bajas muestran menor rentabilidad. Considere renovarlos con arreglos espaciales más intensivos (7,500-8,000 árb/Ha) para maximizar el uso de la tierra y diluir costos fijos.
+                    </p>
+                </div>
+            </div>
+        </Modal>
+
     </div>
   );
 };
