@@ -8,7 +8,7 @@ import {
   History, Sprout, Scissors, Save, X, AlertTriangle, 
   TrendingUp, Droplets, Pickaxe, CheckCircle2, MoreHorizontal,
   ArrowRight, Leaf, Target, Plus, Trash2, Sun, Zap, ShieldCheck,
-  FileText, FileSpreadsheet
+  FileText, FileSpreadsheet, Clock, AlertCircle
 } from 'lucide-react';
 import { HeaderCard, Modal, EmptyState } from './UIElements';
 
@@ -80,6 +80,19 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       }
   }, [calculatedDensityPerHa, loteArea]);
 
+  // --- LOGIC: AUTO STAGE SELECTION BASED ON AGE ---
+  useEffect(() => {
+      const age = parseInt(loteCropAge) || 0;
+      // Si la edad es mayor a 0, aplicamos la lógica. Si está vacío, dejamos manual.
+      if (loteCropAge !== '') {
+          if (age < 18) {
+              setLoteStage('Levante');
+          } else {
+              setLoteStage('Produccion');
+          }
+      }
+  }, [loteCropAge]);
+
   const displayDensity = calculatedDensityPerHa > 0 
       ? calculatedDensityPerHa 
       : (parseFloat(lotePlants) > 0 && parseFloat(loteArea) > 0 ? parseFloat(lotePlants) / parseFloat(loteArea) : 0);
@@ -143,12 +156,20 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
 
   const handleSaveChanges = () => {
       if (!selectedLot) return;
+      
+      // Auto-update stage logic on edit as well
+      const newAge = parseInt(editAge) || 0;
+      let newStage = selectedLot.stage;
+      if (newAge < 18) newStage = 'Levante';
+      else if (newAge >= 18 && selectedLot.stage !== 'Infraestructura') newStage = 'Produccion';
+
       const updatedLot: CostCenter = {
           ...selectedLot,
           name: editName,
           area: parseFloat(editArea),
           plantCount: parseInt(editPlants),
-          cropAgeMonths: parseInt(editAge),
+          cropAgeMonths: newAge,
+          stage: newStage,
           cropType: editCrop,
       };
       onUpdateLot(updatedLot);
@@ -236,13 +257,35 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
 
           {costCenters.map(lot => {
               const density = (lot.plantCount || 0) / (lot.area || 1);
+              const age = lot.cropAgeMonths || 0;
               const isLevante = lot.stage === 'Levante';
+              
+              // --- RENOVATION LOGIC ---
+              // 1. If density > 7000 (high density) -> Renovate after 60 months (5 years)
+              // 2. Standard density -> Renovate after 84 months (7 years)
+              let needsRenovation = false;
+              let renovationReason = '';
+
+              if (density > 7000 && age > 60) {
+                  needsRenovation = true;
+                  renovationReason = 'Cierre Calles (Alta Densidad)';
+              } else if (age > 84) {
+                  needsRenovation = true;
+                  renovationReason = 'Cultivo Envejecido (>7 años)';
+              }
+
               return (
                   <div 
                     key={lot.id} 
                     onClick={() => handleOpenLot(lot)}
-                    className={`bg-white dark:bg-slate-800 p-5 rounded-[2rem] border transition-all cursor-pointer hover:shadow-xl active:scale-95 group relative ${isLevante ? 'border-blue-500/30' : 'border-slate-200 dark:border-slate-700'}`}
+                    className={`bg-white dark:bg-slate-800 p-5 rounded-[2rem] border transition-all cursor-pointer hover:shadow-xl active:scale-95 group relative overflow-hidden ${needsRenovation ? 'border-amber-500/50 dark:border-amber-500/50' : isLevante ? 'border-blue-500/30' : 'border-slate-200 dark:border-slate-700'}`}
                   >
+                      {needsRenovation && (
+                          <div className="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase flex items-center gap-1 z-10">
+                              <Clock className="w-3 h-3" /> Renovación Sugerida
+                          </div>
+                      )}
+
                       <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
                               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md ${isLevante ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white'}`}>
@@ -255,13 +298,13 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                                   </span>
                               </div>
                           </div>
-                          <MoreHorizontal className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-white" />
+                          {!needsRenovation && <MoreHorizontal className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-white" />}
                       </div>
                       
                       <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl">
                           <div>
-                              <span className="block text-[8px]">Área</span>
-                              <span className="text-slate-800 dark:text-white text-sm">{lot.area} Ha</span>
+                              <span className="block text-[8px]">Edad</span>
+                              <span className={`text-sm ${needsRenovation ? 'text-amber-500' : 'text-slate-800 dark:text-white'}`}>{age} Meses</span>
                           </div>
                           <div>
                               <span className="block text-[8px]">Población</span>
@@ -269,9 +312,9 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                           </div>
                       </div>
 
-                      {density < 4000 && (
-                          <div className="absolute top-0 right-0 p-2">
-                              <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      {needsRenovation && (
+                          <div className="mt-2 text-[9px] text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg flex items-center gap-2">
+                              <AlertCircle className="w-3 h-3" /> {renovationReason}
                           </div>
                       )}
                   </div>
@@ -340,6 +383,16 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                   <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Edad Cultivo (Meses)</label>
                   <input type="number" value={loteCropAge} onChange={e => setLoteCropAge(e.target.value)} placeholder="Ej: 24" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                 </div>
+              </div>
+              
+              <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
+                  <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-400 font-black uppercase">Etapa Automática</span>
+                      <span className={`text-xs font-black px-2 py-1 rounded-lg uppercase ${loteStage === 'Levante' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>{loteStage}</span>
+                  </div>
+                  <p className="text-[9px] text-slate-500 mt-1">
+                      {parseInt(loteCropAge) < 18 ? 'Menor a 18 meses: Etapa de Inversión.' : 'Mayor a 18 meses: Etapa Productiva.'}
+                  </p>
               </div>
               
               <div className="grid grid-cols-2 gap-3">

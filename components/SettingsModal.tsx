@@ -77,6 +77,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
   }, [calculatedDensityPerHa, loteArea]);
 
+  // --- LOGIC: AUTO STAGE SELECTION BASED ON AGE ---
+  useEffect(() => {
+      const age = parseInt(loteCropAge) || 0;
+      // Solo aplicar lógica automática si hay un valor, para permitir edición manual si se requiere
+      if (loteCropAge !== '') {
+          if (age < 18) {
+              setLoteStage('Levante');
+          } else {
+              setLoteStage('Produccion');
+          }
+      }
+  }, [loteCropAge]);
+
   // Densidad visual para las alertas (Prioriza el cálculo directo de distancias)
   const displayDensity = calculatedDensityPerHa > 0 
       ? calculatedDensityPerHa 
@@ -258,6 +271,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Edad Cultivo (Meses)</label>
                     <input type="number" value={loteCropAge} onChange={e => setLoteCropAge(e.target.value)} placeholder="Ej: 24" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" />
                   </div>
+                </div>
+                
+                <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-400 font-black uppercase">Etapa Automática</span>
+                        <span className={`text-xs font-black px-2 py-1 rounded-lg uppercase ${loteStage === 'Levante' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>{loteStage}</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1">
+                        {parseInt(loteCropAge) < 18 ? 'Menor a 18 meses: Etapa de Inversión.' : 'Mayor a 18 meses: Etapa Productiva.'}
+                    </p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
