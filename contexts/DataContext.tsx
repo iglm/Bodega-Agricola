@@ -1,6 +1,6 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AppState, CostCenter, InventoryItem, BudgetPlan, PlannedLabor, Unit } from '../types';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { AppState, CostCenter, InventoryItem, BudgetPlan, PlannedLabor, Unit, InitialMovementDetails } from '../types';
 import { dbService } from '../services/db';
 import { loadDataFromLocalStorage, saveDataToLocalStorage } from '../services/inventoryService';
 import { useAppActions } from '../hooks/useAppActions';
@@ -14,7 +14,7 @@ interface DataContextType {
     deleteCostCenter: (id: string) => void;
     deletePersonnel: (id: string) => void;
     deleteActivity: (id: string) => void;
-    saveNewItem: (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails?: any, initialUnit?: Unit) => void;
+    saveNewItem: (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails?: InitialMovementDetails, initialUnit?: Unit) => void;
     addPlannedLabor: (labor: Omit<PlannedLabor, 'id' | 'warehouseId' | 'completed'>) => void;
     updateCostCenter: (lot: CostCenter) => void;
     saveBudget: (budget: BudgetPlan) => void;
@@ -52,15 +52,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode, notify: (msg: s
     initData();
   }, []);
 
-  // Persistencia Automática
+  // Persistencia Automática Optimizada
   useEffect(() => {
     if (!isDataLoaded || !data.activeWarehouseId) return;
-    saveDataToLocalStorage(data);
+
+    // 1. Guardado Asíncrono (IndexedDB): Siempre ocurre, no bloquea la UI.
     dbService.saveState(data).catch(err => console.warn("Guardado asíncrono:", err));
+
+    // 2. Guardado Síncrono (LocalStorage): Solo si NO se ha migrado.
+    // Evitamos JSON.stringify masivo si ya estamos en IDB.
+    const isMigrated = localStorage.getItem('MIGRATION_COMPLETED') === 'true';
+    if (!isMigrated) {
+        saveDataToLocalStorage(data);
+    }
   }, [data, isDataLoaded]);
 
+  const contextValue = useMemo(() => ({
+    data,
+    setData,
+    isDataLoaded,
+    actions
+  }), [data, isDataLoaded, actions]);
+
   return (
-    <DataContext.Provider value={{ data, setData, isDataLoaded, actions }}>
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );

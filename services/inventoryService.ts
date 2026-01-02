@@ -84,6 +84,10 @@ export const formatBaseQuantity = (qty: number, type: string) => {
   return `${qty.toFixed(1)} ${type}`;
 };
 
+/**
+ * Calculates the new Weighted Average Cost (WAC/CPP).
+ * @param incomingPrice - Price corresponding strictly to ONE unit of incomingUnit.
+ */
 export const calculateWeightedAverageCost = (item: InventoryItem, incomingQty: number, incomingUnit: Unit, incomingPrice: number) => {
   const currentTotalVal = item.currentQuantity * item.averageCost;
   const incomingBaseQty = convertToBase(incomingQty, incomingUnit);
@@ -109,6 +113,8 @@ export const processInventoryMovement = (inventory: InventoryItem[], movement: O
     item.lastPurchaseUnit = movement.unit;
     if (newExpirationDate) item.expirationDate = newExpirationDate;
   } else {
+    // SAFETY: OUT movements must strictly use the existing Weighted Average Cost (CPP).
+    // We explicitly ignore any 'newPrice' passed to prevent fraudulent revaluation during outputs.
     movementCost = baseQty * item.averageCost;
     item.currentQuantity -= baseQty;
   }

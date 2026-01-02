@@ -1,7 +1,7 @@
 
 import { Dispatch, SetStateAction } from 'react';
-import { AppState, InventoryItem, Movement, Unit, PlannedLabor, CostCenter, BudgetPlan } from '../types';
-import { processInventoryMovement, generateId, getBaseUnitType } from '../services/inventoryService';
+import { AppState, InventoryItem, Movement, Unit, PlannedLabor, CostCenter, BudgetPlan, InitialMovementDetails } from '../types';
+import { processInventoryMovement, generateId, getBaseUnitType, convertToBase } from '../services/inventoryService';
 import { getDemoData } from '../services/reportService';
 
 export const useAppActions = (
@@ -91,7 +91,7 @@ export const useAppActions = (
     notify('Labor eliminada del catálogo.', 'success');
   };
 
-  const saveNewItem = (item: any, initialQuantity: number, initialMovementDetails: any, initialUnit?: Unit) => {
+  const saveNewItem = (item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, initialQuantity: number, initialMovementDetails: InitialMovementDetails | undefined, initialUnit?: Unit) => {
     const baseUnit = getBaseUnitType(item.lastPurchaseUnit);
     const newItem: InventoryItem = { ...item, id: generateId(), warehouseId: data.activeWarehouseId, baseUnit: baseUnit, currentQuantity: 0, averageCost: 0 };
     
@@ -114,7 +114,14 @@ export const useAppActions = (
         notes: 'Saldo inicial' 
       };
       
-      const { updatedInventory: invWithMovement, movementCost } = processInventoryMovement(updatedInventory, initialMovement, item.lastPurchasePrice, item.expirationDate);
+      // Lógica de Ajuste de Precio por Discrepancia de Unidades
+      let adjustedPrice = item.lastPurchasePrice;
+      if (initialUnit !== item.lastPurchaseUnit) {
+          const pricePerBase = item.lastPurchasePrice / convertToBase(1, item.lastPurchaseUnit);
+          adjustedPrice = pricePerBase * convertToBase(1, initialUnit);
+      }
+
+      const { updatedInventory: invWithMovement, movementCost } = processInventoryMovement(updatedInventory, initialMovement, adjustedPrice, item.expirationDate);
       updatedInventory = invWithMovement;
       
       const completeMovement: Movement = { 

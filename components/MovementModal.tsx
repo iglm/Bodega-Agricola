@@ -4,7 +4,7 @@ import { InventoryItem, Unit, Movement, Supplier, CostCenter, Personnel, Machine
 import { getBaseUnitType, convertToBase, formatBaseQuantity, formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { storageAdapter } from '../services/storageAdapter';
 import { SecureImage } from './SecureImage';
-import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Calculator, Camera, Plus, Save, Loader2, Info } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle, Users, MapPin, Calculator, Camera, Plus, Save, Loader2, Info, RefreshCw } from 'lucide-react';
 
 interface MovementModalProps {
   item: InventoryItem;
@@ -31,7 +31,8 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const [notes, setNotes] = useState('');
   
   // Estado Entrada (Compra)
-  const [price, setPrice] = useState(''); // Precio total de compra o unitario según se desee, aquí usaremos unitario por presentación
+  const [price, setPrice] = useState(''); // Puede ser unitario o total dependiendo de isTotalPrice
+  const [isTotalPrice, setIsTotalPrice] = useState(false); // UX: Toggle para evitar errores de cálculo mental
   const [supplierId, setSupplierId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
@@ -62,16 +63,28 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       if (qtyVal <= 0) return { total: 0, unitCost: 0, breakdown: '' };
 
       if (type === 'IN') {
-          // En entrada, el usuario define el precio
           const priceVal = parseNumberInput(price);
-          return { total: priceVal * qtyVal, unitCost: priceVal, breakdown: `Compra: ${qtyVal} ${unit} a ${formatCurrency(priceVal)} c/u` };
+          
+          if (isTotalPrice) {
+              // Si el usuario ingresa el total, calculamos el unitario
+              const calculatedUnit = priceVal / qtyVal;
+              return { 
+                  total: priceVal, 
+                  unitCost: calculatedUnit, 
+                  breakdown: `Ingresado Total: ${formatCurrency(priceVal)}` 
+              };
+          } else {
+              // Si el usuario ingresa el unitario (default)
+              return { 
+                  total: priceVal * qtyVal, 
+                  unitCost: priceVal, 
+                  breakdown: `Compra: ${qtyVal} ${unit} a ${formatCurrency(priceVal)} c/u` 
+              };
+          }
       } else {
           // En salida, el costo se deriva del CPP (Costo Promedio Ponderado)
-          // 1. Convertir la unidad seleccionada a la unidad base (g/ml)
           const baseQtyPerUnit = convertToBase(1, unit); 
-          // 2. Calcular el costo de ESA unidad seleccionada basado en el costo promedio base
           const costPerSelectedUnit = item.averageCost * baseQtyPerUnit;
-          // 3. Costo total de la salida
           const totalCost = costPerSelectedUnit * qtyVal;
 
           return { 
@@ -80,7 +93,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               breakdown: `1 ${unit} = ${formatCurrency(costPerSelectedUnit)} (CPP)`
           };
       }
-  }, [quantity, unit, price, type, item.averageCost]);
+  }, [quantity, unit, price, type, item.averageCost, isTotalPrice]);
 
   // Manejadores de Creación Rápida
   const handleCreateSupplier = (e: React.MouseEvent) => {
@@ -128,15 +141,17 @@ export const MovementModal: React.FC<MovementModalProps> = ({
           movementData.supplierName = suppliers.find(s => s.id === supplierId)?.name;
           movementData.invoiceNumber = invoiceNumber;
           movementData.invoiceImage = invoiceImage;
-          // Pasar el nuevo precio unitario para recalcular Ponderado
-          const unitPrice = parseNumberInput(price);
-          onSave(movementData, unitPrice, expirationDate || undefined);
+          
+          // CRÍTICO: Asegurar que pasamos el precio UNITARIO al sistema
+          const rawPrice = parseNumberInput(price);
+          const finalUnitPrice = isTotalPrice ? (rawPrice / qtyVal) : rawPrice;
+          
+          onSave(movementData, finalUnitPrice, expirationDate || undefined);
       } else {
           movementData.costCenterId = costCenterId;
           movementData.costCenterName = costCenters.find(c => c.id === costCenterId)?.name;
           movementData.personnelId = personnelId;
           movementData.personnelName = personnel.find(p => p.id === personnelId)?.name;
-          // No pasamos precio, el servicio calcula el costo de salida
           onSave(movementData);
       }
   };
@@ -183,8 +198,34 @@ export const MovementModal: React.FC<MovementModalProps> = ({
             {type === 'IN' ? (
                 <div className="space-y-4 animate-fade-in">
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-emerald-500 uppercase ml-2 flex items-center gap-1"><DollarSign className="w-3 h-3"/> Precio de Compra (Por {unit})</label>
-                        <input type="text" inputMode="decimal" value={price} onChange={e => setPrice(formatNumberInput(e.target.value))} className="w-full bg-slate-800 border border-emerald-500/30 rounded-2xl p-4 text-emerald-400 text-xl font-mono font-black outline-none" placeholder="$ 0" />
+                        <div className="flex justify-between items-center ml-2 mb-1">
+                            <label className="text-[10px] font-black text-emerald-500 uppercase flex items-center gap-1">
+                                <DollarSign className="w-3 h-3"/> 
+                                {isTotalPrice ? "Precio TOTAL Factura" : `Precio Unitario (Por ${unit})`}
+                            </label>
+                            <button 
+                                type="button" 
+                                onClick={() => setIsTotalPrice(!isTotalPrice)}
+                                className="text-[9px] font-bold text-indigo-400 hover:text-white uppercase flex items-center gap-1 bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/30 transition-all active:scale-95"
+                            >
+                                <RefreshCw className="w-3 h-3" />
+                                {isTotalPrice ? "Cambiar a Unitario" : "Ingresar Total"}
+                            </button>
+                        </div>
+                        <input 
+                            type="text" 
+                            inputMode="decimal" 
+                            value={price} 
+                            onChange={e => setPrice(formatNumberInput(e.target.value))} 
+                            className={`w-full bg-slate-800 border rounded-2xl p-4 text-emerald-400 text-xl font-mono font-black outline-none transition-all ${isTotalPrice ? 'border-indigo-500/50 focus:ring-2 focus:ring-indigo-500' : 'border-emerald-500/30 focus:ring-2 focus:ring-emerald-500'}`} 
+                            placeholder="$ 0" 
+                        />
+                        {isTotalPrice && calculation.unitCost > 0 && (
+                            <div className="bg-slate-800/80 p-3 rounded-xl border border-indigo-500/30 flex items-center justify-between animate-fade-in">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">Costo Unitario Calculado:</span>
+                                <span className="text-sm font-black text-white font-mono">{formatCurrency(calculation.unitCost)} / {unit}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-1">
@@ -289,7 +330,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         <div className="p-6 bg-slate-900 border-t border-slate-800">
             <button 
                 onClick={handleSubmit} 
-                disabled={!quantity || (type === 'IN' && !price) || (type === 'OUT' && !costCenterId)}
+                disabled={!quantity || (type === 'IN' && !price) || (type === 'OUT' && (!costCenterId || !personnelId))}
                 className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${type === 'IN' ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40' : 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/40'}`}
             >
                 {type === 'IN' ? 'Confirmar Entrada' : 'Confirmar Salida'}

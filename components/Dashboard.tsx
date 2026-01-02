@@ -107,11 +107,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return { totalValue, lowStockCount, abcMap, idleCapitalValue };
   }, [inventory, movements]);
 
-  const filteredInventory = inventory.filter(item => {
+  const filteredInventory = useMemo(() => inventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'Todos' || item.category === filterCategory;
     return matchesSearch && matchesCategory;
-  });
+  }), [inventory, searchTerm, filterCategory]);
 
   const categories = useMemo(() => ['Todos', ...Array.from(new Set(inventory.map(i => String(i.category))))], [inventory]);
 

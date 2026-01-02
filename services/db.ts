@@ -87,19 +87,21 @@ export const dbService = {
         return data;
       }
     } catch (error) {
-      console.error("Error leyendo IndexedDB:", error);
-      // Si falla IDB y ya migramos, NO tocar LocalStorage.
+      console.error("Error crítico leyendo IndexedDB:", error);
+      // SEGURIDAD DE DATOS: Si ya se migró, un error de lectura NO debe interpretarse como "base de datos vacía".
+      // Si retornamos getCleanState() aquí, el autosave sobrescribiría los datos reales inaccesibles con datos vacíos.
+      // Lanzamos el error para detener la inicialización y que la UI maneje el fallo.
       if (hasMigrated) {
-          console.warn("Error de IDB post-migración. Retornando estado limpio para proteger integridad.");
-          return getCleanState();
+          throw error; 
       }
     }
 
     // 2. Lógica Anti-Zombie
-    // Si llegamos aquí, IDB está vacío o falló.
+    // Si llegamos aquí, la lectura fue exitosa pero retornó undefined (vacío), 
+    // o falló la lectura pero NO habíamos migrado aún.
     if (hasMigrated) {
         console.warn("ALERTA DE INTEGRIDAD: IndexedDB vacío pero migración marcada. Ignorando LocalStorage (Zombie Data).");
-        // Devolvemos un estado nuevo para evitar revivir datos de hace meses.
+        // Aquí es seguro devolver limpio porque la DB respondió correctamente que no tiene datos.
         return getCleanState();
     }
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Category, Unit, InventoryItem, Supplier } from '../types';
+import { Category, Unit, InventoryItem, Supplier, InitialMovementDetails } from '../types';
 import { X, Save, Plus, Camera, Image as ImageIcon, Receipt, Users, FileText, Bookmark, ShieldCheck, Loader2, Info } from 'lucide-react';
 import { convertToBase, getBaseUnitType, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { storageAdapter } from '../services/storageAdapter';
@@ -105,7 +105,7 @@ interface InventoryFormProps {
   onSave: (
       item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
       initialQuantity: number,
-      initialMovementDetails?: { supplierId?: string, invoiceNumber?: string, invoiceImage?: string },
+      initialMovementDetails?: InitialMovementDetails,
       initialUnit?: Unit
   ) => void;
   onCancel: () => void;
@@ -278,7 +278,7 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <MoneyInput 
-                    label="Precio Compra" 
+                    label={`Precio por ${purchaseUnit}`}
                     value={purchasePrice} 
                     onChange={setPurchasePrice} 
                     placeholder="$ 0" 

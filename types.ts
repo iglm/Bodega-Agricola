@@ -266,6 +266,12 @@ export interface Movement {
   phiApplied?: number;
 }
 
+export interface InitialMovementDetails {
+  supplierId?: string;
+  invoiceNumber?: string;
+  invoiceImage?: string;
+}
+
 export interface SoilAnalysis { 
   id: string; 
   warehouseId: string; 
