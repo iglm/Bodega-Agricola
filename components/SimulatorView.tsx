@@ -7,7 +7,7 @@ import {
   CheckCircle2, Timer, FileDown, Rocket, TreePine, Map,
   ChevronDown, ChevronUp, Minus, Plus, Users, Beaker,
   TrendingDown, ShieldAlert, BarChart, Landmark, Scissors, Wand2,
-  Home, Leaf, RefreshCw, Briefcase, BadgeDollarSign, Table, AlertOctagon
+  Home, Leaf, RefreshCw, Briefcase, BadgeDollarSign, Table, AlertOctagon, Search
 } from 'lucide-react';
 import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
 import { generateSimulationPDF } from '../services/reportService';
@@ -175,8 +175,19 @@ export const SimulatorView: React.FC = () => {
         const vpn = yearlyData.reduce((acc, y) => acc + (y.netCashFlow / Math.pow(1.12, y.year)), 0);
         const roi = (vpn / (initCap || 1)) * 100;
 
+        // --- CÁLCULO UNITARIO (PER TREE) - AÑO 5 (MADUREZ) ---
+        const refYear = yearlyData[4]; // Año 5
+        const safeTotalTrees = totalTrees || 1;
+        const perTreeAnalysis = {
+            maintenance: refYear ? refYear.fixedCost / safeTotalTrees : 0,
+            harvest: refYear ? refYear.variableCost / safeTotalTrees : 0,
+            totalCost: refYear ? refYear.totalExpenses / safeTotalTrees : 0,
+            revenue: refYear ? refYear.totalIncome / safeTotalTrees : 0,
+            profit: refYear ? refYear.netCashFlow / safeTotalTrees : 0,
+            totalTrees
+        };
+
         // --- ANÁLISIS DE SENSIBILIDAD (STRESS TEST AÑO 5) ---
-        // Tomamos el año 5 como referencia de madurez
         const stableYear = yearlyData[4]; 
         
         // Determinar el precio de referencia usado en el año 5 (incluyendo tendencia)
@@ -221,7 +232,8 @@ export const SimulatorView: React.FC = () => {
             year5LaborCost: yearlyData[4]?.laborUnitCost || 0,
             avgCostPerCarga: yearlyData.reduce((a,b)=>a+b.costPerCarga,0)/6,
             sensitivity: [acidScenario, baseScenario, optScenario],
-            breakevenPrice: stableYear ? stableYear.costPerCarga : 0
+            breakevenPrice: stableYear ? stableYear.costPerCarga : 0,
+            perTreeAnalysis // Nuevo objeto de análisis
         };
     }, [treesInRenovation, treesInLevante, treesInProduction, density, currentMarketPrice, harvestCostPerKg, laborInflation, generalInflation, baseMaintenanceCost, initialCapital, expectedPriceTrend]);
 
@@ -297,27 +309,145 @@ export const SimulatorView: React.FC = () => {
                 </div>
             </div>
 
-            {/* KPIS FINANCIEROS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-center text-center">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                        <Users className="w-5 h-5 text-red-500" />
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Costo Recolección (Año 5)</p>
+            {/* KPIS FINANCIEROS ESTRATÉGICOS */}
+            <div className="space-y-4">
+                <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-3 px-4 tracking-widest">
+                    <Target className="w-5 h-5 text-emerald-500" /> Tablero de Rentabilidad
+                </h3>
+
+                {/* Strategic Row (3 Cards) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* ROI */}
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className={`p-2 rounded-xl ${simulation.roi >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                <TrendingUp className="w-5 h-5" />
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">Rendimiento (TIR)</p>
+                        </div>
+                        <p className={`text-3xl font-black font-mono ${simulation.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                            {simulation.roi.toFixed(1)}%
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-2 leading-tight">Rendimiento global del capital a 6 años.</p>
                     </div>
-                    <p className="text-3xl font-black text-slate-800 dark:text-white font-mono">{formatCurrency(simulation.year5LaborCost)} <span className="text-sm text-slate-400 font-bold">/ Kg</span></p>
-                    <p className="text-[10px] text-red-400 font-bold mt-1 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full mx-auto inline-block">Inflación Impacto: +{((simulation.year5LaborCost/parseNumberInput(harvestCostPerKg) - 1)*100).toFixed(0)}%</p>
+
+                    {/* Payback */}
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600">
+                                <Timer className="w-5 h-5" />
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">Retorno Inversión</p>
+                        </div>
+                        <p className="text-3xl font-black text-slate-800 dark:text-white font-mono">
+                            {simulation.paybackYear ? `Año ${simulation.paybackYear}` : "N/A"}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-2 leading-tight">Momento en que recuperas tu capital inicial.</p>
+                    </div>
+
+                    {/* VPN */}
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600">
+                                <Landmark className="w-5 h-5" />
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">Valor Presente Neto</p>
+                        </div>
+                        <p className="text-3xl font-black text-slate-800 dark:text-white font-mono truncate">
+                            {formatCurrency(simulation.vpn)}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-2 leading-tight">Ganancia real descontando inflación hoy.</p>
+                    </div>
                 </div>
 
-                <div className="bg-indigo-600 p-6 rounded-[2.5rem] shadow-xl shadow-indigo-900/30 flex flex-col justify-center text-center text-white relative overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                            <BadgeDollarSign className="w-5 h-5 text-indigo-200" />
-                            <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Precio de Equilibrio (Año 5)</p>
+                {/* Operational Row (Secondary) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-500 uppercase">Costo Prod. (@)</p>
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Promedio ciclo</p>
                         </div>
-                        <p className="text-3xl font-black font-mono">{formatCurrency(simulation.breakevenPrice)} <span className="text-sm text-indigo-300 font-bold">/ @</span></p>
-                        <p className="text-[10px] text-indigo-100 font-bold mt-1">Costo Total para No Perder Dinero</p>
+                        <p className="text-lg font-black font-mono text-slate-800 dark:text-white">{formatCurrency(simulation.avgCostPerCarga)}</p>
                     </div>
-                    <div className="absolute -bottom-6 -right-6 opacity-10"><TrendingDown className="w-32 h-32 text-white" /></div>
+                    <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-500 uppercase">Punto Equilibrio (@)</p>
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Año 5 (Pico)</p>
+                        </div>
+                        <p className="text-lg font-black font-mono text-slate-800 dark:text-white">{formatCurrency(simulation.breakevenPrice)}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* UNIT ANALYSIS SECTION (NUEVO) */}
+            <div className="space-y-4 animate-slide-up">
+                <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-3 px-4 tracking-widest">
+                    <Search className="w-5 h-5 text-indigo-400" /> Análisis Unitario: ¿Cuánto vale cada Árbol?
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Card 1: Cost */}
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden group">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl">
+                                <Pickaxe className="w-5 h-5" />
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">Inversión Anual</p>
+                        </div>
+                        <p className="text-2xl font-black text-slate-800 dark:text-white font-mono">
+                            {formatCurrency(simulation.perTreeAnalysis.totalCost)}
+                        </p>
+                        <div className="mt-3 space-y-1 text-[10px] text-slate-500 font-medium border-t border-slate-100 dark:border-slate-700 pt-2">
+                            <div className="flex justify-between">
+                                <span>Sostenimiento:</span>
+                                <span className="font-bold">{formatCurrency(simulation.perTreeAnalysis.maintenance)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Recolección:</span>
+                                <span className="font-bold">{formatCurrency(simulation.perTreeAnalysis.harvest)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Card 2: Revenue */}
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl">
+                                <BadgeDollarSign className="w-5 h-5" />
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">Producción Bruta</p>
+                        </div>
+                        <p className="text-2xl font-black text-slate-800 dark:text-white font-mono">
+                            {formatCurrency(simulation.perTreeAnalysis.revenue)}
+                        </p>
+                        <p className="mt-3 text-[10px] text-slate-400 italic">
+                            Base: Precio de mercado proyectado al año 5.
+                        </p>
+                    </div>
+
+                    {/* Card 3: Profit */}
+                    <div className={`p-5 rounded-[2rem] border shadow-lg flex flex-col justify-center ${simulation.perTreeAnalysis.profit >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/30' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-500/30'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                            <div className={`p-2 rounded-xl ${simulation.perTreeAnalysis.profit >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                <Wallet className="w-5 h-5" />
+                            </div>
+                            <p className={`text-[10px] font-bold uppercase ${simulation.perTreeAnalysis.profit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>Utilidad Neta</p>
+                        </div>
+                        <p className={`text-2xl font-black font-mono ${simulation.perTreeAnalysis.profit >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {formatCurrency(simulation.perTreeAnalysis.profit)}
+                        </p>
+                        <p className="mt-2 text-[10px] font-bold text-slate-500 uppercase">
+                            ¿Cuánto te queda libre?
+                        </p>
+                    </div>
+                </div>
+
+                {/* Explanation Note */}
+                <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-3">
+                    <Lightbulb className="w-5 h-5 text-yellow-500 shrink-0" />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        <strong>¿Por qué este valor?</strong> Este cálculo toma los costos fijos (fertilizantes, limpias) y los divide entre tus <strong>{simulation.perTreeAnalysis.totalTrees.toLocaleString()} árboles</strong>, sumando lo que pagas por recolectar el café de cada uno en su etapa de máxima producción (Año 5).
+                    </p>
                 </div>
             </div>
 
