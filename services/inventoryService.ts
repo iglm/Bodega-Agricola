@@ -153,7 +153,11 @@ export const loadDataFromLocalStorage = (): AppState => {
     laborFactor: parsed.laborFactor || 1.0,
     swot: parsed.swot || { f: '', o: '', d: '', a: '' }, 
     bpaChecklist: parsed.bpaChecklist || {},
-    assets: parsed.assets || []
+    assets: parsed.assets || [],
+    // Commercial Module Initialization
+    clients: parsed.clients || [],
+    salesContracts: parsed.salesContracts || [],
+    sales: parsed.sales || []
   };
 };
 

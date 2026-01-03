@@ -1,7 +1,8 @@
 
-
 import React, { useState } from 'react';
-import { X, Medal, Shield, Star, Check, Crown, Zap, Rocket, Calendar, CreditCard } from 'lucide-react';
+import { X, Medal, Shield, Star, Check, Crown, Zap, Rocket, Calendar, CreditCard, Server, Cpu, HardDrive } from 'lucide-react';
+import { useData } from '../contexts/DataContext'; // Import context to get real data
+import { SystemHealth } from './SystemHealth'; // Import the new component
 
 interface SupportModalProps {
   onClose: () => void;
@@ -11,6 +12,10 @@ interface SupportModalProps {
 
 export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, isSupporter }) => {
   const [loading, setLoading] = useState(false);
+  const { data } = useData(); // Access real data
+
+  // Calculate total logs for health check
+  const totalLogs = (data.laborLogs?.length || 0) + (data.movements?.length || 0) + (data.harvests?.length || 0);
 
   const handleUpgrade = () => {
     setLoading(true);
@@ -25,10 +30,10 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-slate-900 w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-700 animate-slide-up flex flex-col md:flex-row h-auto max-h-[90vh]">
+      <div className="bg-slate-900 w-full max-w-4xl rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-700 animate-slide-up flex flex-col md:flex-row h-auto max-h-[95vh] overflow-y-auto custom-scrollbar">
         
         {/* Lado Izquierdo: Beneficios Premium */}
-        <div className="md:w-5/12 bg-gradient-to-br from-indigo-700 via-indigo-900 to-slate-950 p-8 text-white relative overflow-hidden">
+        <div className="md:w-5/12 bg-gradient-to-br from-indigo-700 via-indigo-900 to-slate-950 p-8 text-white relative overflow-hidden flex-shrink-0">
             <div className="absolute -right-10 -bottom-10 opacity-10">
                 <Crown className="w-48 h-48" />
             </div>
@@ -63,40 +68,73 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, 
             </div>
         </div>
 
-        {/* Lado Derecho: Acción de Compra */}
-        <div className="md:w-7/12 p-8 flex flex-col justify-between bg-slate-900">
-          <div className="flex justify-between items-start mb-6">
+        {/* Lado Derecho: Contenido Técnico y Acción */}
+        <div className="md:w-7/12 p-8 flex flex-col gap-6 bg-slate-900">
+          
+          {/* Header Derecho */}
+          <div className="flex justify-between items-start">
               <div className="space-y-1">
-                  <h4 className="text-slate-100 font-bold text-xl">Lleva tu campo al 360</h4>
-                  <p className="text-xs text-slate-400">Desbloquea el poder total de los datos agrícolas.</p>
+                  <h4 className="text-slate-100 font-bold text-xl">Centro de Soporte</h4>
+                  <p className="text-xs text-slate-400">Estado del sistema y plan de facturación.</p>
               </div>
               <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-800 text-slate-500">
                 <X className="w-6 h-6" />
               </button>
           </div>
 
-          <div className="space-y-3 mb-8">
-              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 flex gap-4 items-center">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                      <Shield className="w-6 h-6" />
+          {/* --- NUEVA SECCIÓN: ESTADO Y CAPACIDAD --- */}
+          <div className="border border-amber-500/20 rounded-3xl p-1 bg-slate-900/50">
+              <div className="bg-slate-800/50 p-4 rounded-[1.3rem] mb-1 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500">
+                          <Server className="w-5 h-5" />
+                      </div>
+                      <div>
+                          <h5 className="text-white text-xs font-black uppercase">Estado y Capacidad</h5>
+                          <p className="text-[9px] text-slate-400">Arquitectura Local-First</p>
+                      </div>
                   </div>
-                  <div className="text-[10px]">
-                      <p className="text-slate-200 font-bold">Transacción Segura</p>
-                      <p className="text-slate-500">Procesado por el sistema de pagos de Google Play.</p>
-                  </div>
+                  <Cpu className="w-4 h-4 text-slate-600" />
               </div>
-              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 flex gap-4 items-center">
-                  <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500">
-                      <CreditCard className="w-6 h-6" />
-                  </div>
-                  <div className="text-[10px]">
-                      <p className="text-slate-200 font-bold">Gestión de Suscripción</p>
-                      <p className="text-slate-500">Cancela en cualquier momento desde tu cuenta Google.</p>
+
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Monitor en Tiempo Real */}
+                  <SystemHealth 
+                      costCentersCount={data.costCenters.length}
+                      personnelCount={data.personnel.length}
+                      logsCount={totalLogs}
+                  />
+
+                  {/* Tabla de Referencia SLA */}
+                  <div className="space-y-3">
+                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
+                          <HardDrive className="w-3 h-3" /> Límites Recomendados
+                      </p>
+                      <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+                          <div className="grid grid-cols-2 text-[9px] font-bold text-slate-400 border-b border-slate-800 bg-slate-900/50 p-2">
+                              <span>Recurso</span>
+                              <span className="text-right">Capacidad Óptima</span>
+                          </div>
+                          {[
+                              { label: 'Fincas', val: '1 - 3 Sedes' },
+                              { label: 'Lotes', val: '20 - 50 Bloques' },
+                              { label: 'Trabajadores', val: '10 - 50 Personas' },
+                              { label: 'Historial', val: '< 20k Registros' }
+                          ].map((row, idx) => (
+                              <div key={idx} className="grid grid-cols-2 text-[9px] text-slate-300 p-2 border-b border-slate-800 last:border-0 hover:bg-slate-800/30">
+                                  <span>{row.label}</span>
+                                  <span className="text-right font-mono text-emerald-500">{row.val}</span>
+                              </div>
+                          ))}
+                      </div>
+                      <p className="text-[8px] text-slate-600 leading-tight italic">
+                          * El rendimiento depende de la RAM de su dispositivo. Se recomienda purgar datos antiguos anualmente.
+                      </p>
                   </div>
               </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4 border-t border-slate-800">
               <button 
                 onClick={handleUpgrade}
                 disabled={isSupporter || loading}
@@ -106,9 +144,10 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose, onUpgrade, 
               </button>
               
               {!isSupporter && (
-                  <p className="text-[9px] text-center text-slate-500 font-medium px-6 leading-tight italic">
-                      Al presionar "Suscribirme", aceptas los términos de servicio y la política de privacidad de DatosFinca Viva. El cobro es recurrente cada 30 días.
-                  </p>
+                  <div className="flex items-center gap-3 justify-center text-[9px] text-slate-500">
+                      <Shield className="w-3 h-3" />
+                      <p>Transacción segura procesada por Google Play</p>
+                  </div>
               )}
           </div>
         </div>

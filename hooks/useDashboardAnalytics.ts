@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { InventoryItem, CostCenter, Movement } from '../types';
+import { InventoryItem, CostCenter, Movement, Personnel, Machine, MaintenanceLog } from '../types';
 import { getStorageUsage } from '../services/imageService';
 
 export interface RenovationAnalysis {
@@ -26,10 +26,20 @@ export interface StorageUsage {
   percent: number;
 }
 
+export interface AdminAlert {
+  id: string;
+  type: 'CONTRACT' | 'MAINTENANCE' | 'EXPIRATION';
+  message: string;
+  severity: 'HIGH' | 'MEDIUM';
+}
+
 export const useDashboardAnalytics = (
   inventory: InventoryItem[],
   costCenters: CostCenter[],
-  movements: Movement[]
+  movements: Movement[],
+  personnel: Personnel[] = [],
+  machines: Machine[] = [],
+  maintenanceLogs: MaintenanceLog[] = []
 ) => {
   
   // 1. Storage Calculation
@@ -107,9 +117,54 @@ export const useDashboardAnalytics = (
     return { totalValue, lowStockCount, abcMap, idleCapitalValue };
   }, [inventory, movements]);
 
+  // 4. Admin Intelligence (Contracts & Maintenance)
+  const adminAlerts: AdminAlert[] = useMemo(() => {
+    const alerts: AdminAlert[] = [];
+    const today = new Date();
+    const warningThreshold = new Date();
+    warningThreshold.setDate(today.getDate() + 30); // 30 days ahead
+
+    // Contracts Expiration
+    personnel.forEach(p => {
+        if (p.contractEndDate && p.contractType === 'FIJO') {
+            const endDate = new Date(p.contractEndDate);
+            if (endDate > today && endDate <= warningThreshold) {
+                alerts.push({
+                    id: `contract-${p.id}`,
+                    type: 'CONTRACT',
+                    message: `Contrato de ${p.name} vence el ${endDate.toLocaleDateString()}`,
+                    severity: 'HIGH'
+                });
+            }
+        }
+    });
+
+    // Machine Maintenance (Logic: No maintenance in last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    machines.forEach(m => {
+        const lastMaint = maintenanceLogs
+            .filter(log => log.machineId === m.id)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        
+        if (!lastMaint || new Date(lastMaint.date) < sixMonthsAgo) {
+            alerts.push({
+                id: `maint-${m.id}`,
+                type: 'MAINTENANCE',
+                message: `Revisión requerida: ${m.name} (> 6 meses sin mant.)`,
+                severity: 'MEDIUM'
+            });
+        }
+    });
+
+    return alerts;
+  }, [personnel, machines, maintenanceLogs]);
+
   return {
     storage,
     renovationAnalysis,
-    inventoryAnalytics
+    inventoryAnalytics,
+    adminAlerts
   };
 };

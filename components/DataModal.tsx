@@ -51,6 +51,11 @@ export const DataModal: React.FC<DataModalProps> = ({ fullState, onRestoreData, 
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
+        
+        // --- SECURITY STAMP ---
+        localStorage.setItem('LAST_BACKUP_TIMESTAMP', new Date().toISOString());
+        // ----------------------
+
         setTimeout(() => {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);

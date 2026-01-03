@@ -1,4 +1,5 @@
 
+
 export enum Category {
   FERTILIZANTE = 'Fertilizante',
   INSECTICIDA = 'Insecticida',
@@ -122,6 +123,62 @@ export interface BudgetPlan {
   items: BudgetItem[];
 }
 
+// --- COMMERCIAL MODULE INTERFACES ---
+
+export interface Client {
+  id: string;
+  warehouseId: string;
+  name: string; // Ej: Cooperativa de Caficultores
+  type: 'COOPERATIVA' | 'EXPORTADOR' | 'CLIENTE_FINAL' | 'INTERMEDIARIO';
+  taxId?: string; // NIT / CC
+  email?: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface SalesContract {
+  id: string;
+  warehouseId: string;
+  clientId: string;
+  clientName: string;
+  date: string;
+  contractNumber: string;
+  quantityAgreed: number; // Ej: 1000 kg
+  unit: string; // Kg, Carga, Arroba
+  pricePerUnit: number; // Precio fijado
+  status: 'OPEN' | 'FULFILLED' | 'CANCELLED';
+  expirationDate: string;
+  fulfilledQuantity: number;
+  notes?: string;
+}
+
+export interface SaleItem {
+  cropName: string; // Café, Plátano
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  subtotal: number;
+  quality?: string; // Factor de rendimiento, % Broca, o Calidad (1ra/2da)
+}
+
+export interface Sale {
+  id: string;
+  warehouseId: string;
+  date: string;
+  clientId: string;
+  clientName: string;
+  contractId?: string; // Opcional, si pertenece a un contrato fijo
+  contractNumber?: string;
+  items: SaleItem[];
+  totalValue: number;
+  paymentStatus: 'PENDING' | 'PAID'; // Para Cuentas por Cobrar
+  paymentDate?: string; // Fecha real de pago
+  invoiceNumber?: string;
+  notes?: string;
+}
+
+// ------------------------------------
+
 export interface AppState {
   warehouses: Warehouse[];
   activeWarehouseId: string;
@@ -150,6 +207,11 @@ export interface AppState {
   assets: Asset[];
   laborFactor: number; 
   adminPin?: string; 
+  
+  // Commercial State
+  clients: Client[];
+  salesContracts: SalesContract[];
+  sales: Sale[];
 }
 
 export interface Warehouse { 
@@ -266,12 +328,16 @@ export interface Movement {
   personnelId?: string;
   personnelName?: string;
   phiApplied?: number;
+  // Admin Fields
+  paymentDueDate?: string;
+  paymentStatus?: 'PENDING' | 'PAID';
 }
 
 export interface InitialMovementDetails {
   supplierId?: string;
   invoiceNumber?: string;
   invoiceImage?: string;
+  paymentDueDate?: string;
 }
 
 export interface SoilAnalysis { 
@@ -328,4 +394,13 @@ export interface Personnel {
   contractEndDate?: string;
 }
 
-export interface Supplier { id: string; warehouseId: string; name: string; phone?: string; email?: string; address?: string; }
+export interface Supplier { 
+  id: string; 
+  warehouseId: string; 
+  name: string; 
+  phone?: string; 
+  email?: string; 
+  address?: string;
+  taxId?: string;
+  creditDays?: number;
+}

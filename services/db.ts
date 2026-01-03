@@ -50,7 +50,8 @@ const getCleanState = (): AppState => {
         inventory: [], movements: [], suppliers: [], costCenters: [], personnel: [], activities: [], 
         laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], rainLogs: [], financeLogs: [], 
         soilAnalyses: [], ppeLogs: [], wasteLogs: [], agenda: [], phenologyLogs: [], pestLogs: [], 
-        plannedLabors: [], budgets: [], assets: [], bpaChecklist: {}, laborFactor: 1.0
+        plannedLabors: [], budgets: [], assets: [], bpaChecklist: {}, laborFactor: 1.0,
+        clients: [], salesContracts: [], sales: []
     };
 };
 

@@ -841,6 +841,7 @@ export const getDemoData = (): AppState => {
         activities: [], laborLogs: [], harvests: [], machines: [], maintenanceLogs: [], 
         rainLogs: [], financeLogs: [], soilAnalyses: [], ppeLogs: [], wasteLogs: [], 
         agenda: [], phenologyLogs: [], pestLogs: [], plannedLabors: [], budgets: [], 
-        assets: [], bpaChecklist: {}, laborFactor: 1.0
+        assets: [], bpaChecklist: {}, laborFactor: 1.0,
+        clients: [], salesContracts: [], sales: []
     };
 };

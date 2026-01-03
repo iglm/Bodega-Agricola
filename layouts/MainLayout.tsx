@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, HelpCircle, CalendarRange, Sprout, Calculator, Lightbulb, Sun, Moon, LayoutGrid, Bug, Settings2 } from 'lucide-react';
+import { Package, Pickaxe, Target, Tractor, Database, Settings, Globe, ChevronDown, Download, Plus, HelpCircle, CalendarRange, Sprout, Calculator, Lightbulb, Sun, Moon, LayoutGrid, Bug, Settings2, Leaf, DollarSign, Briefcase, ClipboardList } from 'lucide-react';
 import { generateId, processInventoryMovement } from '../services/inventoryService';
 import { 
     generatePDF, generateExcel, generateLaborReport, generateHarvestReport, 
@@ -43,12 +43,65 @@ interface MainLayoutProps {
   onShowNotification: (msg: string, type: 'success' | 'error') => void;
 }
 
+// Navigation Structure Definition
+const NAV_GROUPS = [
+  {
+    id: 'operativo',
+    label: 'Operativo',
+    icon: Tractor,
+    colorClass: 'text-emerald-500',
+    activeClass: 'bg-emerald-500 text-white',
+    items: [
+      { id: 'inventory', label: 'Bodega', icon: Package },
+      { id: 'harvest', label: 'Ventas', icon: Target },
+      { id: 'scheduler', label: 'Programar', icon: CalendarRange },
+    ]
+  },
+  {
+    id: 'agronomia',
+    label: 'Campo',
+    icon: Sprout,
+    colorClass: 'text-blue-500',
+    activeClass: 'bg-blue-500 text-white',
+    items: [
+      { id: 'management', label: 'Bitácora', icon: ClipboardList },
+      { id: 'sanitary', label: 'Sanidad', icon: Bug },
+      { id: 'assets', label: 'Activos', icon: Leaf },
+    ]
+  },
+  {
+    id: 'gerencia',
+    label: 'Gestión',
+    icon: Briefcase,
+    colorClass: 'text-amber-500',
+    activeClass: 'bg-amber-500 text-white',
+    items: [
+      { id: 'labor', label: 'Nómina', icon: Pickaxe },
+      { id: 'budget', label: 'Presupuesto', icon: Calculator },
+      { id: 'stats', label: 'KPIs', icon: Database },
+      { id: 'simulator', label: 'Simulador', icon: Lightbulb },
+    ]
+  },
+  {
+    id: 'admin',
+    label: 'Config',
+    icon: Settings,
+    colorClass: 'text-slate-500',
+    activeClass: 'bg-slate-700 text-white',
+    items: [
+      { id: 'lots', label: 'Mapa Lotes', icon: LayoutGrid },
+      { id: 'masters', label: 'Maestros', icon: Settings2 },
+    ]
+  }
+];
+
 export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) => {
   const { data, setData, actions } = useData();
   const { session } = useAuth();
   const { theme, toggleTheme } = useTheme();
   
   const [currentTab, setCurrentTab] = useState('inventory');
+  const [activeGroup, setActiveGroup] = useState('operativo');
   
   // UI States (Modals)
   const [showAddForm, setShowAddForm] = useState(false);
@@ -70,8 +123,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const activeId = data.activeWarehouseId;
   const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
 
+  // Sync active group with currentTab if changed externally
+  useEffect(() => {
+    const foundGroup = NAV_GROUPS.find(g => g.items.some(item => item.id === currentTab));
+    if (foundGroup && foundGroup.id !== activeGroup) {
+      setActiveGroup(foundGroup.id);
+    }
+  }, [currentTab]);
+
   // --- MEMOIZED DATA SLICES (Performance Optimization) ---
-  // Ensuring referential stability for child components even if other parts of `data` change.
   const activeInventory = useMemo(() => data.inventory.filter(i => i.warehouseId === activeId), [data.inventory, activeId]);
   const activeCostCenters = useMemo(() => data.costCenters.filter(c => c.warehouseId === activeId), [data.costCenters, activeId]);
   const activeLaborLogs = useMemo(() => data.laborLogs.filter(l => l.warehouseId === activeId), [data.laborLogs, activeId]);
@@ -81,7 +141,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const activeActivities = useMemo(() => data.activities.filter(a => a.warehouseId === activeId), [data.activities, activeId]);
   const activePersonnel = useMemo(() => data.personnel.filter(p => p.warehouseId === activeId), [data.personnel, activeId]);
   const activeSuppliers = useMemo(() => data.suppliers.filter(s => s.warehouseId === activeId), [data.suppliers, activeId]);
-  const activeBudgets = useMemo(() => data.budgets || [], [data.budgets]); // Global or filtered if needed
+  const activeBudgets = useMemo(() => data.budgets || [], [data.budgets]); 
   const activeMachines = useMemo(() => data.machines.filter(m => m.warehouseId === activeId), [data.machines, activeId]);
   const activeMaintenance = useMemo(() => data.maintenanceLogs.filter(m => m.warehouseId === activeId), [data.maintenanceLogs, activeId]);
   const activeRain = useMemo(() => data.rainLogs.filter(r => r.warehouseId === activeId), [data.rainLogs, activeId]);
@@ -93,7 +153,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const activePests = useMemo(() => data.pestLogs.filter(l => l.warehouseId === activeId), [data.pestLogs, activeId]);
   const activeAgenda = useMemo(() => data.agenda.filter(a => a.warehouseId === activeId), [data.agenda, activeId]);
 
-  // --- STABLE CALLBACKS FOR DASHBOARD (Prevents unnecessary re-renders) ---
+  // --- STABLE CALLBACKS FOR DASHBOARD ---
   const handleDashboardAddMovement = useCallback((i: InventoryItem, t: 'IN' | 'OUT') => {
     setMovementModal({item: i, type: t});
   }, []);
@@ -103,7 +163,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
         setData(current => {
             const item = current.inventory.find(i => i.id === id);
             if (item) setDeleteItem(item);
-            return current; // No state change here, just side effect of finding item
+            return current; 
         });
     });
   }, [setData]);
@@ -138,11 +198,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       onShowNotification(`Trabajador "${name}" registrado.`, 'success');
   };
 
-  const handleAddSupplierQuick = (name: string) => {
+  const handleAddSupplierQuick = (name: string, taxId?: string, creditDays?: number) => {
       setData(prev => ({
           ...prev,
           suppliers: [...prev.suppliers, { 
-              id: generateId(), warehouseId: activeId, name 
+              id: generateId(), warehouseId: activeId, name, taxId, creditDays
           }]
       }));
       onShowNotification(`Proveedor "${name}" añadido.`, 'success');
@@ -178,11 +238,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       setMovementModal(null);
   };
 
-  // Close Settings Modal Logic
   const handleCloseSettings = () => {
     setShowSettings(false);
     if (currentTab === 'masters') {
-      setCurrentTab('inventory'); // Regresar a inventario al cerrar maestros
+      setCurrentTab('inventory'); 
     }
   };
 
@@ -191,7 +250,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       {/* HEADER & NAV */}
       <header className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border-b-2 border-slate-300 dark:border-slate-800 sticky top-0 z-40 px-4 py-2 pt-10 sm:pt-2">
         <div className="max-w-4xl mx-auto flex flex-col gap-2">
-            <div className="flex justify-between items-center">
+            
+            {/* Top Bar: Farm Selector & Tools */}
+            <div className="flex justify-between items-center mb-1">
                 <button onClick={() => setShowWarehouses(true)} className="flex items-center gap-2 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
                     <div className="p-1.5 bg-emerald-600 rounded-lg shadow-lg"><Globe className="w-4 h-4 text-white" /></div>
                     <div className="text-left"><h1 className="text-sm font-black flex items-center gap-1 text-slate-900 dark:text-white">DatosFinca Viva <ChevronDown className="w-3 h-3" /></h1><span className="text-[9px] text-slate-500 uppercase font-black">{currentW?.name || 'Seleccionar Finca'}</span></div>
@@ -199,32 +260,40 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
                 <div className="flex gap-1 items-center">
                     <button onClick={() => setShowManual(true)} className="p-2 text-slate-500 dark:text-slate-400 hover:text-emerald-500 transition-colors"><HelpCircle className="w-5 h-5" /></button>
                     <button onClick={() => requestSecureAction(() => setShowData(true))} className="p-2 text-orange-600 hover:text-orange-400 transition-colors"><Database className="w-5 h-5" /></button>
-                    {/* Botón de configuración redundante pero útil para acceso rápido si no se usa la tab */}
-                    <button onClick={() => setShowSettings(true)} className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 transition-colors"><Settings className="w-5 h-5" /></button>
                     <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-1.5 bg-slate-200 dark:bg-slate-800 rounded-full border border-slate-300 dark:border-slate-700 active:scale-95 transition-all">
                       {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-700" />}
-                      <span className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300">{theme === 'dark' ? 'Modo Sol' : 'Modo Noche'}</span>
                     </button>
                 </div>
             </div>
-            <div className="flex bg-slate-300 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide border border-slate-400 dark:border-transparent">
-                {[
-                    { id: 'inventory', label: 'Bodega', icon: Package },
-                    { id: 'masters', label: 'Maestros', icon: Settings2 }, // NUEVA TAB MAESTROS
-                    { id: 'lots', label: 'Lotes', icon: LayoutGrid }, 
-                    { id: 'labor', label: 'Personal', icon: Pickaxe },
-                    { id: 'scheduler', label: 'Programar', icon: CalendarRange }, 
-                    { id: 'sanitary', label: 'Sanidad', icon: Bug },
-                    { id: 'harvest', label: 'Ventas', icon: Target },
-                    { id: 'simulator', label: 'Simulador', icon: Lightbulb }, 
-                    { id: 'management', label: 'Campo', icon: Tractor },
-                    { id: 'assets', label: 'Activos Bio', icon: Sprout },
-                    { id: 'budget', label: 'Presupuesto', icon: Calculator }, 
-                    { id: 'stats', label: 'KPIs', icon: Database }
-                ].map(tab => (
-                    <button key={tab.id} onClick={() => setCurrentTab(tab.id)} className={`flex-1 min-w-[72px] py-2 rounded-xl text-[9px] font-black uppercase flex flex-col items-center gap-1 transition-all ${currentTab === tab.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-emerald-400 shadow-md ring-1 ring-slate-400 dark:ring-transparent' : 'text-slate-600 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}><tab.icon className="w-4 h-4" />{tab.label}</button>
+
+            {/* Level 1: Category Groups (Segmented) */}
+            <div className="flex bg-slate-200 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
+                {NAV_GROUPS.map(group => (
+                    <button 
+                        key={group.id}
+                        onClick={() => setActiveGroup(group.id)}
+                        className={`flex-1 min-w-[80px] py-2 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all ${activeGroup === group.id ? `shadow-md ${group.activeClass}` : `text-slate-500 hover:text-slate-700 dark:hover:text-slate-300`}`}
+                    >
+                        <group.icon className="w-4 h-4" />
+                        {group.label}
+                    </button>
                 ))}
             </div>
+
+            {/* Level 2: Specific Actions (Animated Fade In) */}
+            <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl gap-2 overflow-x-auto scrollbar-hide border border-slate-300 dark:border-slate-800 animate-fade-in key={activeGroup}">
+                {NAV_GROUPS.find(g => g.id === activeGroup)?.items.map(tab => (
+                    <button 
+                        key={tab.id} 
+                        onClick={() => setCurrentTab(tab.id)} 
+                        className={`flex-1 min-w-[90px] py-3 rounded-xl text-[10px] font-black uppercase flex flex-col items-center gap-1 transition-all ${currentTab === tab.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-emerald-400 shadow-md ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                    >
+                        <tab.icon className={`w-5 h-5 ${currentTab === tab.id ? 'text-emerald-500' : 'text-slate-400'}`} />
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
         </div>
       </header>
 
@@ -234,11 +303,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
             <Dashboard 
                 inventory={activeInventory} 
                 costCenters={activeCostCenters} 
-                movements={activeMovements} 
+                movements={activeMovements}
+                personnel={activePersonnel}
+                machines={activeMachines}
+                maintenanceLogs={activeMaintenance}
+                suppliers={activeSuppliers}
                 onAddMovement={handleDashboardAddMovement} 
                 onDelete={handleDashboardDelete} 
                 onViewHistory={handleDashboardHistory} 
                 onViewGlobalHistory={handleDashboardGlobalHistory} 
+                onOpenExport={() => setShowExport(true)}
+                onNavigate={(tabId) => {
+                    // Logic to switch tabs from Dashboard Widget
+                    const foundGroup = NAV_GROUPS.find(g => g.items.some(item => item.id === tabId));
+                    if (foundGroup) {
+                        setActiveGroup(foundGroup.id);
+                        setCurrentTab(tabId);
+                    } else if (tabId === 'masters') {
+                        // Special handling for settings modal trigger
+                        setShowSettings(true);
+                    }
+                }}
                 isAdmin={true} 
             />
         )}
@@ -294,7 +379,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
           )}
 
           {showPayroll && data && <PayrollModal logs={activeLaborLogs} personnel={activePersonnel} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
-          {showAddForm && data && <InventoryForm suppliers={activeSuppliers} onSave={(item, qty, details, unit) => { actions.saveNewItem(item, qty, details, unit); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} onAddSupplier={handleAddSupplierQuick} />}
+          {showAddForm && data && <InventoryForm suppliers={activeSuppliers} inventory={activeInventory} onSave={(item, qty, details, unit) => { actions.saveNewItem(item, qty, details, unit); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} onAddSupplier={handleAddSupplierQuick} />}
           {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={activeSuppliers} costCenters={activeCostCenters} personnel={activePersonnel} onSave={handleSaveMovement} onCancel={() => setMovementModal(null)} onAddSupplier={handleAddSupplierQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} />}
           {historyItem && data && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
           {showGlobalHistory && data && <HistoryModal item={{ name: 'Historial Bodega Global' } as any} movements={activeMovements} onClose={() => setShowGlobalHistory(false)} />}
@@ -302,8 +387,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
           {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString(), ownerId: session?.id || 'local_user'}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
           {showExport && data && <ExportModal 
               onClose={() => setShowExport(false)}
-              onExportExcel={() => generateExcel(data)}
-              onExportMasterPDF={() => generateMasterPDF(data)}
+              onExportExcel={() => { generateExcel(data); localStorage.setItem('LAST_BACKUP_TIMESTAMP', new Date().toISOString()); }}
+              onExportMasterPDF={() => { generateMasterPDF(data); localStorage.setItem('LAST_BACKUP_TIMESTAMP', new Date().toISOString()); }}
               onExportPDF={() => generatePDF(data)}
               onExportLaborPDF={() => generateLaborReport(data)}
               onExportHarvestPDF={() => generateHarvestReport(data)}

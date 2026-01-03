@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { CostCenter, LaborLog, Movement, HarvestLog, PlannedLabor, Activity } from '../types';
-import { formatCurrency, formatNumberInput, parseNumberInput } from '../services/inventoryService';
+import { formatCurrency, formatNumberInput, parseNumberInput, convertToBase } from '../services/inventoryService';
 import { generateFarmStructurePDF, generateFarmStructureExcel } from '../services/reportService';
 import { 
   MapPin, Ruler, TreePine, Calendar, Activity as ActivityIcon, 
@@ -167,7 +167,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
     setShowCreateModal(false);
   };
 
-  // ... (Existing derived data logic remains same) ...
+  // --- DERIVED DATA LOGIC ---
   const lotHistory = useMemo(() => {
     if (!selectedLot) return [];
     
@@ -175,9 +175,38 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
         .filter(l => l.costCenterId === selectedLot.id)
         .map(l => ({ type: 'LABOR', date: l.date, title: l.activityName, value: l.value, icon: Pickaxe, color: 'text-amber-500' }));
     
+    // ENHANCED INPUTS WITH DOSAGE CALCULATION
     const inputs = movements
         .filter(m => m.costCenterId === selectedLot.id && m.type === 'OUT')
-        .map(m => ({ type: 'INPUT', date: m.date, title: `Aplicación ${m.itemName}`, value: m.calculatedCost, icon: Droplets, color: 'text-blue-500' }));
+        .map(m => {
+            let details = `Aplicación ${m.itemName}`;
+            const plants = selectedLot.plantCount || 0;
+            
+            if (plants > 0) {
+                // Normalize quantity to base unit (grams or ml)
+                const baseQty = convertToBase(m.quantity, m.unit);
+                const dosePerPlant = baseQty / plants;
+                
+                // Determine unit string for display
+                let doseUnit = 'g';
+                if (m.unit.includes('L') || m.unit.includes('Gal') || m.unit.includes('ml')) {
+                    doseUnit = 'ml';
+                } else if (m.unit === 'Unidad') {
+                    doseUnit = 'ud';
+                }
+
+                details += ` • Dosis: ${dosePerPlant.toFixed(1)} ${doseUnit}/planta`;
+            }
+
+            return { 
+                type: 'INPUT', 
+                date: m.date, 
+                title: details, 
+                value: m.calculatedCost, 
+                icon: Droplets, 
+                color: 'text-blue-500' 
+            };
+        });
     
     const sales = harvests
         .filter(h => h.costCenterId === selectedLot.id)
@@ -187,11 +216,14 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
   }, [selectedLot, laborLogs, movements, harvests]);
 
   const lotMetrics = useMemo(() => {
-      if (!selectedLot) return { yield: 0, cost: 0 };
+      if (!selectedLot) return { yield: 0, cost: 0, unitCost: 0 };
       const totalCost = laborLogs.filter(l => l.costCenterId === selectedLot.id).reduce((a,b)=>a+b.value,0) + 
                         movements.filter(m => m.costCenterId === selectedLot.id && m.type === 'OUT').reduce((a,b)=>a+b.calculatedCost,0);
       const totalYield = harvests.filter(h => h.costCenterId === selectedLot.id).reduce((a,b)=>a+b.quantity,0);
-      return { yield: totalYield, cost: totalCost };
+      
+      const unitCost = totalYield > 0 ? totalCost / totalYield : 0;
+
+      return { yield: totalYield, cost: totalCost, unitCost };
   }, [selectedLot, laborLogs, movements, harvests]);
 
   const handleOpenLot = (lot: CostCenter) => {
@@ -470,9 +502,16 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                       </div>
                   </div>
                   <div className="w-full md:w-2/3 flex flex-col gap-6">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                           <div className="bg-emerald-900/10 border border-emerald-500/20 p-4 rounded-2xl"><p className="text-[10px] font-black text-emerald-600 uppercase">Producción Histórica</p><p className="text-xl font-mono font-black text-emerald-500">{formatNumberInput(lotMetrics.yield)} {selectedLot.cropType === 'Café' ? 'Kg' : 'Und'}</p></div>
                           <div className="bg-red-900/10 border border-red-500/20 p-4 rounded-2xl"><p className="text-[10px] font-black text-red-600 uppercase">Costo Acumulado</p><p className="text-xl font-mono font-black text-red-500">{formatCurrency(lotMetrics.cost)}</p></div>
+                          <div className={`bg-blue-900/10 border border-blue-500/20 p-4 rounded-2xl ${lotMetrics.yield === 0 ? 'opacity-50' : ''}`}>
+                              <p className="text-[10px] font-black text-blue-600 uppercase">Costo Unitario Real</p>
+                              <p className="text-xl font-mono font-black text-blue-500">
+                                  {lotMetrics.yield > 0 ? `${formatCurrency(lotMetrics.unitCost)}` : 'Sin Cosecha'} 
+                                  {lotMetrics.yield > 0 && <span className="text-[10px] ml-1">/ {selectedLot.cropType === 'Café' ? 'Kg' : 'Ud'}</span>}
+                              </p>
+                          </div>
                       </div>
                       <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden flex flex-col">
                           <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">

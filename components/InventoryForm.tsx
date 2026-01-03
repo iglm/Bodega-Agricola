@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Category, Unit, InventoryItem, Supplier, InitialMovementDetails } from '../types';
-import { X, Save, Plus, Camera, Image as ImageIcon, Receipt, Users, FileText, Bookmark, ShieldCheck, Loader2, Info } from 'lucide-react';
-import { convertToBase, getBaseUnitType, formatNumberInput, parseNumberInput } from '../services/inventoryService';
+import { X, Save, Plus, Camera, Image as ImageIcon, Receipt, Users, FileText, Bookmark, ShieldCheck, Loader2, Info, AlertTriangle, Calendar } from 'lucide-react';
+import { convertToBase, getBaseUnitType, formatNumberInput, parseNumberInput, formatCurrency } from '../services/inventoryService';
 import { storageAdapter } from '../services/storageAdapter';
 import { SecureImage } from './SecureImage';
 
@@ -68,6 +68,7 @@ interface MoneyInputProps {
   icon?: React.ElementType;
   textColorClass?: string;
   focusRingClass?: string;
+  children?: React.ReactNode;
 }
 
 const MoneyInput: React.FC<MoneyInputProps> = ({ 
@@ -78,7 +79,8 @@ const MoneyInput: React.FC<MoneyInputProps> = ({
   required = false, 
   icon: Icon,
   textColorClass = "text-slate-800 dark:text-white",
-  focusRingClass = "focus:ring-emerald-500"
+  focusRingClass = "focus:ring-emerald-500",
+  children
 }) => {
   return (
     <div className="space-y-1">
@@ -94,6 +96,7 @@ const MoneyInput: React.FC<MoneyInputProps> = ({
         placeholder={placeholder} 
         required={required}
       />
+      {children}
     </div>
   );
 };
@@ -102,6 +105,7 @@ const MoneyInput: React.FC<MoneyInputProps> = ({
 
 interface InventoryFormProps {
   suppliers: Supplier[];
+  inventory?: InventoryItem[]; // Added for price check
   onSave: (
       item: Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>, 
       initialQuantity: number,
@@ -109,10 +113,10 @@ interface InventoryFormProps {
       initialUnit?: Unit
   ) => void;
   onCancel: () => void;
-  onAddSupplier: (name: string) => void; // Nuevo
+  onAddSupplier: (name: string, taxId?: string, creditDays?: number) => void; 
 }
 
-export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave, onCancel, onAddSupplier }) => {
+export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, inventory = [], onSave, onCancel, onAddSupplier }) => {
   // State: Identification
   const [name, setName] = useState('');
   const [category, setCategory] = useState<Category>(Category.FERTILIZANTE);
@@ -137,10 +141,13 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceImage, setInvoiceImage] = useState<string | undefined>(undefined);
   const [isProcessingInvoiceImg, setIsProcessingInvoiceImg] = useState(false);
+  const [paymentDueDate, setPaymentDueDate] = useState('');
 
   // Inline Supplier Creation
   const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
+  const [newSupplierNit, setNewSupplierNit] = useState('');
+  const [newSupplierCredit, setNewSupplierCredit] = useState('');
 
   // Logic
   const showSafetyFields = [Category.INSECTICIDA, Category.FUNGICIDA, Category.HERBICIDA].includes(category);
@@ -149,6 +156,44 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
       if (category === Category.FERTILIZANTE) return [Unit.BULTO_50KG, Unit.KILO, Unit.GRAMO];
       return Object.values(Unit).filter(u => u !== Unit.BULTO_50KG);
   }, [category]);
+
+  // Price Deviation Logic
+  const priceWarning = useMemo(() => {
+      if (!name || !purchasePrice) return null;
+      const existingItem = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+      if (!existingItem || existingItem.averageCost <= 0) return null;
+
+      const currentPrice = parseNumberInput(purchasePrice);
+      const baseQtyCurrent = convertToBase(1, purchaseUnit);
+      // We need to compare price per BASE unit to be accurate, but usually user enters price per purchase unit.
+      // Let's compare Price per Purchase Unit assuming same unit, or normalize.
+      // Better: Convert both to Cost Per Base Unit
+      const costPerBaseNew = currentPrice / baseQtyCurrent;
+      const deviation = ((costPerBaseNew - existingItem.averageCost) / existingItem.averageCost) * 100;
+
+      if (Math.abs(deviation) > 20) {
+          return {
+              percent: deviation.toFixed(0),
+              isHigher: deviation > 0,
+              prevCost: existingItem.averageCost * baseQtyCurrent // Show prev cost in current unit context
+          };
+      }
+      return null;
+  }, [name, purchasePrice, purchaseUnit, inventory]);
+
+  // Payment Date Calculation
+  useEffect(() => {
+      if (selectedSupplierId) {
+          const sup = suppliers.find(s => s.id === selectedSupplierId);
+          if (sup && sup.creditDays && sup.creditDays > 0) {
+              const date = new Date();
+              date.setDate(date.getDate() + sup.creditDays);
+              setPaymentDueDate(date.toISOString().split('T')[0]);
+          } else {
+              setPaymentDueDate('');
+          }
+      }
+  }, [selectedSupplierId, suppliers]);
 
   useEffect(() => {
       if (category === Category.FERTILIZANTE) setPurchaseUnit(Unit.BULTO_50KG);
@@ -184,9 +229,11 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
   const handleCreateSupplier = (e: React.MouseEvent) => {
       e.preventDefault();
       if(newSupplierName.trim()) {
-          onAddSupplier(newSupplierName);
+          onAddSupplier(newSupplierName, newSupplierNit, parseInt(newSupplierCredit) || 0);
           setIsCreatingSupplier(false);
           setNewSupplierName('');
+          setNewSupplierNit('');
+          setNewSupplierCredit('');
       }
   };
 
@@ -211,7 +258,8 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
     }, initQtyVal, {
         supplierId: selectedSupplierId || undefined,
         invoiceNumber: invoiceNumber || undefined,
-        invoiceImage: invoiceImage // UUID from storageAdapter
+        invoiceImage: invoiceImage, // UUID from storageAdapter
+        paymentDueDate: paymentDueDate || undefined
     }, initialUnit);
   };
 
@@ -284,8 +332,17 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                     placeholder="$ 0" 
                     textColorClass="text-emerald-600" 
                     focusRingClass="focus:ring-emerald-500" 
-                    required 
-                  />
+                    required
+                  >
+                      {priceWarning && (
+                          <div className="mt-1 flex items-start gap-1.5 text-[9px] font-bold text-amber-500 animate-pulse">
+                              <AlertTriangle className="w-3 h-3 shrink-0" />
+                              <span>
+                                  Variación inusual: {priceWarning.isHigher ? '+' : ''}{priceWarning.percent}% vs Histórico ({formatCurrency(priceWarning.prevCost)})
+                              </span>
+                          </div>
+                      )}
+                  </MoneyInput>
                   
                   {showSafetyFields && (
                     <div className="space-y-1">
@@ -347,14 +404,18 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                     </button>
                 </div>
                 {isCreatingSupplier ? (
-                    <div className="flex gap-2 animate-fade-in-down">
-                        <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="Nombre Proveedor" className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-sm font-bold outline-none" autoFocus />
-                        <button type="button" onClick={handleCreateSupplier} disabled={!newSupplierName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-2xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
+                    <div className="space-y-2 animate-fade-in-down">
+                        <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="Nombre Proveedor" className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-sm font-bold outline-none" autoFocus />
+                        <div className="flex gap-2">
+                            <input type="text" value={newSupplierNit} onChange={e => setNewSupplierNit(e.target.value)} placeholder="NIT (Opcional)" className="flex-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-sm font-bold outline-none" />
+                            <input type="number" value={newSupplierCredit} onChange={e => setNewSupplierCredit(e.target.value)} placeholder="Días Crédito" className="w-24 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-sm font-bold outline-none text-center" />
+                        </div>
+                        <button type="button" onClick={handleCreateSupplier} disabled={!newSupplierName.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-2xl shadow-lg transition-all font-bold text-xs uppercase flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Guardar Nuevo</button>
                     </div>
                 ) : (
                     <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-slate-800 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
                       <option value="">Sin Proveedor</option>
-                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} {s.creditDays ? `(${s.creditDays}d)` : ''}</option>)}
                     </select>
                 )}
               </div>
@@ -376,6 +437,14 @@ export const InventoryForm: React.FC<InventoryFormProps> = ({ suppliers, onSave,
                      />
                   </div>
               </div>
+
+              {/* Payment Date Suggestion */}
+              {selectedSupplierId && (
+                  <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-400 uppercase ml-2 flex items-center gap-1"><Calendar className="w-3 h-3" /> Fecha Pago Sugerida</label>
+                      <input type="date" value={paymentDueDate} onChange={e => setPaymentDueDate(e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 text-slate-600 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+              )}
           </div>
 
           <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-5 rounded-3xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-emerald-900/30 active:scale-95 focus:outline-none focus:ring-4 focus:ring-emerald-500/50">
