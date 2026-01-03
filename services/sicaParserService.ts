@@ -1,83 +1,49 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configuración del Worker (Versión compatible instalada)
+// Configuración del Worker (Asegurando compatibilidad de versión 5.4.530)
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    // Usamos un CDN estable para la versión instalada en package.json
     pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs`;
 }
 
 export interface SicaLot {
     id: string;
     area: number;
-    plants: number;
+    trees: number;
     variety: string;
+    cropType: string;
     density: number;
     age: number;
+    sicaDate?: string;
+    associatedCrop?: string;
 }
 
 export interface SicaImportResult {
     meta: {
         farmName: string;
-        farmCode: string;
+        farmerName: string;
         vereda: string;
-        totalArea: number;
-        coffeeArea: number;
+        municipality: string;
+        sicaCode: string;
     };
     lots: SicaLot[];
 }
 
 /**
- * Normaliza el texto crudo del PDF eliminando basura de formato y estandarizando números.
+ * Calcula meses desde una fecha DD-MM-YYYY hasta hoy
  */
-const normalizeRawText = (text: string): string => {
-    return text
-        .replace(/"/g, '') // Elimina comillas dobles
-        .replace(/\n/g, ' ') // Convierte saltos de línea en espacios para evitar cortes en valores
-        .replace(/\s\s+/g, ' ') // Colapsa múltiples espacios
-        .trim();
-};
-
-/**
- * Convierte strings de números formato ES-CO ("2,63" o "4.721") a Number estándar.
- */
-const parseSicaNumber = (value: string | undefined): number => {
-    if (!value) return 0;
-    // Eliminamos puntos de miles y cambiamos coma decimal por punto
-    const cleaned = value.replace(/\./g, '').replace(/,/g, '.');
-    return parseFloat(cleaned) || 0;
-};
-
-/**
- * Calcula la edad en años (float) desde una fecha DD-MM-YYYY hasta hoy.
- */
-const calculateLotAge = (dateString: string | undefined): number => {
-    if (!dateString) return 0;
+const calculateMonthsDiff = (dateStr: string): number => {
+    if (!dateStr) return 0;
     try {
-        const parts = dateString.match(/(\d{2})-(\d{2})-(\d{4})/);
+        const parts = dateStr.match(/(\d{2})[\/-](\d{2})[\/-](\d{4})/);
         if (!parts) return 0;
-        
-        const day = parseInt(parts[1]);
-        const month = parseInt(parts[2]) - 1;
-        const year = parseInt(parts[3]);
-        
-        const birthDate = new Date(year, month, day);
-        const today = new Date();
-        
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        
-        // Agregar decimales por meses transcurridos
-        const monthsDiff = (today.getFullYear() - birthDate.getFullYear()) * 12 + (today.getMonth() - birthDate.getMonth());
-        const totalYears = monthsDiff / 12;
-        
-        return parseFloat(totalYears.toFixed(1));
-    } catch {
-        return 0;
-    }
+        const date = new Date(parseInt(parts[3]), parseInt(parts[2]) - 1, parseInt(parts[1]));
+        const now = new Date();
+        const diff = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+        return diff > 0 ? diff : 0;
+    } catch { return 0; }
 };
 
 export const parseSicaPdf = async (file: File): Promise<SicaImportResult> => {
@@ -86,61 +52,111 @@ export const parseSicaPdf = async (file: File): Promise<SicaImportResult> => {
         const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
         
-        let rawText = '';
+        let fullText = '';
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            rawText += textContent.items.map((item: any) => item.str).join(' ');
+            // Unimos con un espacio para evitar pegar palabras
+            const pageText = textContent.items.map((item: any) => item.str).join(' ');
+            fullText += ' ' + pageText;
         }
 
-        // 1. Validación de formato
-        if (!rawText.includes("SISTEMA DE INFORMACION CAFETERA") && !rawText.includes("ASICA")) {
-            throw new Error("El archivo no es un documento SICA válido de la Federación de Cafeteros.");
-        }
+        console.log("SICA FULL TEXT EXTRACTED:", fullText.substring(0, 500)); // Debug
 
-        const cleanText = normalizeRawText(rawText);
-
-        // 2. Extracción de Cabecera
+        // --- EXTRACCIÓN METADATOS (Header) ---
         const meta = {
-            farmCode: (cleanText.match(/Cod\. SICA:\s*(\d+)/i)?.[1] || '').trim(),
-            farmName: (cleanText.match(/Finca:\s*([A-ZÁÉÍÓÚÑ0-9\s\.]+?)(?=\s+Tenencia|\s+Vereda|$)/i)?.[1] || '').trim(),
-            vereda: (cleanText.match(/Vereda:\s*([A-ZÁÉÍÓÚÑ0-9\s]+?)(?=\s+Municipio|\s+Área|$)/i)?.[1] || '').trim(),
-            totalArea: parseSicaNumber(cleanText.match(/Área total Finca \(ha\):\s*(\d+[\.,]\d+)/i)?.[1]),
-            coffeeArea: parseSicaNumber(cleanText.match(/Área Café \(ha\):\s*(\d+[\.,]\d+)/i)?.[1]),
+            farmName: (fullText.match(/Finca:\s*([A-ZÁÉÍÓÚÑ0-9\s\.]+?)(?=\s+Tenencia|\s+Vereda|$)/i)?.[1] || 'Finca SICA').trim(),
+            farmerName: (fullText.match(/Caficultor[\.:]?\s*([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+Doc|\s+Cédula|$)/i)?.[1] || 'Productor').trim(),
+            vereda: (fullText.match(/Vereda:\s*([A-ZÁÉÍÓÚÑ0-9\s]+?)(?=\s+Área|$)/i)?.[1] || '').trim(),
+            municipality: (fullText.match(/Municipio:\s*([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+Caficultor|$)/i)?.[1] || '').trim(),
+            sicaCode: (fullText.match(/Cod\. SICA:\s*([0-9]+)/i)?.[1] || '').trim(),
         };
 
         const lots: SicaLot[] = [];
 
-        // 3. Extracción de Lotes (Tabla)
-        // Buscamos el patrón: ID(3 digitos) + Area + Variedad + Densidad + Plantas + Fecha
-        // El formato SICA suele ser posicional. Usamos un Regex de anclaje para la fila.
-        const rowRegex = /\b(\d{3})\s+(\d+[\.,]\d+)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(\d+[\.,]?\d*)\s+(\d+[\.,]?\d*)\s+(\d{2}-\d{2}-\d{4})\b/g;
+        // --- EXTRACCIÓN DE LOTES (Estrategia de Ancla) ---
+        // Buscamos el patrón: ID (3 dígitos) seguido de AREA (número decimal pequeño)
+        const anchorRegex = /\b(\d{3})\s+(?:[^\d]{0,20})?(\d{1,3}[\.,]\d{1,2})\b/g;
         let match;
 
-        while ((match = rowRegex.exec(cleanText)) !== null) {
+        while ((match = anchorRegex.exec(fullText)) !== null) {
             const id = match[1];
-            const area = parseSicaNumber(match[2]);
-            const variety = match[3].trim();
-            const density = parseSicaNumber(match[4]);
-            const plants = parseSicaNumber(match[5]);
-            const dateStr = match[6];
+            const areaStr = match[2];
+            const area = parseFloat(areaStr.replace(',', '.'));
+            
+            // Tomamos un "Chunk" de texto de 600 caracteres a partir de este punto para buscar el resto de datos
+            const chunk = fullText.substring(match.index, match.index + 600);
+            
+            // --- BÚSQUEDA EN EL CHUNK ---
+            
+            // 1. Variedad: SOLO buscamos variedades de café.
+            // Excluimos explícitamente PLATANO/BANANO de esta búsqueda.
+            const varietyMatch = chunk.match(/(CASTILLO|COLOMBIA|CATURRA|CENICAFE|TABI|BOURBON|TIPICA|MARAGOGIPE|OTRAS VARIEDADES|GEISHA|JAVA)/i);
+            const variety = varietyMatch ? varietyMatch[1].trim().toUpperCase() : 'VARIEDAD DESC.';
+            
+            // 2. Fecha Labor (Para edad) - Formato DD-MM-YYYY
+            const dateMatch = chunk.match(/(\d{2}-\d{2}-\d{4})/);
+            const dateStr = dateMatch ? dateMatch[1] : '';
 
-            if (id && area > 0) {
+            // 3. Arboles y Densidad
+            // Buscamos números grandes (>50) en el chunk que NO sean parte de la fecha
+            const numbers = chunk.match(/\b(\d{1,3}[\.,]\d{3}|\d{3,})\b/g) || [];
+            
+            const cleanNums = numbers
+                .map(n => parseInt(n.replace(/[\.,]/g, '')))
+                .filter(n => {
+                    // Filtro: Si el número parece un año reciente (2010-2030), lo ignoramos
+                    if (n >= 1990 && n <= 2030) return false; 
+                    return true;
+                });
+
+            let trees = 0;
+            let density = 0;
+
+            if (cleanNums.length >= 2) {
+                // Heurística SICA: Usualmente el primer número es Densidad, el segundo es Árboles
+                density = cleanNums[0];
+                trees = cleanNums[1];
+                
+                // Sanity Check: Si densidad es menor que árboles en un lote pequeño (<1ha), quizás están invertidos
+                // (La densidad suele ser ~5000, los árboles pueden ser pocos)
+                if (area < 1 && density < trees) {
+                    const temp = density; density = trees; trees = temp;
+                }
+            } else if (cleanNums.length === 1) {
+                // Solo un número, asumimos que son árboles y calculamos densidad
+                trees = cleanNums[0];
+                density = Math.round(trees / (area || 1));
+            }
+
+            // 4. Asocio (Buscar PLATANO o BANANO en el chunk)
+            // Buscamos palabras clave de asocio.
+            let associated = undefined;
+            if (chunk.match(/(PLATANO|BANANO|MAIZ|FRIJOL|NOGAL|GUAMO)/i)) {
+                 const asocioMatch = chunk.match(/(PLATANO|BANANO|MAIZ|FRIJOL)/i);
+                 if (asocioMatch) associated = asocioMatch[1].toUpperCase();
+            }
+
+            // Validar que no sea basura (Area > 0)
+            if (area > 0) {
                 lots.push({
                     id,
                     area,
+                    trees,
                     variety,
-                    plants,
+                    cropType: 'Café', // REGLA DE ORO: SIEMPRE CAFÉ EN SICA
                     density,
-                    age: calculateLotAge(dateStr)
+                    age: calculateMonthsDiff(dateStr),
+                    sicaDate: dateStr,
+                    associatedCrop: associated
                 });
             }
         }
 
         return { meta, lots };
 
-    } catch (error: any) {
-        console.error("Error en SicaParser:", error);
-        throw new Error(error.message || "Error desconocido procesando el PDF.");
+    } catch (error) {
+        console.error("Error SICA Parse:", error);
+        throw error;
     }
 };
