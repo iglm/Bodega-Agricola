@@ -1,28 +1,26 @@
 
-
 import React, { useState } from 'react';
-import { X, ShieldCheck, Scale, FileText, Gavel, UserCheck, Lock, Globe, Book, Eye, Download, Info, CheckCircle2, AlertCircle, ShieldAlert } from 'lucide-react';
+import { X, ShieldCheck, Scale, FileText, Gavel, UserCheck, Lock, Book, ShieldAlert, CheckCircle2, AlertCircle, Info, Database } from 'lucide-react';
 
 interface LegalComplianceModalProps {
   onClose: () => void;
 }
 
 export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<'habeas' | 'copyright' | 'terms' | 'consumer'>('habeas');
+  const [activeTab, setActiveTab] = useState<'privacy' | 'copyright' | 'terms' | 'consumer'>('privacy');
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl p-2 sm:p-4 animate-fade-in">
       <div className="bg-slate-950 w-full max-w-5xl h-[90vh] rounded-[3rem] border border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-slide-up">
         
-        {/* Header Dinámico */}
         <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
             <div className="flex items-center gap-4">
                 <div className="bg-emerald-600/20 p-3 rounded-2xl border border-emerald-500/30">
                     <Gavel className="w-8 h-8 text-emerald-500" />
                 </div>
                 <div>
-                    <h3 className="text-white font-black text-2xl uppercase tracking-tighter">Legal & Compliance Hub</h3>
-                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-black">Validado para Colombia Edición 2025</p>
+                    <h3 className="text-white font-black text-2xl uppercase tracking-tighter">Políticas y Privacidad</h3>
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-black">Cumplimiento Google Play Store 2025</p>
                 </div>
             </div>
             <button onClick={onClose} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 transition-all">
@@ -30,35 +28,38 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
             </button>
         </div>
 
-        {/* Navegación por Pestañas Legales */}
         <div className="flex bg-slate-950 p-1.5 border-b border-slate-800 gap-1 overflow-x-auto scrollbar-hide shrink-0">
-            <button onClick={() => setActiveTab('habeas')} className={`shrink-0 px-6 py-4 text-[10px] font-black uppercase rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'habeas' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-                <UserCheck className="w-4 h-4" /> Habeas Data
+            <button onClick={() => setActiveTab('privacy')} className={`shrink-0 px-6 py-4 text-[10px] font-black uppercase rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'privacy' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+                <ShieldCheck className="w-4 h-4" /> Política de Privacidad
             </button>
             <button onClick={() => setActiveTab('copyright')} className={`shrink-0 px-6 py-4 text-[10px] font-black uppercase rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'copyright' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-                <FileText className="w-4 h-4" /> Derechos de Autor
+                <FileText className="w-4 h-4" /> Propiedad Intelectual
             </button>
             <button onClick={() => setActiveTab('terms')} className={`shrink-0 px-6 py-4 text-[10px] font-black uppercase rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'terms' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
                 <ShieldAlert className="w-4 h-4" /> Términos de Uso
             </button>
             <button onClick={() => setActiveTab('consumer')} className={`shrink-0 px-6 py-4 text-[10px] font-black uppercase rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'consumer' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-                <Scale className="w-4 h-4" /> Consumidor
+                <Scale className="w-4 h-4" /> Estatuto del Consumidor
             </button>
         </div>
 
-        {/* Contenido Legal Extenso */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8 bg-slate-900/30">
             
-            {activeTab === 'habeas' && (
+            {activeTab === 'privacy' && (
                 <div className="space-y-6 animate-fade-in text-slate-300">
                     <section className="space-y-4">
                         <h4 className="text-white font-black uppercase text-base flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-blue-500" /> Política de Tratamiento de Datos (Leyes 1581 y 2157)
+                            <Lock className="w-5 h-5 text-blue-500" /> Declaración de Seguridad de Datos
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>1. Identificación del Responsable:</strong> DatosFinca Viva, operada localmente por el usuario en su dispositivo móvil. No existe una base de datos centralizada de terceros.</p>
-                            <p><strong>2. Finalidad:</strong> Los datos recolectados (Inventarios, Nómina, Ubicación de Lotes) tienen como finalidad exclusiva la gestión administrativa de la unidad productiva y el apoyo a decisiones con analíticas propias de la aplicación.</p>
-                            <p><strong>3. Derechos del Titular:</strong> Usted, como usuario, tiene derecho a conocer, actualizar y rectificar sus datos. Dado que la App es 100% local, el ejercicio de estos derechos se realiza mediante la edición directa en la interfaz o la eliminación del caché de la aplicación.</p>
+                            <div className="flex items-start gap-4 p-4 bg-blue-900/20 rounded-2xl border border-blue-500/30">
+                                <Database className="w-8 h-8 text-blue-400 shrink-0" />
+                                <p className="font-bold">DatosFinca Viva es una aplicación "Local-First". Esto significa que el 100% de los datos que ingresas se almacenan exclusivamente en la memoria interna de tu dispositivo (IndexedDB).</p>
+                            </div>
+                            <p><strong>1. Recolección de Datos:</strong> No recolectamos, no transmitimos ni vendemos ninguna información personal, financiera o de ubicación a servidores externos ni a terceros.</p>
+                            <p><strong>2. Uso de Permisos:</strong> La aplicación solicita permiso de cámara únicamente para permitirte adjuntar fotografías a tus registros de inventario o facturas. Estas fotos permanecen en tu dispositivo.</p>
+                            <p><strong>3. Gestión de Datos:</strong> Tú tienes el control total. Puedes ver, editar o eliminar tus datos en cualquier momento. Al desinstalar la aplicación o limpiar el caché del navegador, todos tus datos serán eliminados permanentemente.</p>
+                            <p><strong>4. Eliminación de Datos:</strong> En el menú "Centro de Datos", encontrarás una opción para borrar toda la información del dispositivo de forma instantánea.</p>
                         </div>
                     </section>
                 </div>
@@ -68,12 +69,11 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                 <div className="space-y-6 animate-fade-in text-slate-300">
                     <section className="space-y-4">
                         <h4 className="text-white font-black uppercase text-base flex items-center gap-2">
-                            <Book className="w-5 h-5 text-purple-500" /> Propiedad Intelectual (Ley 23 de 1982)
+                            <Book className="w-5 h-5 text-purple-500" /> Derechos de Autor (Ley 23 de 1982)
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>Titularidad:</strong> DatosFinca Viva es una obra protegida. Lucas Mateo Tabares Franco es el autor y titular exclusivo de los derechos morales y patrimoniales sobre el código fuente, la arquitectura de base de datos y los diseños de interfaz.</p>
-                            <p><strong>Licencia de Uso:</strong> Se concede al usuario una licencia no exclusiva, personal e intransferible para el uso de la herramienta con fines agrícolas. Se prohíbe estrictamente la ingeniería inversa o la creación de obras derivadas.</p>
-                            <p><strong>Protección Tecnológica:</strong> La App incorpora medidas tecnológicas de protección (TPM) para evitar el acceso no autorizado a su lógica de negocio, amparadas por la Ley 1915 de 2018.</p>
+                            <p><strong>Autor y Titular:</strong> Lucas Mateo Tabares Franco es el creador exclusivo de "DatosFinca Viva" y "AgroBodega Pro".</p>
+                            <p><strong>Protección:</strong> El código fuente, la lógica de cálculo (CPP, VPN/TIR) y los diseños de interfaz están protegidos por leyes nacionales e internacionales de propiedad intelectual. Se prohíbe cualquier intento de ingeniería inversa, copia o distribución no autorizada del software.</p>
                         </div>
                     </section>
                 </div>
@@ -83,12 +83,11 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                 <div className="space-y-6 animate-fade-in text-slate-300">
                     <section className="space-y-4">
                         <h4 className="text-white font-black uppercase text-base flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-amber-500" /> Términos y Condiciones de Uso
+                            <AlertCircle className="w-5 h-5 text-amber-500" /> Términos y Condiciones
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>Responsabilidad del Usuario:</strong> DatosFinca Viva es una herramienta de apoyo a la decisión. El usuario es el único responsable de la veracidad de los datos ingresados y de las acciones tomadas basadas en los análisis generados por la aplicación.</p>
-                            <p><strong>Seguridad de Datos:</strong> Al ser una App "Local-First", la pérdida del dispositivo sin un backup previo conlleva la pérdida irrecuperable de la información. El desarrollador no se hace responsable por fallas de hardware del usuario.</p>
-                            <p><strong>Validez de Mensajes de Datos:</strong> El uso continuado de la App constituye una aceptación tácita de que los registros digitales generados tienen la validez de un mensaje de datos, en concordancia con la Ley 527 de 1999.</p>
+                            <p><strong>Herramienta de Apoyo:</strong> La aplicación es un sistema de soporte a la decisión. El usuario es el único responsable de la veracidad de los datos ingresados y de las acciones tomadas basadas en los análisis del sistema.</p>
+                            <p><strong>Responsabilidad de Respaldo:</strong> Al ser una app local, el usuario es responsable de generar sus propios backups (archivos JSON) para prevenir la pérdida de datos por daño del hardware.</p>
                         </div>
                     </section>
                 </div>
@@ -98,12 +97,11 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
                 <div className="space-y-6 animate-fade-in text-slate-300">
                     <section className="space-y-4">
                         <h4 className="text-white font-black uppercase text-base flex items-center gap-2">
-                            <Scale className="w-5 h-5 text-emerald-500" /> Estatuto del Consumidor (Ley 1480)
+                            <Scale className="w-5 h-5 text-emerald-500" /> Estatuto del Consumidor
                         </h4>
                         <div className="bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800 text-xs leading-relaxed space-y-4">
-                            <p><strong>Derecho al Retracto:</strong> En compras de suscripciones digitales (PRO), el usuario tiene 5 días hábiles para solicitar la devolución de su dinero a través de la plataforma de pagos de Google Play.</p>
-                            <p><strong>Reversión del Pago:</strong> Aplica en casos de fraude o producto no solicitado, según el Artículo 51 de la Ley 1480.</p>
-                            <p><strong>Soporte y Garantía:</strong> DatosFinca Viva garantiza la funcionalidad del software. En caso de errores técnicos, el canal de soporte es: lucas.tabares@gmail.com.</p> {/* Updated support email */}
+                            <p><strong>Garantía de Software:</strong> Se garantiza la funcionalidad de la aplicación según sus especificaciones técnicas. Ante fallos técnicos, el canal de contacto oficial es: <strong>lucas.tabares@gmail.com</strong>.</p>
+                            <p><strong>Pagos y Reembolsos:</strong> Cualquier suscripción premium (PRO) es gestionada a través de Google Play Store, y se rige por sus políticas de reembolso y el derecho al retracto vigente en la legislación local.</p>
                         </div>
                     </section>
                 </div>
@@ -111,11 +109,10 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({ onCl
 
         </div>
 
-        {/* Footer de Aceptación */}
         <div className="p-8 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row gap-4 items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-emerald-500" />
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Versión del Marco Legal: 2025.1.0-CO</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase">Versión del Sistema: 1.0.0 (Estable)</p>
             </div>
             <button onClick={onClose} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 px-10 rounded-2xl text-[11px] uppercase tracking-widest shadow-xl shadow-emerald-900/40 transition-all active:scale-95">
                 ACEPTAR Y CONTINUAR

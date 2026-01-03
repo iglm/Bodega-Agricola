@@ -1,14 +1,15 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CostCenter, LaborLog, Movement, HarvestLog, PlannedLabor, Activity } from '../types';
 import { formatCurrency, formatNumberInput, parseNumberInput, convertToBase } from '../services/inventoryService';
 import { generateFarmStructurePDF, generateFarmStructureExcel } from '../services/reportService';
+import { parseSicaPdf } from '../services/sicaParserService';
 import { 
   MapPin, Ruler, TreePine, Calendar, Activity as ActivityIcon, 
   History, Sprout, Scissors, Save, X, AlertTriangle, 
   TrendingUp, Droplets, Pickaxe, CheckCircle2, MoreHorizontal,
   ArrowRight, Leaf, Target, Plus, Trash2, Sun, Zap, ShieldCheck,
-  FileText, FileSpreadsheet, Clock, AlertCircle, Flower2, AlignJustify
+  FileText, FileSpreadsheet, Clock, AlertCircle, Flower2, AlignJustify,
+  FileUp
 } from 'lucide-react';
 import { HeaderCard, Modal, EmptyState } from './UIElements';
 
@@ -41,6 +42,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showRenovateModal, setShowRenovateModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Create Lot States (Mirrored from SettingsModal)
   const [loteName, setLoteName] = useState('');
@@ -67,6 +69,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
   const [editPlants, setEditPlants] = useState('');
   const [editAge, setEditAge] = useState('');
   const [editCrop, setEditCrop] = useState('');
+  const [editAssociatedCrop, setEditAssociatedCrop] = useState('');
 
   const commonCrops = ['Café', 'Plátano', 'Banano', 'Otro'];
 
@@ -167,6 +170,48 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
     setShowCreateModal(false);
   };
 
+  const handleSicaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+          const result = await parseSicaPdf(file);
+          let count = 0;
+
+          result.lots.forEach(lot => {
+              // Lógica simplificada SICA: Todo es Café
+              // Si edad >= 18 meses -> Producción, si no -> Levante
+              const stage = lot.age >= 18 ? 'Produccion' : 'Levante';
+              
+              // Formatear nombre del asocio (ej: "PLATANO" -> "Platano")
+              let associatedName = undefined;
+              if (lot.associatedCrop && ['PLATANO', 'BANANO', 'MAIZ', 'FRIJOL', 'NOGAL', 'GUAMO'].includes(lot.associatedCrop.toUpperCase())) {
+                  associatedName = lot.associatedCrop.charAt(0).toUpperCase() + lot.associatedCrop.slice(1).toLowerCase();
+              }
+
+              onAddCostCenter(
+                  `Lote ${lot.id} - ${lot.variety}`,
+                  0, // Presupuesto
+                  lot.area,
+                  stage,
+                  lot.trees,
+                  'Café', // SIEMPRE CAFÉ
+                  associatedName, // Aquí pasamos el asocio detectado
+                  lot.age,
+                  undefined, // Densidad asocio (no disponible en PDF con precisión)
+                  undefined  // Edad asocio
+              );
+              count++;
+          });
+
+          alert(`✅ Importación Exitosa: ${count} lotes de Café creados para la finca "${result.meta.farmName}".`);
+      } catch (error) {
+          console.error(error);
+          alert("❌ Error al procesar el archivo SICA. Verifique que sea un PDF válido de la Federación.");
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   // --- DERIVED DATA LOGIC ---
   const lotHistory = useMemo(() => {
     if (!selectedLot) return [];
@@ -233,6 +278,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       setEditPlants(lot.plantCount?.toString() || '0');
       setEditAge(lot.cropAgeMonths?.toString() || '0');
       setEditCrop(lot.cropType);
+      setEditAssociatedCrop(lot.associatedCrop || '');
       setIsEditing(false);
   };
 
@@ -255,6 +301,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
           cropAgeMonths: newAge,
           stage: newStage,
           cropType: editCrop,
+          associatedCrop: editAssociatedCrop || undefined,
       };
       onUpdateLot(updatedLot);
       setSelectedLot(updatedLot);
@@ -304,11 +351,15 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
         actionColorClass="bg-emerald-500 text-white hover:bg-emerald-400"
         secondaryAction={
             <div className="flex gap-2">
+                <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-white/20 hover:bg-white/30 rounded-xl text-white backdrop-blur-md transition-all shadow-lg active:scale-95" title="Importar SICA (PDF)"><FileUp className="w-5 h-5" /></button>
                 <button onClick={() => generateFarmStructurePDF(costCenters)} className="p-3 bg-white/20 hover:bg-white/30 rounded-xl text-white backdrop-blur-md transition-all shadow-lg active:scale-95" title="Descargar Estructura (PDF)"><FileText className="w-5 h-5" /></button>
                 <button onClick={() => generateFarmStructureExcel(costCenters)} className="p-3 bg-white/20 hover:bg-white/30 rounded-xl text-white backdrop-blur-md transition-all shadow-lg active:scale-95" title="Descargar Estructura (Excel)"><FileSpreadsheet className="w-5 h-5" /></button>
             </div>
         }
       />
+      
+      {/* HIDDEN INPUT FOR SICA UPLOAD */}
+      <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleSicaUpload} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button onClick={() => setShowCreateModal(true)} className="bg-slate-100 dark:bg-slate-900/50 p-5 rounded-[2rem] border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center gap-2 group hover:border-emerald-500 transition-all min-h-[140px]">
@@ -471,36 +522,73 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
           </form>
       </Modal>
 
-      {/* DETAIL MODAL (Existing) */}
-      <Modal isOpen={!!selectedLot} onClose={() => setSelectedLot(null)} title={selectedLot?.name || 'Detalle Lote'} icon={MapPin} maxWidth="max-w-4xl">
+      {/* DETAIL MODAL MEJORADO */}
+      <Modal isOpen={!!selectedLot} onClose={() => setSelectedLot(null)} title={isEditing ? 'Editando Lote' : (selectedLot?.name || 'Detalle Lote')} icon={MapPin} maxWidth="max-w-4xl">
           {selectedLot && (
               <div className="flex flex-col md:flex-row gap-6 h-full">
                   <div className="w-full md:w-1/3 space-y-6">
-                      <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700 relative overflow-hidden">
+                      <div className="bg-slate-900 p-5 rounded-3xl border border-slate-700 relative overflow-hidden shadow-xl">
                           <div className="relative z-10 space-y-4">
-                              <div className="flex justify-between items-center">
-                                  <h4 className="text-white font-black text-sm uppercase flex items-center gap-2"><Ruler className="w-4 h-4 text-indigo-400"/> Estructura</h4>
+                              <div className="flex justify-between items-center mb-2">
+                                  <h4 className="text-indigo-400 font-black text-xs uppercase flex items-center gap-2"><Ruler className="w-4 h-4"/> Configuración</h4>
                                   <div className="flex gap-2">
-                                      <button onClick={() => isEditing ? handleSaveChanges() : setIsEditing(true)} className={`p-2 rounded-xl transition-all ${isEditing ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{isEditing ? <Save className="w-4 h-4" /> : <Pickaxe className="w-4 h-4" />}</button>
-                                      <button onClick={handleDelete} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                      {/* BOTÓN DE EDITAR / GUARDAR */}
+                                      <button 
+                                          onClick={() => isEditing ? handleSaveChanges() : setIsEditing(true)} 
+                                          className={`p-2 px-4 rounded-xl transition-all font-black text-xs uppercase flex items-center gap-2 ${isEditing ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                                      >
+                                          {isEditing ? <><Save className="w-4 h-4" /> Guardar</> : <><Pickaxe className="w-4 h-4" /> Editar</>}
+                                      </button>
                                   </div>
                               </div>
+
+                              {/* FORMULARIO DE EDICIÓN */}
                               <div className="space-y-3">
-                                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Nombre Lote</label><input disabled={!isEditing} value={editName} onChange={e=>setEditName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50" /></div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Área (Ha)</label><input disabled={!isEditing} type="number" value={editArea} onChange={e=>setEditArea(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50" /></div>
-                                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Población</label><input disabled={!isEditing} type="number" value={editPlants} onChange={e=>setEditPlants(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50" /></div>
+                                  <div className="space-y-1">
+                                      <label className="text-[9px] font-black text-slate-500 uppercase">Nombre Lote</label>
+                                      <input disabled={!isEditing} value={editName} onChange={e=>setEditName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold focus:border-indigo-500 outline-none disabled:opacity-50 disabled:border-transparent transition-all" />
                                   </div>
-                                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Densidad (Calc)</label><div className={`w-full p-2 rounded-lg text-xs font-black border ${isEditing ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-950 border-slate-800 text-emerald-400'}`}>{isEditing ? projectedDensity.toFixed(0) : currentDensity.toFixed(0)}</div></div>
-                                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Edad (Meses)</label><input disabled={!isEditing} type="number" value={editAge} onChange={e=>setEditAge(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50" /></div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Área (Ha)</label><input disabled={!isEditing} type="number" step="0.01" value={editArea} onChange={e=>setEditArea(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" /></div>
+                                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Población</label><input disabled={!isEditing} type="number" value={editPlants} onChange={e=>setEditPlants(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" /></div>
+                                  </div>
+
+                                  {/* SELECTORES DE CULTIVO (NUEVO) */}
+                                  <div className="space-y-1">
+                                      <label className="text-[9px] font-black text-slate-500 uppercase">Cultivo Principal</label>
+                                      <select disabled={!isEditing} value={editCrop} onChange={e=>setEditCrop(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 disabled:appearance-none focus:border-indigo-500 outline-none">
+                                          {commonCrops.map(c => <option key={c} value={c}>{c}</option>)}
+                                      </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                      <label className="text-[9px] font-black text-slate-500 uppercase">Cultivo Asociado</label>
+                                      <input disabled={!isEditing} list="cropsList" value={editAssociatedCrop} onChange={e=>setEditAssociatedCrop(e.target.value)} placeholder="Ninguno" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" />
+                                      <datalist id="cropsList"><option value="Plátano"/><option value="Banano"/><option value="Maíz"/><option value="Frijol"/></datalist>
+                                  </div>
+
+                                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Edad (Meses)</label><input disabled={!isEditing} type="number" value={editAge} onChange={e=>setEditAge(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" /></div>
+                              </div>
+                              
+                              {/* DENSIDAD CALCULADA (SOLO VISUAL) */}
+                              <div className="pt-2 border-t border-slate-800">
+                                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                                      <span>Densidad Actual</span>
+                                      <span className={isEditing ? 'text-indigo-400' : 'text-emerald-400'}>{projectedDensity.toFixed(0)} Arb/Ha</span>
+                                  </div>
                               </div>
                           </div>
                       </div>
-                      <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800">
-                          <h4 className="text-slate-500 font-black text-xs uppercase mb-3 flex items-center gap-2"><Scissors className="w-4 h-4"/> Ciclo de Vida</h4>
-                          <button onClick={() => setShowRenovateModal(true)} className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-black uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"><Sprout className="w-4 h-4" /> Renovar Lote</button>
+                      
+                      {/* BOTONES DE ACCIÓN (Eliminar / Renovar) */}
+                      <div className="bg-slate-100 dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-3">
+                          <button onClick={() => setShowRenovateModal(true)} className="py-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Sprout className="w-4 h-4" /> Renovar</button>
+                          <button onClick={handleDelete} className="py-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Trash2 className="w-4 h-4" /> Eliminar</button>
                       </div>
                   </div>
+
+                  {/* COLUMNA DERECHA (Métricas y Bitácora) */}
                   <div className="w-full md:w-2/3 flex flex-col gap-6">
                       <div className="grid grid-cols-3 gap-4">
                           <div className="bg-emerald-900/10 border border-emerald-500/20 p-4 rounded-2xl"><p className="text-[10px] font-black text-emerald-600 uppercase">Producción Histórica</p><p className="text-xl font-mono font-black text-emerald-500">{formatNumberInput(lotMetrics.yield)} {selectedLot.cropType === 'Café' ? 'Kg' : 'Und'}</p></div>
@@ -509,7 +597,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                               <p className="text-[10px] font-black text-blue-600 uppercase">Costo Unitario Real</p>
                               <p className="text-xl font-mono font-black text-blue-500">
                                   {lotMetrics.yield > 0 ? `${formatCurrency(lotMetrics.unitCost)}` : 'Sin Cosecha'} 
-                                  {lotMetrics.yield > 0 && <span className="text-[10px] ml-1">/ {selectedLot.cropType === 'Café' ? 'Kg' : 'Ud'}</span>}
                               </p>
                           </div>
                       </div>

@@ -1,11 +1,18 @@
 {
-  "name": "AgroBodega Pro",
-  "description": "Software de Inteligencia de Insumos y Gestión de Libertad Financiera. Desarrollado por Lucas Mateo Tabares Franco.",
+  "name": "AgroBodega Pro - DatosFinca Viva",
+  "short_name": "AgroBodega",
+  "description": "Sistema de gestión agrícola integral. Control de inventarios CPP, nómina laboral, análisis de costos y simulador financiero. Diseñado para caficultores y productores agrícolas profesionales.",
+  "version": "1.0.0",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
   "requestFramePermissions": [
     "camera"
   ],
   "android": {
     "vibrate": true,
-    "hardwareAcceleration": true
+    "hardwareAcceleration": true,
+    "intentFilters": [],
+    "package": "com.datosfinca.viva"
   }
 }
