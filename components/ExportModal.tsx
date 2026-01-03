@@ -2,7 +2,7 @@
 import React from 'react';
 import { X, FileSpreadsheet, FileText, Download, Sprout, Briefcase, PieChart, Clipboard, ShieldCheck, Thermometer, Shield, FileCheck, ArrowRight, FileDown, Layers, MapPin, Table, Book, BarChart4, Archive, Users, Tractor, DollarSign, Printer } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
-import { exportToExcel, exportFieldSheet } from '../services/reportService';
+import { generateExcel, exportFieldSheet } from '../services/reportService';
 
 interface ExportModalProps {
   onClose: () => void;
@@ -37,7 +37,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
 
   const handleExportCostNotebook = () => {
-      exportToExcel(data);
+      generateExcel(data);
   };
 
   const handleExportFieldSheet = () => {

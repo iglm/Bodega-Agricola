@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { Machine, MaintenanceLog, RainLog, CostCenter, Personnel, Activity, SoilAnalysis, PPELog, WasteLog, Asset, PhenologyLog, PestLog } from '../types';
-import { Plus, Droplets, Leaf, Signature, Fingerprint, Lock, Gavel, ShieldAlert, Timer, Recycle, CheckCircle } from 'lucide-react';
+import { Plus, Droplets, Leaf, Signature, Fingerprint, Lock, Gavel, ShieldAlert, Timer, Recycle, CheckCircle, FlaskConical, DollarSign } from 'lucide-react';
+import { formatNumberInput, parseNumberInput, formatCurrency } from '../services/inventoryService';
 
 interface ManagementViewProps {
   machines: Machine[];
@@ -43,6 +43,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     machines, maintenanceLogs, rainLogs, costCenters, personnel, activities,
     soilAnalyses, ppeLogs, wasteLogs, assets, bpaChecklist, phenologyLogs, pestLogs,
     onAddRain, onDeleteRain,
+    onAddSoilAnalysis, onDeleteSoilAnalysis,
     onAddPPE, onDeletePPE,
     onAddWaste, onDeleteWaste,
     onAddPhenologyLog, onDeletePhenologyLog,
@@ -55,6 +56,13 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
   const [rainMm, setRainMm] = useState('');
   const [phenoLotId, setPhenoLotId] = useState('');
   const [phenoStage, setPhenoStage] = useState<'Floración' | 'Cuajado' | 'Llenado' | 'Maduración'>('Floración');
+  
+  // Soil Form
+  const [soilLotId, setSoilLotId] = useState('');
+  const [soilPh, setSoilPh] = useState('');
+  const [soilMo, setSoilMo] = useState('');
+  const [soilCost, setSoilCost] = useState('');
+  
   const [ppePersonnelId, setPpePersonnelId] = useState('');
   const [ppeItems, setPpeItems] = useState('');
   const [wasteDescription, setWasteDescription] = useState('');
@@ -79,6 +87,26 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
 
   const handleAddRain = (e: React.FormEvent) => { e.preventDefault(); if(rainMm) { onAddRain({date: new Date().toISOString(), millimeters: parseFloat(rainMm)}); setRainMm(''); } };
   const handleAddPheno = (e: React.FormEvent) => { e.preventDefault(); if(phenoLotId) { onAddPhenologyLog({date: new Date().toISOString(), costCenterId: phenoLotId, stage: phenoStage}); setPhenoLotId(''); } };
+  
+  const handleAddSoil = (e: React.FormEvent) => {
+      e.preventDefault();
+      const lot = costCenters.find(c => c.id === soilLotId);
+      if (!lot || !soilPh) return;
+      
+      onAddSoilAnalysis({
+          date: new Date().toISOString(),
+          costCenterId: soilLotId,
+          costCenterName: lot.name,
+          ph: parseFloat(soilPh) || 0,
+          organicMatter: parseFloat(soilMo) || 0,
+          cost: parseNumberInput(soilCost) || 0,
+          nitrogen: 0, phosphorus: 0, potassium: 0, // Simplified for quick entry
+          notes: 'Registro rápido desde bitácora'
+      });
+      setSoilLotId(''); setSoilPh(''); setSoilMo(''); setSoilCost('');
+      alert("Análisis de suelo registrado con costo.");
+  };
+
   const handleAddPPEsubmit = (e: React.FormEvent) => { e.preventDefault(); if (!ppePersonnelId || !ppeItems) return; const person = personnel.find(p => p.id === ppePersonnelId); if (!person) return; onAddPPE({ date: new Date().toISOString(), personnelId: ppePersonnelId, personnelName: person.name, items: ppeItems.split(',').map(s => s.trim()) }); setPpePersonnelId(''); setPpeItems(''); };
   const handleAddWasteSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!wasteDescription || !wasteQty) return; onAddWaste({ date: new Date().toISOString(), itemDescription: wasteDescription, quantity: parseFloat(wasteQty), tripleWashed: wasteTripleWashed }); setWasteDescription(''); setWasteQty(''); setWasteTripleWashed(true); };
 
@@ -86,7 +114,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
     <div className="space-y-8 pb-24 animate-fade-in">
         <div className="flex bg-slate-200 dark:bg-slate-800 p-1.5 rounded-2xl overflow-x-auto scrollbar-hide gap-1 sticky top-[120px] z-30 shadow-md">
             <button onClick={() => setSubTab('integrity')} className={`shrink-0 px-6 py-3 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${subTab === 'integrity' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}><Fingerprint className="w-4 h-4" /> Blindaje Legal</button>
-            <button onClick={() => setSubTab('agronomy')} className={`shrink-0 px-6 py-3 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${subTab === 'agronomy' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}><Leaf className="w-4 h-4" /> Fenología</button>
+            <button onClick={() => setSubTab('agronomy')} className={`shrink-0 px-6 py-3 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${subTab === 'agronomy' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}><Leaf className="w-4 h-4" /> Fenología y Suelos</button>
             <button onClick={() => setSubTab('sst')} className={`shrink-0 px-6 py-3 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${subTab === 'sst' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500'}`}><Signature className="w-4 h-4" /> SST/Ambiental</button>
         </div>
 
@@ -135,6 +163,7 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
         {subTab === 'agronomy' && (
             <div className="space-y-6 animate-fade-in">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* RAIN FORM */}
                     <form onSubmit={handleAddRain} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700">
                         <h4 className="text-blue-400 text-sm uppercase font-black flex items-center gap-2 mb-5"><Droplets className="w-5 h-5"/> Registro Lluvias (mm)</h4>
                         <div className="flex gap-3">
@@ -142,6 +171,8 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                             <button type="submit" className="bg-blue-600 text-white p-4 rounded-2xl shadow-lg"><Plus className="w-6 h-6"/></button>
                         </div>
                     </form>
+                    
+                    {/* PHENOLOGY FORM */}
                     <form onSubmit={handleAddPheno} className="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-700 space-y-5">
                         <h4 className="text-emerald-400 text-sm uppercase font-black flex items-center gap-2"><Leaf className="w-5 h-5"/> Hito Fenológico</h4>
                         <select value={phenoLotId} onChange={e=>setPhenoLotId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-4 text-sm text-white font-bold" required>
@@ -159,6 +190,26 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
                         </div>
                     </form>
                 </div>
+
+                {/* SOIL ANALYSIS FORM (NEW WITH COST) */}
+                <form onSubmit={handleAddSoil} className="bg-amber-950/20 p-6 rounded-[2rem] border border-amber-500/20 space-y-4">
+                    <h4 className="text-amber-500 text-sm uppercase font-black flex items-center gap-2"><FlaskConical className="w-5 h-5"/> Análisis de Suelo</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <select value={soilLotId} onChange={e=>setSoilLotId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white font-bold" required>
+                            <option value="">Lote Analizado...</option>
+                            {costCenters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <div className="relative">
+                            <input type="text" inputMode="decimal" value={soilCost} onChange={e => setSoilCost(formatNumberInput(e.target.value))} placeholder="Costo del Estudio ($)" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-mono text-sm pl-8" />
+                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-emerald-500" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                        <input type="number" step="0.1" value={soilPh} onChange={e=>setSoilPh(e.target.value)} placeholder="pH" className="bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-center font-bold" required />
+                        <input type="number" step="0.1" value={soilMo} onChange={e=>setSoilMo(e.target.value)} placeholder="% M.O." className="bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-center font-bold" />
+                        <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl shadow-lg flex items-center justify-center"><Plus className="w-5 h-5"/></button>
+                    </div>
+                </form>
 
                 {harvestPredictions.length > 0 && (
                     <div className="bg-indigo-950/20 p-8 rounded-[3rem] border border-indigo-500/20 space-y-6">
