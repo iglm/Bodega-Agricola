@@ -309,73 +309,27 @@ export const SimulatorView: React.FC = () => {
                 </div>
             </div>
 
-            {/* KPIS FINANCIEROS ESTRATÉGICOS */}
-            <div className="space-y-4">
-                <h3 className="text-slate-800 dark:text-white font-black text-sm uppercase flex items-center gap-3 px-4 tracking-widest">
-                    <Target className="w-5 h-5 text-emerald-500" /> Tablero de Rentabilidad
-                </h3>
-
-                {/* Strategic Row (3 Cards) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* ROI */}
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className={`p-2 rounded-xl ${simulation.roi >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                                <TrendingUp className="w-5 h-5" />
-                            </div>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase">Rendimiento (TIR)</p>
-                        </div>
-                        <p className={`text-3xl font-black font-mono ${simulation.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                            {simulation.roi.toFixed(1)}%
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-2 leading-tight">Rendimiento global del capital a 6 años.</p>
+            {/* KPIS FINANCIEROS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-center text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <Users className="w-5 h-5 text-red-500" />
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Costo Recolección (Año 5)</p>
                     </div>
-
-                    {/* Payback */}
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600">
-                                <Timer className="w-5 h-5" />
-                            </div>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase">Retorno Inversión</p>
-                        </div>
-                        <p className="text-3xl font-black text-slate-800 dark:text-white font-mono">
-                            {simulation.paybackYear ? `Año ${simulation.paybackYear}` : "N/A"}
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-2 leading-tight">Momento en que recuperas tu capital inicial.</p>
-                    </div>
-
-                    {/* VPN */}
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-lg relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="p-2 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600">
-                                <Landmark className="w-5 h-5" />
-                            </div>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase">Valor Presente Neto</p>
-                        </div>
-                        <p className="text-3xl font-black text-slate-800 dark:text-white font-mono truncate">
-                            {formatCurrency(simulation.vpn)}
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-2 leading-tight">Ganancia real descontando inflación hoy.</p>
-                    </div>
+                    <p className="text-3xl font-black text-slate-800 dark:text-white font-mono">{formatCurrency(simulation.year5LaborCost)} <span className="text-sm text-slate-400 font-bold">/ Kg</span></p>
+                    <p className="text-[10px] text-red-400 font-bold mt-1 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full mx-auto inline-block">Inflación Impacto: +{((simulation.year5LaborCost/parseNumberInput(harvestCostPerKg) - 1)*100).toFixed(0)}%</p>
                 </div>
 
-                {/* Operational Row (Secondary) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <div>
-                            <p className="text-[9px] font-black text-slate-500 uppercase">Costo Prod. (@)</p>
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Promedio ciclo</p>
+                <div className="bg-indigo-600 p-6 rounded-[2.5rem] shadow-xl shadow-indigo-900/30 flex flex-col justify-center text-center text-white relative overflow-hidden">
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <BadgeDollarSign className="w-5 h-5 text-indigo-200" />
+                            <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Precio de Equilibrio (Año 5)</p>
                         </div>
-                        <p className="text-lg font-black font-mono text-slate-800 dark:text-white">{formatCurrency(simulation.avgCostPerCarga)}</p>
+                        <p className="text-3xl font-black font-mono">{formatCurrency(simulation.breakevenPrice)} <span className="text-sm text-indigo-300 font-bold">/ @</span></p>
+                        <p className="text-[10px] text-indigo-100 font-bold mt-1">Costo Total para No Perder Dinero</p>
                     </div>
-                    <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <div>
-                            <p className="text-[9px] font-black text-slate-500 uppercase">Punto Equilibrio (@)</p>
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Año 5 (Pico)</p>
-                        </div>
-                        <p className="text-lg font-black font-mono text-slate-800 dark:text-white">{formatCurrency(simulation.breakevenPrice)}</p>
-                    </div>
+                    <div className="absolute -bottom-6 -right-6 opacity-10"><TrendingDown className="w-32 h-32 text-white" /></div>
                 </div>
             </div>
 
