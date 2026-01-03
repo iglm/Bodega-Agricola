@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CostCenter, LaborLog, Movement, HarvestLog, PlannedLabor, Activity } from '../types';
 import { formatCurrency, formatNumberInput, parseNumberInput, convertToBase } from '../services/inventoryService';
 import { generateFarmStructurePDF, generateFarmStructureExcel } from '../services/reportService';
-import { parseSicaPdf } from '../services/sicaParserService';
+import { parseSicaPdf, SicaImportResult } from '../services/sicaParserService';
 import { 
   MapPin, Ruler, TreePine, Calendar, Activity as ActivityIcon, 
   History, Sprout, Scissors, Save, X, AlertTriangle, 
@@ -44,7 +44,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Create Lot States (Mirrored from SettingsModal)
+  // Create Lot States
   const [loteName, setLoteName] = useState('');
   const [loteBudget, setLoteBudget] = useState('');
   const [loteArea, setLoteArea] = useState('');
@@ -53,9 +53,9 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
   const [loteCrop, setLoteCrop] = useState('Café');
   const [loteCropAge, setLoteCropAge] = useState('');
   
-  // ASSOCIATED CROP STATES (NEW)
-  const [associatedCrop, setAssociatedCrop] = useState(''); // Selected value: 'Plátano', 'Banano', 'Otro', ''
-  const [associatedCropName, setAssociatedCropName] = useState(''); // If 'Otro', manual name
+  // ASSOCIATED CROP STATES
+  const [associatedCrop, setAssociatedCrop] = useState(''); 
+  const [associatedCropName, setAssociatedCropName] = useState('');
   const [associatedCropAge, setAssociatedCropAge] = useState('');
   const [associatedCropDensity, setAssociatedCropDensity] = useState('');
 
@@ -73,20 +73,17 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
 
   const commonCrops = ['Café', 'Plátano', 'Banano', 'Otro'];
 
-  // --- CROP SPECIFIC CONFIGURATION HELPER ---
   const getCropSpecs = (crop: string) => {
       const isMusaceae = crop === 'Plátano' || crop === 'Banano';
-      
       if (isMusaceae) {
         return {
           label: 'Sitios / Plantas',
           densityLow: 1000,
-          densityHigh: 3000, // Monocultivo alta densidad
-          productionAge: 9, // Meses aprox para racimo/bellota
+          densityHigh: 3000,
+          productionAge: 9,
           densityUnit: 'Sitios/Ha'
         };
       }
-      // Default (Coffee and others)
       return {
         label: 'Árboles',
         densityLow: 4000,
@@ -98,7 +95,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
 
   const currentSpecs = getCropSpecs(loteCrop);
 
-  // Density Calc for Creation
   const calculatedDensityPerHa = useMemo(() => {
       const s = parseFloat(distSurco);
       const p = parseFloat(distPlanta);
@@ -114,7 +110,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       }
   }, [calculatedDensityPerHa, loteArea]);
 
-  // --- LOGIC: AUTO STAGE SELECTION BASED ON CROP TYPE AND AGE ---
   useEffect(() => {
       const age = parseInt(loteCropAge) || 0;
       if (loteCropAge !== '') {
@@ -130,7 +125,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       ? calculatedDensityPerHa 
       : (parseFloat(lotePlants) > 0 && parseFloat(loteArea) > 0 ? parseFloat(lotePlants) / parseFloat(loteArea) : 0);
 
-  // --- MUSACEAE LOGIC (Applicable for Main or Associated) ---
   const getMusaceaeStage = (crop: string, ageStr: string) => {
       if (crop !== 'Plátano' && crop !== 'Banano') return null;
       const age = parseInt(ageStr) || 0;
@@ -146,7 +140,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
     e.preventDefault();
     if (!loteName.trim()) return;
     
-    // Determine final associated crop name
     let finalAssociatedName = associatedCrop;
     if (associatedCrop === 'Otro') finalAssociatedName = associatedCropName;
     if (!associatedCrop) finalAssociatedName = '';
@@ -163,7 +156,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
         associatedCropDensity ? parseInt(associatedCropDensity) : undefined,
         associatedCropAge ? parseInt(associatedCropAge) : undefined
     );
-    // Reset and close
     setLoteName(''); setLoteBudget(''); setLoteArea(''); setLotePlants(''); 
     setAssociatedCrop(''); setAssociatedCropName(''); setAssociatedCropAge(''); setAssociatedCropDensity('');
     setDistSurco(''); setDistPlanta(''); setLoteCropAge('');
@@ -175,82 +167,69 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       if (!file) return;
 
       try {
-          const result = await parseSicaPdf(file);
-          let count = 0;
+          const result: SicaImportResult = await parseSicaPdf(file);
+          const totalPlants = result.lots.reduce((acc, lot) => acc + lot.plants, 0);
+          
+          // Crear resumen para el usuario
+          const summary = [
+            `Finca detectada: ${result.meta.farmName || 'No detectado'} (${result.meta.farmCode || 'Sin Código'})`,
+            `Vereda: ${result.meta.vereda || 'No detectada'}`,
+            `Lotes encontrados: ${result.lots.length}`,
+            `Total Árboles: ${totalPlants.toLocaleString()}`
+          ].join('\n');
 
-          result.lots.forEach(lot => {
-              // Lógica simplificada SICA: Todo es Café
-              // Si edad >= 18 meses -> Producción, si no -> Levante
-              const stage = lot.age >= 18 ? 'Produccion' : 'Levante';
-              
-              // Formatear nombre del asocio (ej: "PLATANO" -> "Platano")
-              let associatedName = undefined;
-              if (lot.associatedCrop && ['PLATANO', 'BANANO', 'MAIZ', 'FRIJOL', 'NOGAL', 'GUAMO'].includes(lot.associatedCrop.toUpperCase())) {
-                  associatedName = lot.associatedCrop.charAt(0).toUpperCase() + lot.associatedCrop.slice(1).toLowerCase();
-              }
+          // Verificación de datos críticos
+          const isSuspect = !result.meta.farmName || result.lots.length === 0 || totalPlants === 0;
 
-              onAddCostCenter(
-                  `Lote ${lot.id} - ${lot.variety}`,
-                  0, // Presupuesto
-                  lot.area,
-                  stage,
-                  lot.trees,
-                  'Café', // SIEMPRE CAFÉ
-                  associatedName, // Aquí pasamos el asocio detectado
-                  lot.age,
-                  undefined, // Densidad asocio (no disponible en PDF con precisión)
-                  undefined  // Edad asocio
-              );
-              count++;
-          });
+          if (isSuspect) {
+              alert("⚠️ ADVERTENCIA: La lectura del PDF parece incompleta o incorrecta.\n\n" + summary + "\n\nRevise si el documento tiene el formato oficial.");
+          }
 
-          alert(`✅ Importación Exitosa: ${count} lotes de Café creados para la finca "${result.meta.farmName}".`);
-      } catch (error) {
+          if (confirm("RESUMEN DE IMPORTACIÓN SICA:\n\n" + summary + "\n\n¿Desea crear estos lotes ahora?")) {
+              result.lots.forEach(lot => {
+                  const stage = lot.age >= 1.5 ? 'Produccion' : 'Levante';
+                  onAddCostCenter(
+                      `Lote ${lot.id} - ${lot.variety}`,
+                      0,
+                      lot.area,
+                      stage,
+                      lot.plants,
+                      'Café',
+                      undefined,
+                      Math.round(lot.age * 12), // Convertir años a meses para el estado de la app
+                      lot.density,
+                      undefined
+                  );
+              });
+              alert(`✅ Éxito: ${result.lots.length} lotes integrados correctamente.`);
+          }
+      } catch (error: any) {
           console.error(error);
-          alert("❌ Error al procesar el archivo SICA. Verifique que sea un PDF válido de la Federación.");
+          alert("❌ Error SICA: " + error.message);
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- DERIVED DATA LOGIC ---
   const lotHistory = useMemo(() => {
     if (!selectedLot) return [];
-    
     const labor = laborLogs
         .filter(l => l.costCenterId === selectedLot.id)
         .map(l => ({ type: 'LABOR', date: l.date, title: l.activityName, value: l.value, icon: Pickaxe, color: 'text-amber-500' }));
     
-    // ENHANCED INPUTS WITH DOSAGE CALCULATION
     const inputs = movements
         .filter(m => m.costCenterId === selectedLot.id && m.type === 'OUT')
         .map(m => {
             let details = `Aplicación ${m.itemName}`;
             const plants = selectedLot.plantCount || 0;
-            
             if (plants > 0) {
-                // Normalize quantity to base unit (grams or ml)
                 const baseQty = convertToBase(m.quantity, m.unit);
                 const dosePerPlant = baseQty / plants;
-                
-                // Determine unit string for display
                 let doseUnit = 'g';
-                if (m.unit.includes('L') || m.unit.includes('Gal') || m.unit.includes('ml')) {
-                    doseUnit = 'ml';
-                } else if (m.unit === 'Unidad') {
-                    doseUnit = 'ud';
-                }
-
+                if (m.unit.includes('L') || m.unit.includes('Gal') || m.unit.includes('ml')) doseUnit = 'ml';
+                else if (m.unit === 'Unidad') doseUnit = 'ud';
                 details += ` • Dosis: ${dosePerPlant.toFixed(1)} ${doseUnit}/planta`;
             }
-
-            return { 
-                type: 'INPUT', 
-                date: m.date, 
-                title: details, 
-                value: m.calculatedCost, 
-                icon: Droplets, 
-                color: 'text-blue-500' 
-            };
+            return { type: 'INPUT', date: m.date, title: details, value: m.calculatedCost, icon: Droplets, color: 'text-blue-500' };
         });
     
     const sales = harvests
@@ -265,9 +244,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       const totalCost = laborLogs.filter(l => l.costCenterId === selectedLot.id).reduce((a,b)=>a+b.value,0) + 
                         movements.filter(m => m.costCenterId === selectedLot.id && m.type === 'OUT').reduce((a,b)=>a+b.calculatedCost,0);
       const totalYield = harvests.filter(h => h.costCenterId === selectedLot.id).reduce((a,b)=>a+b.quantity,0);
-      
       const unitCost = totalYield > 0 ? totalCost / totalYield : 0;
-
       return { yield: totalYield, cost: totalCost, unitCost };
   }, [selectedLot, laborLogs, movements, harvests]);
 
@@ -284,12 +261,9 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
 
   const handleSaveChanges = () => {
       if (!selectedLot) return;
-      
       const newAge = parseInt(editAge) || 0;
-      // Recalculate stage on edit based on crop type of the lot
       const specs = getCropSpecs(editCrop);
       let newStage = selectedLot.stage;
-      
       if (newAge < specs.productionAge) newStage = 'Levante';
       else if (newAge >= specs.productionAge && selectedLot.stage !== 'Infraestructura') newStage = 'Produccion';
 
@@ -358,7 +332,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
         }
       />
       
-      {/* HIDDEN INPUT FOR SICA UPLOAD */}
       <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleSicaUpload} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -372,12 +345,10 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
               const age = lot.cropAgeMonths || 0;
               const isLevante = lot.stage === 'Levante';
               const specs = getCropSpecs(lot.cropType);
-              
               let needsRenovation = false;
               let renovationReason = '';
-              // Logic Adjusted for crop type
               if (density > specs.densityHigh && age > 60) { needsRenovation = true; renovationReason = 'Cierre Calles (Alta Densidad)'; } 
-              else if (age > (specs.productionAge + 72)) { needsRenovation = true; renovationReason = 'Cultivo Envejecido'; } // ~6-7 years productive
+              else if (age > (specs.productionAge + 72)) { needsRenovation = true; renovationReason = 'Cultivo Envejecido'; }
 
               return (
                   <div key={lot.id} onClick={() => handleOpenLot(lot)} className={`bg-white dark:bg-slate-800 p-5 rounded-[2rem] border transition-all cursor-pointer hover:shadow-xl active:scale-95 group relative overflow-hidden ${needsRenovation ? 'border-amber-500/50 dark:border-amber-500/50' : isLevante ? 'border-blue-500/30' : 'border-slate-200 dark:border-slate-700'}`}>
@@ -405,7 +376,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       {/* CREATE MODAL */}
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Crear Nuevo Lote" icon={Plus} maxWidth="max-w-xl">
           <form onSubmit={handleCreateSubmit} className="space-y-4">
-              
               <div className="bg-slate-950 p-5 rounded-[2rem] border border-slate-800 space-y-4 shadow-inner">
                   <h5 className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-2 tracking-widest"><Sun className="w-3 h-3"/> Arreglo Espacial (Principal)</h5>
                   <div className="grid grid-cols-2 gap-4">
@@ -451,7 +421,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
               
               <div className="bg-slate-900 p-3 rounded-xl border border-slate-700"><div className="flex justify-between items-center"><span className="text-[10px] text-slate-400 font-black uppercase">Etapa Automática</span><span className={`text-xs font-black px-2 py-1 rounded-lg uppercase ${loteStage === 'Levante' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>{loteStage}</span></div><p className="text-[9px] text-slate-500 mt-1">{parseInt(loteCropAge) < currentSpecs.productionAge ? `Menor a ${currentSpecs.productionAge} meses: Etapa de Inversión.` : `Mayor a ${currentSpecs.productionAge} meses: Etapa Productiva.`}</p></div>
               
-              {/* DISPLAY MAIN CROP PHYSIOLOGY IF MUSACEAE */}
               {mainCropMusaceaeStage && (
                   <div className="bg-indigo-950/20 p-3 rounded-xl border border-indigo-900/50 flex items-center gap-3 animate-slide-up">
                       <div className={`p-2 rounded-lg bg-slate-900 ${mainCropMusaceaeStage.color}`}><mainCropMusaceaeStage.icon className="w-4 h-4" /></div>
@@ -462,7 +431,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                   </div>
               )}
 
-              {/* --- ASSOCIATED CROP SECTION --- */}
               <div className="space-y-2 border-t border-slate-800 pt-4">
                   <label className="text-[9px] font-black text-slate-500 uppercase ml-1 flex items-center gap-2"><Leaf className="w-3 h-3"/> Cultivo Asociado (Sombra/Intercalado)</label>
                   <select value={associatedCrop} onChange={e => setAssociatedCrop(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white">
@@ -473,7 +441,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                       <option value="Otro">Otro (Maíz, Frijol, etc)</option>
                   </select>
 
-                  {/* LOGIC FOR ASSOCIATED MUSACEAE */}
                   {assocCropMusaceaeStage && (
                       <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/50 space-y-3 animate-slide-up">
                           <h6 className="text-[10px] font-black text-emerald-500 uppercase">Fisiología Vegetal ({associatedCrop})</h6>
@@ -497,7 +464,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                       </div>
                   )}
 
-                  {/* LOGIC FOR 'CAFÉ' ASSOCIATED OR 'OTRO' */}
                   {(associatedCrop === 'Otro' || associatedCrop === 'Café') && (
                       <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3 animate-slide-up">
                           <h6 className="text-[10px] font-black text-slate-400 uppercase">Detalles Cultivo Asociado</h6>
@@ -517,7 +483,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                       </div>
                   )}
               </div>
-
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl text-xs uppercase shadow-xl transition-all active:scale-95">Integrar Lote al Mapa</button>
           </form>
       </Modal>
@@ -532,7 +497,6 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                               <div className="flex justify-between items-center mb-2">
                                   <h4 className="text-indigo-400 font-black text-xs uppercase flex items-center gap-2"><Ruler className="w-4 h-4"/> Configuración</h4>
                                   <div className="flex gap-2">
-                                      {/* BOTÓN DE EDITAR / GUARDAR */}
                                       <button 
                                           onClick={() => isEditing ? handleSaveChanges() : setIsEditing(true)} 
                                           className={`p-2 px-4 rounded-xl transition-all font-black text-xs uppercase flex items-center gap-2 ${isEditing ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
@@ -541,37 +505,28 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                                       </button>
                                   </div>
                               </div>
-
-                              {/* FORMULARIO DE EDICIÓN */}
                               <div className="space-y-3">
                                   <div className="space-y-1">
                                       <label className="text-[9px] font-black text-slate-500 uppercase">Nombre Lote</label>
                                       <input disabled={!isEditing} value={editName} onChange={e=>setEditName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold focus:border-indigo-500 outline-none disabled:opacity-50 disabled:border-transparent transition-all" />
                                   </div>
-                                  
                                   <div className="grid grid-cols-2 gap-2">
                                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Área (Ha)</label><input disabled={!isEditing} type="number" step="0.01" value={editArea} onChange={e=>setEditArea(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" /></div>
                                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Población</label><input disabled={!isEditing} type="number" value={editPlants} onChange={e=>setEditPlants(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" /></div>
                                   </div>
-
-                                  {/* SELECTORES DE CULTIVO (NUEVO) */}
                                   <div className="space-y-1">
                                       <label className="text-[9px] font-black text-slate-500 uppercase">Cultivo Principal</label>
                                       <select disabled={!isEditing} value={editCrop} onChange={e=>setEditCrop(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 disabled:appearance-none focus:border-indigo-500 outline-none">
                                           {commonCrops.map(c => <option key={c} value={c}>{c}</option>)}
                                       </select>
                                   </div>
-
                                   <div className="space-y-1">
                                       <label className="text-[9px] font-black text-slate-500 uppercase">Cultivo Asociado</label>
                                       <input disabled={!isEditing} list="cropsList" value={editAssociatedCrop} onChange={e=>setEditAssociatedCrop(e.target.value)} placeholder="Ninguno" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" />
                                       <datalist id="cropsList"><option value="Plátano"/><option value="Banano"/><option value="Maíz"/><option value="Frijol"/></datalist>
                                   </div>
-
                                   <div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase">Edad (Meses)</label><input disabled={!isEditing} type="number" value={editAge} onChange={e=>setEditAge(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white text-xs font-bold disabled:opacity-50 focus:border-indigo-500 outline-none" /></div>
                               </div>
-                              
-                              {/* DENSIDAD CALCULADA (SOLO VISUAL) */}
                               <div className="pt-2 border-t border-slate-800">
                                   <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
                                       <span>Densidad Actual</span>
@@ -580,15 +535,11 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                               </div>
                           </div>
                       </div>
-                      
-                      {/* BOTONES DE ACCIÓN (Eliminar / Renovar) */}
                       <div className="bg-slate-100 dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-3">
                           <button onClick={() => setShowRenovateModal(true)} className="py-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Sprout className="w-4 h-4" /> Renovar</button>
                           <button onClick={handleDelete} className="py-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Trash2 className="w-4 h-4" /> Eliminar</button>
                       </div>
                   </div>
-
-                  {/* COLUMNA DERECHA (Métricas y Bitácora) */}
                   <div className="w-full md:w-2/3 flex flex-col gap-6">
                       <div className="grid grid-cols-3 gap-4">
                           <div className="bg-emerald-900/10 border border-emerald-500/20 p-4 rounded-2xl"><p className="text-[10px] font-black text-emerald-600 uppercase">Producción Histórica</p><p className="text-xl font-mono font-black text-emerald-500">{formatNumberInput(lotMetrics.yield)} {selectedLot.cropType === 'Café' ? 'Kg' : 'Und'}</p></div>
