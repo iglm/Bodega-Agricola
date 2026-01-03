@@ -1,5 +1,4 @@
 
-
 export enum Category {
   FERTILIZANTE = 'Fertilizante',
   INSECTICIDA = 'Insecticida',
@@ -206,6 +205,7 @@ export interface AppState {
   bpaChecklist: Record<string, boolean>;
   assets: Asset[];
   laborFactor: number; 
+  /** @deprecated Security PIN logic removed for better UX */
   adminPin?: string; 
   
   // Commercial State

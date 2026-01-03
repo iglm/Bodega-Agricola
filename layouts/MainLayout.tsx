@@ -34,7 +34,6 @@ import { SanitaryView } from '../components/SanitaryView';
 import { HistoryModal } from '../components/HistoryModal';
 import { DeleteModal } from '../components/DeleteModal';
 import { PayrollModal } from '../components/PayrollModal';
-import { SecurityModal } from '../components/SecurityModal';
 import { LaborSchedulerView } from '../components/LaborSchedulerView';
 import { LaborForm } from '../components/LaborForm'; 
 import { InventoryItem, CostClassification } from '../types';
@@ -113,7 +112,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const [showPayroll, setShowPayroll] = useState(false);
   const [showGlobalHistory, setShowGlobalHistory] = useState(false);
   const [showLaborForm, setShowLaborForm] = useState(false); 
-  const [secureAction, setSecureAction] = useState<(() => void) | null>(null);
   
   // Item specific modals
   const [movementModal, setMovementModal] = useState<{item: InventoryItem, type: 'IN' | 'OUT'} | null>(null);
@@ -159,12 +157,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   }, []);
 
   const handleDashboardDelete = useCallback((id: string) => {
-    requestSecureAction(() => { 
-        setData(current => {
-            const item = current.inventory.find(i => i.id === id);
-            if (item) setDeleteItem(item);
-            return current; 
-        });
+    // Direct delete request (no PIN)
+    setData(current => {
+        const item = current.inventory.find(i => i.id === id);
+        if (item) setDeleteItem(item);
+        return current; 
     });
   }, [setData]);
 
@@ -218,15 +215,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       onShowNotification(`Labor "${name}" creada.`, 'success');
   };
 
-  // Helper functions
-  const requestSecureAction = (action: () => void) => { setSecureAction(() => action); };
-  
-  const handlePinSuccess = (pin: string) => { 
-      if (!data.adminPin) { setData(prev => ({ ...prev, adminPin: pin })); } 
-      if (secureAction) { secureAction(); } 
-      setSecureAction(null); 
-  };
-
   const handleSaveMovement = (mov: any, price?: number, exp?: string) => {
       if(!movementModal) return;
       const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); 
@@ -259,7 +247,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
                 </button>
                 <div className="flex gap-1 items-center">
                     <button onClick={() => setShowManual(true)} className="p-2 text-slate-500 dark:text-slate-400 hover:text-emerald-500 transition-colors"><HelpCircle className="w-5 h-5" /></button>
-                    <button onClick={() => requestSecureAction(() => setShowData(true))} className="p-2 text-orange-600 hover:text-orange-400 transition-colors"><Database className="w-5 h-5" /></button>
+                    <button onClick={() => setShowData(true)} className="p-2 text-orange-600 hover:text-orange-400 transition-colors"><Database className="w-5 h-5" /></button>
                     <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-1.5 bg-slate-200 dark:bg-slate-800 rounded-full border border-slate-300 dark:border-slate-700 active:scale-95 transition-all">
                       {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-700" />}
                     </button>
@@ -353,7 +341,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
 
       {/* MODALS LAYER */}
       <div className="z-[100] relative">
-          {secureAction && <SecurityModal existingPin={data?.adminPin} onSuccess={handlePinSuccess} onClose={() => setSecureAction(null)} />}
           {showManual && <ManualModal onClose={() => setShowManual(false)} />}
           {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={onShowNotification} onLoadDemoData={() => { actions.loadDemoData(); setShowData(false); }} />}
           
