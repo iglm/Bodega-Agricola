@@ -31,7 +31,7 @@ export const PayrollModal: React.FC<PayrollModalProps> = ({ logs, personnel, onM
   // CÁLCULO DE DEUDA GLOBAL INTELIGENTE
   // Suma el costo real individualmente dependiendo del tipo de contrato de cada persona
   const totalGlobalDebtReal = useMemo(() => {
-    return Object.entries(debtByPerson).reduce((acc, [personId, amount]) => {
+    return Object.entries(debtByPerson).reduce((acc: number, [personId, amount]) => {
         const person = personnel.find(p => p.id === personId);
         // Si es Prestación de Servicios, el factor es 1.0 (Sin carga prestacional empresa)
         // Si es Laboral u otro, aplica el factor configurado (ej: 1.52)
