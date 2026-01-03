@@ -230,6 +230,7 @@ export interface CostCenter {
   productionArea?: number;
   stage: 'Produccion' | 'Levante' | 'Infraestructura'; 
   cropType: string;
+  variety?: string;
   associatedCrop?: string;
   budget?: number;
   coordinates?: { lat: number; lng: number };
