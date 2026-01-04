@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Tractor, Package, Target, CalendarRange, Sprout, ClipboardList, Bug, Leaf, 
@@ -132,28 +131,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
     }
   }, [currentTab]);
 
-  // --- MEMOIZED DATA SLICES (Performance Optimization) ---
-  const activeInventory = useMemo(() => data.inventory.filter(i => i.warehouseId === activeId), [data.inventory, activeId]);
-  const activeCostCenters = useMemo(() => data.costCenters.filter(c => c.warehouseId === activeId), [data.costCenters, activeId]);
-  const activeLaborLogs = useMemo(() => data.laborLogs.filter(l => l.warehouseId === activeId), [data.laborLogs, activeId]);
-  const activeHarvests = useMemo(() => data.harvests.filter(h => h.warehouseId === activeId), [data.harvests, activeId]);
-  const activeMovements = useMemo(() => data.movements.filter(m => m.warehouseId === activeId), [data.movements, activeId]);
-  const activePlannedLabors = useMemo(() => data.plannedLabors ? data.plannedLabors.filter(l => l.warehouseId === activeId) : [], [data.plannedLabors, activeId]);
-  const activeActivities = useMemo(() => data.activities.filter(a => a.warehouseId === activeId), [data.activities, activeId]);
-  const activePersonnel = useMemo(() => data.personnel.filter(p => p.warehouseId === activeId), [data.personnel, activeId]);
-  const activeSuppliers = useMemo(() => data.suppliers.filter(s => s.warehouseId === activeId), [data.suppliers, activeId]);
+  // --- MEMOIZED DATA SLICES (Defensive filtering to prevent crashes) ---
+  const activeInventory = useMemo(() => (data.inventory || []).filter(i => i.warehouseId === activeId), [data.inventory, activeId]);
+  const activeCostCenters = useMemo(() => (data.costCenters || []).filter(c => c.warehouseId === activeId), [data.costCenters, activeId]);
+  const activeLaborLogs = useMemo(() => (data.laborLogs || []).filter(l => l.warehouseId === activeId), [data.laborLogs, activeId]);
+  const activeHarvests = useMemo(() => (data.harvests || []).filter(h => h.warehouseId === activeId), [data.harvests, activeId]);
+  const activeMovements = useMemo(() => (data.movements || []).filter(m => m.warehouseId === activeId), [data.movements, activeId]);
+  const activePlannedLabors = useMemo(() => (data.plannedLabors || []).filter(l => l.warehouseId === activeId), [data.plannedLabors, activeId]);
+  const activeActivities = useMemo(() => (data.activities || []).filter(a => a.warehouseId === activeId), [data.activities, activeId]);
+  const activePersonnel = useMemo(() => (data.personnel || []).filter(p => p.warehouseId === activeId), [data.personnel, activeId]);
+  const activeSuppliers = useMemo(() => (data.suppliers || []).filter(s => s.warehouseId === activeId), [data.suppliers, activeId]);
   const activeBudgets = useMemo(() => data.budgets || [], [data.budgets]); 
-  const activeMachines = useMemo(() => data.machines.filter(m => m.warehouseId === activeId), [data.machines, activeId]);
-  const activeMaintenance = useMemo(() => data.maintenanceLogs.filter(m => m.warehouseId === activeId), [data.maintenanceLogs, activeId]);
-  const activeRain = useMemo(() => data.rainLogs.filter(r => r.warehouseId === activeId), [data.rainLogs, activeId]);
-  const activeSoil = useMemo(() => data.soilAnalyses.filter(s => s.warehouseId === activeId), [data.soilAnalyses, activeId]);
-  const activePPE = useMemo(() => data.ppeLogs.filter(p => p.warehouseId === activeId), [data.ppeLogs, activeId]);
-  const activeWaste = useMemo(() => data.wasteLogs.filter(w => w.warehouseId === activeId), [data.wasteLogs, activeId]);
-  const activeAssets = useMemo(() => data.assets.filter(a => a.warehouseId === activeId), [data.assets, activeId]);
-  const activePhenology = useMemo(() => data.phenologyLogs.filter(l => l.warehouseId === activeId), [data.phenologyLogs, activeId]);
-  const activePests = useMemo(() => data.pestLogs.filter(l => l.warehouseId === activeId), [data.pestLogs, activeId]);
-  const activeAgenda = useMemo(() => data.agenda.filter(a => a.warehouseId === activeId), [data.agenda, activeId]);
-  const activeFinance = useMemo(() => data.financeLogs.filter(f => f.warehouseId === activeId), [data.financeLogs, activeId]);
+  const activeMachines = useMemo(() => (data.machines || []).filter(m => m.warehouseId === activeId), [data.machines, activeId]);
+  const activeMaintenance = useMemo(() => (data.maintenanceLogs || []).filter(m => m.warehouseId === activeId), [data.maintenanceLogs, activeId]);
+  const activeRain = useMemo(() => (data.rainLogs || []).filter(r => r.warehouseId === activeId), [data.rainLogs, activeId]);
+  const activeSoil = useMemo(() => (data.soilAnalyses || []).filter(s => s.warehouseId === activeId), [data.soilAnalyses, activeId]);
+  const activePPE = useMemo(() => (data.ppeLogs || []).filter(p => p.warehouseId === activeId), [data.ppeLogs, activeId]);
+  const activeWaste = useMemo(() => (data.wasteLogs || []).filter(w => w.warehouseId === activeId), [data.wasteLogs, activeId]);
+  const activeAssets = useMemo(() => (data.assets || []).filter(a => a.warehouseId === activeId), [data.assets, activeId]);
+  const activePhenology = useMemo(() => (data.phenologyLogs || []).filter(l => l.warehouseId === activeId), [data.phenologyLogs, activeId]);
+  const activePests = useMemo(() => (data.pestLogs || []).filter(l => l.warehouseId === activeId), [data.pestLogs, activeId]);
+  const activeAgenda = useMemo(() => (data.agenda || []).filter(a => a.warehouseId === activeId), [data.agenda, activeId]);
+  const activeFinance = useMemo(() => (data.financeLogs || []).filter(f => f.warehouseId === activeId), [data.financeLogs, activeId]);
 
   // --- STABLE CALLBACKS FOR DASHBOARD ---
   const handleDashboardAddMovement = useCallback((i: InventoryItem, t: 'IN' | 'OUT') => {
@@ -163,7 +162,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const handleDashboardDelete = useCallback((id: string) => {
     // Direct delete request (no PIN)
     setData(current => {
-        const item = current.inventory.find(i => i.id === id);
+        const item = (current.inventory || []).find(i => i.id === id);
         if (item) setDeleteItem(item);
         return current; 
     });
@@ -181,7 +180,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const handleAddCostCenterQuick = (name: string) => {
       setData(prev => ({
           ...prev,
-          costCenters: [...prev.costCenters, {
+          costCenters: [...(prev.costCenters || []), {
               id: generateId(), warehouseId: activeId, name,
               area: 0, stage: 'Produccion', cropType: 'Café', plantCount: 0 
           }]
@@ -192,7 +191,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const handleAddPersonnelQuick = (name: string) => {
       setData(prev => ({
           ...prev,
-          personnel: [...prev.personnel, {
+          personnel: [...(prev.personnel || []), {
               id: generateId(), warehouseId: activeId, name, role: 'Trabajador'
           }]
       }));
@@ -202,7 +201,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const handleAddSupplierQuick = (name: string, taxId?: string, creditDays?: number) => {
       setData(prev => ({
           ...prev,
-          suppliers: [...prev.suppliers, { 
+          suppliers: [...(prev.suppliers || []), { 
               id: generateId(), warehouseId: activeId, name, taxId, creditDays
           }]
       }));
@@ -212,7 +211,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const handleAddActivityQuick = (name: string, classification: CostClassification = 'JOINT') => {
       setData(prev => ({
           ...prev,
-          activities: [...prev.activities, {
+          activities: [...(prev.activities || []), {
               id: generateId(), warehouseId: activeId, name, costClassification: classification
           }]
       }));
@@ -221,11 +220,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
 
   const handleSaveMovement = (mov: any, price?: number, exp?: string) => {
       if(!movementModal) return;
-      const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); 
+      const { updatedInventory, movementCost } = processInventoryMovement(data.inventory || [], mov, price, exp); 
       setData(prev => ({ 
           ...prev, 
           inventory: updatedInventory, 
-          movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] 
+          movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...(prev.movements || [])] 
       })); 
       setMovementModal(null);
   };
@@ -320,19 +319,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
             />
         )}
         
-        {currentTab === 'lots' && <LotManagementView costCenters={activeCostCenters} laborLogs={activeLaborLogs} movements={activeMovements} harvests={activeHarvests} plannedLabors={activePlannedLabors} onUpdateLot={actions.updateCostCenter} onAddPlannedLabor={actions.addPlannedLabor} activities={activeActivities} onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety}]}))} onDeleteCostCenter={actions.deleteCostCenter} />}
+        {currentTab === 'lots' && <LotManagementView costCenters={activeCostCenters} laborLogs={activeLaborLogs} movements={activeMovements} harvests={activeHarvests} plannedLabors={activePlannedLabors} onUpdateLot={actions.updateCostCenter} onAddPlannedLabor={actions.addPlannedLabor} activities={activeActivities} onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety, pid) => setData(prev=>({...prev, costCenters:[...(prev.costCenters || []),{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety, parentId: pid}]}))} onDeleteCostCenter={actions.deleteCostCenter} />}
 
-        {currentTab === 'labor' && <LaborView laborLogs={activeLaborLogs} personnel={activePersonnel} costCenters={activeCostCenters} activities={activeActivities} onAddLabor={() => setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
+        {currentTab === 'labor' && <LaborView laborLogs={activeLaborLogs} personnel={activePersonnel} costCenters={activeCostCenters} activities={activeActivities} onAddLabor={() => setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: (prev.laborLogs || []).filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
         
-        {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={activePlannedLabors} costCenters={activeCostCenters} activities={activeActivities} personnel={activePersonnel} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} onAddActivity={handleAddActivityQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} budgets={activeBudgets} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} />}
+        {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={activePlannedLabors} costCenters={activeCostCenters} activities={activeActivities} personnel={activePersonnel} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: (prev.plannedLabors || []).filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: (prev.plannedLabors || []).map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} onAddActivity={handleAddActivityQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} budgets={activeBudgets} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} />}
         
-        {currentTab === 'sanitary' && <SanitaryView costCenters={activeCostCenters} pestLogs={activePests} onSaveLog={(l)=>setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...l, id: generateId(), warehouseId: activeId}]}))} />}
+        {/* Fixed duplicate pestLogs attribute below */}
+        {currentTab === 'sanitary' && <SanitaryView costCenters={activeCostCenters} pestLogs={activePests} onSaveLog={(l)=>setData(prev=>({...prev, pestLogs: [...(prev.pestLogs || []), {...l, id: generateId(), warehouseId: activeId}]}))} />}
 
-        {currentTab === 'harvest' && <HarvestView harvests={activeHarvests} costCenters={activeCostCenters} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} onAddCostCenter={handleAddCostCenterQuick} isAdmin={true} allMovements={data.movements} />}
-        {currentTab === 'management' && <ManagementView machines={activeMachines} maintenanceLogs={activeMaintenance} rainLogs={activeRain} costCenters={activeCostCenters} personnel={activePersonnel} activities={activeActivities} soilAnalyses={activeSoil} ppeLogs={activePPE} wasteLogs={activeWaste} assets={activeAssets} bpaChecklist={data.bpaChecklist} phenologyLogs={activePhenology} pestLogs={activePests} onAddMachine={(m) => setData(prev=>({...prev, machines: [...prev.machines, {...m, id: generateId(), warehouseId: activeId}]}))} onUpdateMachine={(m) => setData(prev=>({...prev, machines: prev.machines.map(x=>x.id===m.id?m:x)}))} onAddMaintenance={(m) => setData(prev=>({...prev, maintenanceLogs: [...prev.maintenanceLogs, {...m, id: generateId(), warehouseId: activeId}]}))} onDeleteMachine={(id) => setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r) => setData(prev=>({...prev, rainLogs: [...prev.rainLogs, {...r, id: generateId(), warehouseId: activeId}]}))} onDeleteRain={(id) => setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s) => setData(prev=>({...prev, soilAnalyses: [...prev.soilAnalyses, {...s, id: generateId(), warehouseId: activeId}]}))} onDeleteSoilAnalysis={(id) => setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p) => setData(prev=>({...prev, ppeLogs: [...prev.ppeLogs, {...p, id: generateId(), warehouseId: activeId}]}))} onDeletePPE={(id) => setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w) => setData(prev=>({...prev, wasteLogs: [...prev.wasteLogs, {...w, id: generateId(), warehouseId: activeId}]}))} onDeleteWaste={(id) => setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={(a) => setData(prev=>({...prev, assets: [...prev.assets, {...a, id: generateId(), warehouseId: activeId}]}))} onDeleteAsset={(id) => setData(prev=>({...prev, assets: prev.assets.filter(a=>a.id!==id)}))} onToggleBpa={(code) => setData(prev=>({...prev, bpaChecklist: {...prev.bpaChecklist, [code]: !prev.bpaChecklist[code]}}))} onAddPhenologyLog={(log) => setData(prev=>({...prev, phenologyLogs: [...prev.phenologyLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePhenologyLog={(id) => setData(prev=>({...prev, phenologyLogs: prev.phenologyLogs.filter(l=>l.id!==id)}))} onAddPestLog={(log) => setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePestLog={(id) => setData(prev=>({...prev, pestLogs: prev.pestLogs.filter(l=>l.id!==id)}))} isAdmin={true} />}
+        {currentTab === 'harvest' && <HarvestView harvests={activeHarvests} costCenters={activeCostCenters} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...(prev.harvests || []), {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: (prev.harvests || []).filter(h=>h.id !== id)}))} onAddCostCenter={handleAddCostCenterQuick} isAdmin={true} allMovements={data.movements} />}
+        {currentTab === 'management' && <ManagementView machines={activeMachines} maintenanceLogs={activeMaintenance} rainLogs={activeRain} costCenters={activeCostCenters} personnel={activePersonnel} activities={activeActivities} soilAnalyses={activeSoil} ppeLogs={activePPE} wasteLogs={activeWaste} assets={activeAssets} bpaChecklist={data.bpaChecklist} phenologyLogs={activePhenology} pestLogs={activePests} onAddMachine={(m) => setData(prev=>({...prev, machines: [...(prev.machines || []), {...m, id: generateId(), warehouseId: activeId}]}))} onUpdateMachine={(m) => setData(prev=>({...prev, machines: (prev.machines || []).map(x=>x.id===m.id?m:x)}))} onAddMaintenance={(m) => setData(prev=>({...prev, maintenanceLogs: [...(prev.maintenanceLogs || []), {...m, id: generateId(), warehouseId: activeId}]}))} onDeleteMachine={(id) => setData(prev=>({...prev, machines: (prev.machines || []).filter(m=>m.id!==id)}))} onAddRain={(r) => setData(prev=>({...prev, rainLogs: [...(prev.rainLogs || []), {...r, id: generateId(), warehouseId: activeId}]}))} onDeleteRain={(id) => setData(prev=>({...prev, rainLogs: (prev.rainLogs || []).filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s) => setData(prev=>({...prev, soilAnalyses: [...(prev.soilAnalyses || []), {...s, id: generateId(), warehouseId: activeId}]}))} onDeleteSoilAnalysis={(id) => setData(prev=>({...prev, soilAnalyses: (prev.soilAnalyses || []).filter(s=>s.id!==id)}))} onAddPPE={(p) => setData(prev=>({...prev, ppeLogs: [...(prev.ppeLogs || []), {...p, id: generateId(), warehouseId: activeId}]}))} onDeletePPE={(id) => setData(prev=>({...prev, ppeLogs: (prev.ppeLogs || []).filter(p=>p.id!==id)}))} onAddWaste={(w) => setData(prev=>({...prev, wasteLogs: [...(prev.wasteLogs || []), {...w, id: generateId(), warehouseId: activeId}]}))} onDeleteWaste={(id) => setData(prev=>({...prev, wasteLogs: (prev.wasteLogs || []).filter(w=>w.id!==id)}))} onAddAsset={(a) => setData(prev=>({...prev, assets: [...(prev.assets || []), {...a, id: generateId(), warehouseId: activeId}]}))} onDeleteAsset={(id) => setData(prev=>({...prev, assets: (prev.assets || []).filter(a=>a.id!==id)}))} onToggleBpa={(code) => setData(prev=>({...prev, bpaChecklist: {...prev.bpaChecklist, [code]: !prev.bpaChecklist[code]}}))} onAddPhenologyLog={(log) => setData(prev=>({...prev, phenologyLogs: [...(prev.phenologyLogs || []), {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePhenologyLog={(id) => setData(prev=>({...prev, phenologyLogs: (prev.phenologyLogs || []).filter(l=>l.id!==id)}))} onAddPestLog={(log) => setData(prev=>({...prev, pestLogs: [...(prev.pestLogs || []), {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePestLog={(id) => setData(prev=>({...prev, pestLogs: (prev.pestLogs || []).filter(l=>l.id!==id)}))} isAdmin={true} />}
         {currentTab === 'assets' && <BiologicalAssetsView costCenters={activeCostCenters} movements={activeMovements} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} onUpdateLot={actions.updateCostCenter} />}
         {currentTab === 'budget' && <BudgetView budgets={activeBudgets} costCenters={activeCostCenters} activities={activeActivities} inventory={activeInventory} warehouseId={activeId} onSaveBudget={actions.saveBudget} laborLogs={activeLaborLogs} movements={activeMovements} laborFactor={data.laborFactor} onAddCostCenter={handleAddCostCenterQuick} />}
-        {currentTab === 'agenda' && <AgendaView agenda={activeAgenda} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
+        {currentTab === 'agenda' && <AgendaView agenda={activeAgenda} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...(prev.agenda || []), { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: (prev.agenda || []).map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: (prev.agenda || []).filter(a => a.id !== id) }))} />}
         {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={activeMovements} suppliers={activeSuppliers} costCenters={activeCostCenters} laborLogs={activeLaborLogs} harvests={activeHarvests} maintenanceLogs={activeMaintenance} rainLogs={activeRain} machines={activeMachines} budgets={activeBudgets} plannedLabors={activePlannedLabors} />}
         
         {/* Floating Buttons */}
@@ -356,25 +356,25 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
                 activities={activeActivities} 
                 fullState={data} 
                 onUpdateState={(newState) => setData(newState)} 
-                onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} 
-                onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} 
-                onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety, pid) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety, parentId: pid}]}))} 
+                onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...(prev.suppliers || []),{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} 
+                onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: (prev.suppliers || []).filter(s=>s.id!==id)}))} 
+                onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety, pid) => setData(prev=>({...prev, costCenters:[...(prev.costCenters || []),{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety, parentId: pid}]}))} 
                 onDeleteCostCenter={actions.deleteCostCenter} 
-                onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} 
+                onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...(prev.personnel || []),{...p, id:generateId(),warehouseId:activeId}]}))} 
                 onDeletePersonnel={actions.deletePersonnel} 
-                onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} 
+                onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...(prev.activities || []),{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} 
                 onDeleteActivity={actions.deleteActivity} 
                 onClose={handleCloseSettings} 
             />
           )}
 
-          {showPayroll && data && <PayrollModal logs={activeLaborLogs} personnel={activePersonnel} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: prev.laborLogs.map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
+          {showPayroll && data && <PayrollModal logs={activeLaborLogs} personnel={activePersonnel} warehouseName={currentW?.name || ""} laborFactor={data.laborFactor} onMarkAsPaid={(ids) => setData(prev => ({ ...prev, laborLogs: (prev.laborLogs || []).map(l => ids.includes(l.id) ? { ...l, paid: true } : l) }))} onClose={() => setShowPayroll(false)} />}
           {showAddForm && data && <InventoryForm suppliers={activeSuppliers} inventory={activeInventory} onSave={(item, qty, details, unit) => { actions.saveNewItem(item, qty, details, unit); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} onAddSupplier={handleAddSupplierQuick} />}
           {movementModal && data && <MovementModal item={movementModal.item} type={movementModal.type} suppliers={activeSuppliers} costCenters={activeCostCenters} personnel={activePersonnel} onSave={handleSaveMovement} onCancel={() => setMovementModal(null)} onAddSupplier={handleAddSupplierQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} />}
-          {historyItem && data && <HistoryModal item={historyItem} movements={data.movements.filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
+          {historyItem && data && <HistoryModal item={historyItem} movements={(data.movements || []).filter(m => m.itemId === historyItem.id)} onClose={() => setHistoryItem(null)} />}
           {showGlobalHistory && data && <HistoryModal item={{ name: 'Historial Bodega Global' } as any} movements={activeMovements} onClose={() => setShowGlobalHistory(false)} />}
-          {deleteItem && <DeleteModal itemName={deleteItem.name} onConfirm={() => { setData(prev => ({ ...prev, inventory: prev.inventory.filter(i => i.id !== deleteItem.id), movements: prev.movements.filter(m => m.itemId !== deleteItem.id) })); setDeleteItem(null); }} onCancel={() => setDeleteItem(null)} />}
-          {showWarehouses && data && <WarehouseModal warehouses={data.warehouses} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...prev.warehouses, {id: generateId(), name: n, created: new Date().toISOString(), ownerId: session?.id || 'local_user'}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: prev.warehouses.filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
+          {deleteItem && <DeleteModal itemName={deleteItem.name} onConfirm={() => { setData(prev => ({ ...prev, inventory: (prev.inventory || []).filter(i => i.id !== deleteItem.id), movements: (prev.movements || []).filter(m => m.itemId !== deleteItem.id) })); setDeleteItem(null); }} onCancel={() => setDeleteItem(null)} />}
+          {showWarehouses && data && <WarehouseModal warehouses={data.warehouses || []} activeId={activeId} onSwitch={(id) => setData(prev=>({...prev, activeWarehouseId: id}))} onCreate={(n) => setData(prev=>({...prev, warehouses: [...(prev.warehouses || []), {id: generateId(), name: n, created: new Date().toISOString(), ownerId: session?.id || 'local_user'}]}))} onDelete={(id) => setData(prev=>({...prev, warehouses: (prev.warehouses || []).filter(w=>w.id!==id)}))} onClose={() => setShowWarehouses(false)} />}
           {showExport && data && <ExportModal 
               onClose={() => setShowExport(false)}
               onExportExcel={() => { generateExcel(data); localStorage.setItem('LAST_BACKUP_TIMESTAMP', new Date().toISOString()); }}
@@ -395,7 +395,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
               costCenters={activeCostCenters} 
               activities={activeActivities} 
               onSave={(log) => { 
-                setData(prev => ({ ...prev, laborLogs: [...prev.laborLogs, { ...log, id: generateId(), warehouseId: activeId, paid: false }] })); 
+                setData(prev => ({ ...prev, laborLogs: [...(prev.laborLogs || []), { ...log, id: generateId(), warehouseId: activeId, paid: false }] })); 
                 setShowLaborForm(false); 
                 onShowNotification("Jornal registrado correctamente", 'success'); 
               }} 

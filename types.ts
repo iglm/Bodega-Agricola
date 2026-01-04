@@ -37,6 +37,9 @@ export interface InventoryItem {
   safetyIntervalDays?: number;
 }
 
+/** Tipo estricto para creación de nuevos productos */
+export type NewInventoryItem = Omit<InventoryItem, 'id' | 'currentQuantity' | 'baseUnit' | 'warehouseId' | 'averageCost'>;
+
 export interface Movement {
   id: string;
   warehouseId: string;
@@ -109,18 +112,14 @@ export interface Personnel {
   role: string;
   documentId?: string;
   phone?: string;
-  
-  // New Fields
   age?: number;
   eps?: string;
   emergencyPhone?: string;
   emergencyRelation?: string;
-  
   contractType?: ContractType;
   contractEndDate?: string;
   contractDurationValue?: number;
   contractDurationUnit?: 'DIAS' | 'MESES' | 'INDEFINIDO';
-  
   salary?: number;
 }
 
@@ -151,6 +150,9 @@ export interface LaborLog {
   jornalesEquivalent?: number;
   performanceYieldHaJornal?: number;
 }
+
+/** Tipo estricto para registro de nuevas labores */
+export type LaborInput = Omit<LaborLog, 'id' | 'warehouseId' | 'paid'>;
 
 export interface HarvestLog {
   id: string;
@@ -282,7 +284,6 @@ export interface PestLog {
   notes?: string;
 }
 
-// NUEVA INTERFAZ: PLANIFICACIÓN DE LABORES
 export interface PlannedLabor {
   id: string;
   warehouseId: string;
@@ -291,19 +292,13 @@ export interface PlannedLabor {
   activityName: string;
   costCenterId: string;
   costCenterName: string;
-  
-  // Parámetros Técnicos
-  targetArea: number;       // Área a intervenir
-  technicalYield: number;   // Rendimiento esperado (Ha/Jornal)
-  unitCost: number;         // Costo estimado por Jornal
-  efficiency: number;       // Factor de eficiencia (0-100%)
-  
-  // Cálculos Automáticos
-  calculatedPersonDays: number; // Jornales necesarios
+  targetArea: number;
+  technicalYield: number;
+  unitCost: number;
+  efficiency: number;
+  calculatedPersonDays: number;
   calculatedHours?: number;
   calculatedTotalCost: number;
-  
-  // Asignación
   assignedPersonnelIds?: string[];
   completed: boolean;
   notes?: string;
@@ -390,9 +385,7 @@ export interface AppState {
   agenda: AgendaEvent[];
   phenologyLogs: PhenologyLog[];
   pestLogs: PestLog[];
-  
-  plannedLabors: PlannedLabor[]; // Nuevo array de estado
-  
+  plannedLabors: PlannedLabor[];
   budgets: BudgetPlan[];
   assets: Asset[];
   bpaChecklist: Record<string, boolean>;
