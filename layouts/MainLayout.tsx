@@ -142,6 +142,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       setMovementModal(null);
   };
 
+  const handleCloseSettings = () => {
+    setShowSettings(false);
+  };
+
   // --- RENDER HELPERS ---
   const renderSubTabs = (options: {id: string, label: string, icon: any}[]) => (
       <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-2xl gap-2 overflow-x-auto scrollbar-hide mb-6 border border-slate-200 dark:border-slate-800 sticky top-16 z-20 backdrop-blur-sm">
@@ -373,7 +377,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
                 onUpdateState={(newState) => setData(newState)} 
                 onAddSupplier={(n,p,e,a) => setData(prev=>({...prev, suppliers:[...prev.suppliers,{id:generateId(),warehouseId:activeId,name:n,phone:p,email:e,address:a}]}))} 
                 onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} 
-                onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety}]}))} 
+                onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety, pid) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety, parentId: pid}]}))} 
                 onDeleteCostCenter={actions.deleteCostCenter} 
                 onAddPersonnel={handleAddPersonnelQuick} 
                 onDeletePersonnel={actions.deletePersonnel} 
