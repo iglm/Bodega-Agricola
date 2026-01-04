@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, Sprout, Briefcase, PieChart, Clipboard, ShieldCheck, Thermometer, Shield, FileCheck, ArrowRight, FileDown, Layers, MapPin, Table, Book, BarChart4, Archive, Users, Tractor, DollarSign, Printer } from 'lucide-react';
+import React, { useRef } from 'react';
+import { X, FileSpreadsheet, FileText, Download, Sprout, Briefcase, PieChart, Clipboard, ShieldCheck, Thermometer, Shield, FileCheck, ArrowRight, FileDown, Layers, MapPin, Table, Book, BarChart4, Archive, Users, Tractor, DollarSign, Printer, Upload } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { generateExcel, exportFieldSheet } from '../services/reportService';
 
@@ -33,8 +33,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     onExportStructurePDF,
     onExportStructureExcel
 }) => {
-  const { data } = useData();
+  const { data, setData } = useData();
   const activeW = data.warehouses.find(w => w.id === data.activeWarehouseId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportCostNotebook = () => {
       generateExcel(data);
@@ -42,6 +43,65 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleExportFieldSheet = () => {
       exportFieldSheet(data.personnel, activeW?.name || 'Sede Principal');
+  };
+
+  // Función unificada: Genera el JSON exacto que pide el Restore
+  const handleDownloadFullBackup = () => {
+      try {
+          const warehouseName = activeW ? activeW.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'finca';
+          const dateStr = new Date().toISOString().split('T')[0];
+          const fileName = `Backup_AgroBodega_${warehouseName}_${dateStr}.json`;
+
+          const jsonString = JSON.stringify(data, null, 2);
+          const blob = new Blob([jsonString], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          
+          // Marca de seguridad
+          localStorage.setItem('LAST_BACKUP_TIMESTAMP', new Date().toISOString());
+      } catch (error) {
+          console.error("Error generando backup:", error);
+          alert("Error al generar el archivo de respaldo.");
+      }
+  };
+
+  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("⚠️ ATENCIÓN: Al restaurar una copia de seguridad, SE SOBRESCRIBIRÁN TODOS LOS DATOS ACTUALES de este dispositivo.\n\n¿Está seguro de continuar con la importación?")) {
+        // Reset input so change event can fire again if user cancels and tries same file
+        e.target.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        
+        // Validación básica de integridad
+        if (!json.inventory || !json.costCenters || !Array.isArray(json.inventory)) {
+            throw new Error("El archivo no tiene el formato de backup válido.");
+        }
+
+        setData(json);
+        alert("✅ Copia de seguridad restaurada exitosamente.");
+        onClose();
+      } catch (err) {
+        console.error(err);
+        alert("❌ Error al restaurar: El archivo está corrupto o no es compatible.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -105,12 +165,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         </div>
                     </div>
 
-                    <div onClick={onExportExcel} className="bg-slate-800 hover:bg-slate-750 p-6 rounded-[2rem] border border-slate-700 hover:border-slate-600 cursor-pointer transition-all group flex items-start gap-4">
+                    {/* BACKUP COMPLETO (JSON) */}
+                    <div onClick={handleDownloadFullBackup} className="bg-slate-800 hover:bg-slate-750 p-6 rounded-[2rem] border border-slate-700 hover:border-slate-600 cursor-pointer transition-all group flex items-start gap-4">
                         <div className="p-3 bg-slate-900 rounded-2xl text-slate-400 group-hover:text-white group-hover:bg-slate-600 transition-colors"><Archive className="w-6 h-6"/></div>
                         <div>
-                            <h5 className="font-bold text-white text-base">Backup Completo (Raw)</h5>
-                            <p className="text-xs text-slate-400 mt-1">Exportación bruta de base de datos para análisis externo.</p>
+                            <h5 className="font-bold text-white text-base">Backup Completo (JSON)</h5>
+                            <p className="text-xs text-slate-400 mt-1">Descargar archivo compatible para restaurar.</p>
                         </div>
+                    </div>
+
+                    {/* RESTAURAR BACKUP */}
+                    <div onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-750 p-6 rounded-[2rem] border border-slate-700 hover:border-slate-600 cursor-pointer transition-all group flex items-start gap-4">
+                        <div className="p-3 bg-slate-900 rounded-2xl text-blue-400 group-hover:text-white group-hover:bg-blue-600 transition-colors"><Upload className="w-6 h-6"/></div>
+                        <div>
+                            <h5 className="font-bold text-white text-base">Cargar / Restaurar Backup</h5>
+                            <p className="text-xs text-slate-400 mt-1">Subir archivo .json y restaurar datos en la app.</p>
+                        </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            onChange={handleRestore} 
+                            accept=".json" 
+                            className="hidden" 
+                        />
                     </div>
                 </div>
             </div>
