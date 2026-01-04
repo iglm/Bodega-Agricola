@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Tractor, Package, Target, CalendarRange, Sprout, ClipboardList, Bug, Leaf, 
   Briefcase, Pickaxe, Calculator, Database, Lightbulb, Settings, LayoutGrid, 
-  Settings2, Globe, ChevronDown, HelpCircle, Sun, Moon, Download, Plus 
+  Settings2, Globe, ChevronDown, HelpCircle, Sun, Moon, Download, Plus,
+  LayoutDashboard, Users, Wallet, BarChart3, Menu, X as XIcon, MoreHorizontal
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,71 +40,32 @@ import { DeleteModal } from '../components/DeleteModal';
 import { PayrollModal } from '../components/PayrollModal';
 import { LaborSchedulerView } from '../components/LaborSchedulerView';
 import { LaborForm } from '../components/LaborForm'; 
+import { FinanceView } from '../components/FinanceView';
 import { InventoryItem, CostClassification, Personnel } from '../types';
 
 interface MainLayoutProps {
   onShowNotification: (msg: string, type: 'success' | 'error') => void;
 }
 
-// Navigation Structure Definition
-const NAV_GROUPS = [
-  {
-    id: 'operativo',
-    label: 'Operativo',
-    icon: Tractor,
-    colorClass: 'text-emerald-500',
-    activeClass: 'bg-emerald-500 text-white',
-    items: [
-      { id: 'inventory', label: 'Bodega', icon: Package },
-      { id: 'harvest', label: 'Ventas', icon: Target },
-      { id: 'scheduler', label: 'Programar', icon: CalendarRange },
-    ]
-  },
-  {
-    id: 'agronomia',
-    label: 'Campo',
-    icon: Sprout,
-    colorClass: 'text-blue-500',
-    activeClass: 'bg-blue-500 text-white',
-    items: [
-      { id: 'management', label: 'Bitácora', icon: ClipboardList },
-      { id: 'sanitary', label: 'Sanidad', icon: Bug },
-      { id: 'assets', label: 'Activos', icon: Leaf },
-    ]
-  },
-  {
-    id: 'gerencia',
-    label: 'Gestión',
-    icon: Briefcase,
-    colorClass: 'text-amber-500',
-    activeClass: 'bg-amber-500 text-white',
-    items: [
-      { id: 'labor', label: 'Nómina', icon: Pickaxe },
-      { id: 'budget', label: 'Presupuesto', icon: Calculator },
-      { id: 'stats', label: 'KPIs', icon: Database },
-      { id: 'simulator', label: 'Simulador', icon: Lightbulb },
-    ]
-  },
-  {
-    id: 'admin',
-    label: 'Config',
-    icon: Settings,
-    colorClass: 'text-slate-500',
-    activeClass: 'bg-slate-700 text-white',
-    items: [
-      { id: 'lots', label: 'Mapa Lotes', icon: LayoutGrid },
-      { id: 'masters', label: 'Maestros', icon: Settings2 },
-    ]
-  }
-];
-
 export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) => {
   const { data, setData, actions } = useData();
   const { session } = useAuth();
   const { theme, toggleTheme } = useTheme();
   
-  const [currentTab, setCurrentTab] = useState('inventory');
-  const [activeGroup, setActiveGroup] = useState('operativo');
+  // --- NAVIGATION STATE ---
+  const [activeModule, setActiveModule] = useState<'RESUMEN' | 'BODEGA' | 'CAMPO' | 'NOMINA' | 'GERENCIA'>('RESUMEN');
+  const [subTab, setSubTab] = useState<string>('default');
+
+  // Reset subtab when module changes
+  useEffect(() => {
+      switch(activeModule) {
+          case 'RESUMEN': setSubTab('dashboard'); break;
+          case 'BODEGA': setSubTab('inventory'); break;
+          case 'CAMPO': setSubTab('lots'); break;
+          case 'NOMINA': setSubTab('labor'); break;
+          case 'GERENCIA': setSubTab('finance'); break;
+      }
+  }, [activeModule]);
   
   // UI States (Modals)
   const [showAddForm, setShowAddForm] = useState(false);
@@ -124,15 +86,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const activeId = data.activeWarehouseId;
   const currentW = useMemo(() => data.warehouses.find(w => w.id === activeId), [data.warehouses, activeId]);
 
-  // Sync active group with currentTab if changed externally
-  useEffect(() => {
-    const foundGroup = NAV_GROUPS.find(g => g.items.some(item => item.id === currentTab));
-    if (foundGroup && foundGroup.id !== activeGroup) {
-      setActiveGroup(foundGroup.id);
-    }
-  }, [currentTab]);
-
-  // --- MEMOIZED DATA SLICES (Performance Optimization) ---
+  // --- MEMOIZED DATA SLICES ---
   const activeInventory = useMemo(() => data.inventory.filter(i => i.warehouseId === activeId), [data.inventory, activeId]);
   const activeCostCenters = useMemo(() => data.costCenters.filter(c => c.warehouseId === activeId), [data.costCenters, activeId]);
   const activeLaborLogs = useMemo(() => data.laborLogs.filter(l => l.warehouseId === activeId), [data.laborLogs, activeId]);
@@ -153,208 +107,263 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
   const activePhenology = useMemo(() => data.phenologyLogs.filter(l => l.warehouseId === activeId), [data.phenologyLogs, activeId]);
   const activePests = useMemo(() => data.pestLogs.filter(l => l.warehouseId === activeId), [data.pestLogs, activeId]);
   const activeAgenda = useMemo(() => data.agenda.filter(a => a.warehouseId === activeId), [data.agenda, activeId]);
+  const activeFinance = useMemo(() => data.financeLogs.filter(f => f.warehouseId === activeId), [data.financeLogs, activeId]);
 
-  // --- STABLE CALLBACKS FOR DASHBOARD ---
-  const handleDashboardAddMovement = useCallback((i: InventoryItem, t: 'IN' | 'OUT') => {
-    setMovementModal({item: i, type: t});
-  }, []);
-
+  // --- CALLBACKS ---
+  const handleDashboardAddMovement = useCallback((i: InventoryItem, t: 'IN' | 'OUT') => setMovementModal({item: i, type: t}), []);
   const handleDashboardDelete = useCallback((id: string) => {
-    // Direct delete request (no PIN)
-    setData(current => {
-        const item = current.inventory.find(i => i.id === id);
-        if (item) setDeleteItem(item);
-        return current; 
-    });
-  }, [setData]);
-
-  const handleDashboardHistory = useCallback((item: InventoryItem) => {
-    setHistoryItem(item);
-  }, []);
-
-  const handleDashboardGlobalHistory = useCallback(() => {
-    setShowGlobalHistory(true);
-  }, []);
+    const item = data.inventory.find(i => i.id === id);
+    if (item) setDeleteItem(item);
+  }, [data.inventory]);
+  const handleDashboardHistory = useCallback((item: InventoryItem) => setHistoryItem(item), []);
+  const handleDashboardGlobalHistory = useCallback(() => setShowGlobalHistory(true), []);
 
   // --- QUICK ADD HANDLERS ---
   const handleAddCostCenterQuick = (name: string) => {
-      setData(prev => ({
-          ...prev,
-          costCenters: [...prev.costCenters, {
-              id: generateId(), warehouseId: activeId, name,
-              area: 0, stage: 'Produccion', cropType: 'Café', plantCount: 0 
-          }]
-      }));
-      onShowNotification(`Lote "${name}" creado. Edite detalles en Configuración.`, 'success');
+      setData(prev => ({ ...prev, costCenters: [...prev.costCenters, { id: generateId(), warehouseId: activeId, name, area: 0, stage: 'Produccion', cropType: 'Café', plantCount: 0 }] }));
+      onShowNotification(`Lote "${name}" creado.`, 'success');
   };
-
-  const handleAddPersonnelQuick = (person: string | Omit<Personnel, 'id' | 'warehouseId'>) => {
-      // Backward compatibility for string input from simple forms
-      const newPerson = typeof person === 'string' 
-          ? { name: person, role: 'Trabajador' } 
-          : person;
-
-      setData(prev => ({
-          ...prev,
-          personnel: [...prev.personnel, {
-              ...newPerson,
-              id: generateId(), warehouseId: activeId
-          }]
-      }));
-      onShowNotification(`Trabajador "${newPerson.name}" registrado.`, 'success');
+  const handleAddPersonnelQuick = (name: string) => {
+      setData(prev => ({ ...prev, personnel: [...prev.personnel, { id: generateId(), warehouseId: activeId, name, role: 'Trabajador' }] }));
+      onShowNotification(`Trabajador "${name}" registrado.`, 'success');
   };
-
   const handleAddSupplierQuick = (name: string, taxId?: string, creditDays?: number) => {
-      setData(prev => ({
-          ...prev,
-          suppliers: [...prev.suppliers, { 
-              id: generateId(), warehouseId: activeId, name, taxId, creditDays
-          }]
-      }));
+      setData(prev => ({ ...prev, suppliers: [...prev.suppliers, { id: generateId(), warehouseId: activeId, name, taxId, creditDays }] }));
       onShowNotification(`Proveedor "${name}" añadido.`, 'success');
   };
-
   const handleAddActivityQuick = (name: string, classification: CostClassification = 'JOINT') => {
-      setData(prev => ({
-          ...prev,
-          activities: [...prev.activities, {
-              id: generateId(), warehouseId: activeId, name, costClassification: classification
-          }]
-      }));
+      setData(prev => ({ ...prev, activities: [...prev.activities, { id: generateId(), warehouseId: activeId, name, costClassification: classification }] }));
       onShowNotification(`Labor "${name}" creada.`, 'success');
   };
-
   const handleSaveMovement = (mov: any, price?: number, exp?: string) => {
       if(!movementModal) return;
       const { updatedInventory, movementCost } = processInventoryMovement(data.inventory, mov, price, exp); 
-      setData(prev => ({ 
-          ...prev, 
-          inventory: updatedInventory, 
-          movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] 
-      })); 
+      setData(prev => ({ ...prev, inventory: updatedInventory, movements: [{ ...mov, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), calculatedCost: movementCost }, ...prev.movements] })); 
       setMovementModal(null);
   };
 
-  const handleCloseSettings = () => {
-    setShowSettings(false);
-    if (currentTab === 'masters') {
-      setCurrentTab('inventory'); 
-    }
-  };
+  // --- RENDER HELPERS ---
+  const renderSubTabs = (options: {id: string, label: string, icon: any}[]) => (
+      <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-2xl gap-2 overflow-x-auto scrollbar-hide mb-6 border border-slate-200 dark:border-slate-800 sticky top-16 z-20 backdrop-blur-sm">
+          {options.map(opt => (
+              <button 
+                  key={opt.id}
+                  onClick={() => setSubTab(opt.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase whitespace-nowrap transition-all ${subTab === opt.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+              >
+                  <opt.icon className="w-3.5 h-3.5" />
+                  {opt.label}
+              </button>
+          ))}
+      </div>
+  );
 
   return (
     <>
-      {/* HEADER & NAV */}
-      <header className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border-b-2 border-slate-300 dark:border-slate-800 sticky top-0 z-40 px-4 py-2 pt-10 sm:pt-2">
-        <div className="max-w-4xl mx-auto flex flex-col gap-2">
-            
-            {/* Top Bar: Farm Selector & Tools */}
-            <div className="flex justify-between items-center mb-1">
-                <button onClick={() => setShowWarehouses(true)} className="flex items-center gap-2 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-                    <div className="p-1.5 bg-emerald-600 rounded-lg shadow-lg"><Globe className="w-4 h-4 text-white" /></div>
-                    <div className="text-left"><h1 className="text-sm font-black flex items-center gap-1 text-slate-900 dark:text-white">DatosFinca Viva <ChevronDown className="w-3 h-3" /></h1><span className="text-[9px] text-slate-500 uppercase font-black">{currentW?.name || 'Seleccionar Finca'}</span></div>
-                </button>
-                <div className="flex gap-1 items-center">
-                    <button onClick={() => setShowManual(true)} className="p-2 text-slate-500 dark:text-slate-400 hover:text-emerald-500 transition-colors"><HelpCircle className="w-5 h-5" /></button>
-                    <button onClick={() => setShowData(true)} className="p-2 text-orange-600 hover:text-orange-400 transition-colors"><Database className="w-5 h-5" /></button>
-                    <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-1.5 bg-slate-200 dark:bg-slate-800 rounded-full border border-slate-300 dark:border-slate-700 active:scale-95 transition-all">
-                      {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-700" />}
-                    </button>
+      {/* 1. HEADER MINIMALISTA */}
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-3 pt-safe-top">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+            <button onClick={() => setShowWarehouses(true)} className="flex items-center gap-3 group">
+                <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center text-white group-active:scale-95 transition-transform">
+                    <Globe className="w-5 h-5" />
                 </div>
+                <div className="text-left">
+                    <h1 className="text-sm font-black text-slate-900 dark:text-white leading-none">AgroBodega <span className="text-emerald-500">Pro</span></h1>
+                    <div className="flex items-center gap-1 mt-0.5">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{currentW?.name || 'Seleccionar Finca'}</p>
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                    </div>
+                </div>
+            </button>
+            <div className="flex items-center gap-2">
+                <button onClick={toggleTheme} className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-amber-500 transition-colors">
+                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
+                <button onClick={() => setShowSettings(true)} className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-500 transition-colors">
+                    <Settings className="w-4 h-4" />
+                </button>
             </div>
-
-            {/* Level 1: Category Groups (Segmented) */}
-            <div className="flex bg-slate-200 dark:bg-slate-950 p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-hide">
-                {NAV_GROUPS.map(group => (
-                    <button 
-                        key={group.id}
-                        onClick={() => setActiveGroup(group.id)}
-                        className={`flex-1 min-w-[80px] py-2 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all ${activeGroup === group.id ? `shadow-md ${group.activeClass}` : `text-slate-500 hover:text-slate-700 dark:hover:text-slate-300`}`}
-                    >
-                        <group.icon className="w-4 h-4" />
-                        {group.label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Level 2: Specific Actions (Animated Fade In) */}
-            <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl gap-2 overflow-x-auto scrollbar-hide border border-slate-300 dark:border-slate-800 animate-fade-in key={activeGroup}">
-                {NAV_GROUPS.find(g => g.id === activeGroup)?.items.map(tab => (
-                    <button 
-                        key={tab.id} 
-                        onClick={() => setCurrentTab(tab.id)} 
-                        className={`flex-1 min-w-[90px] py-3 rounded-xl text-[10px] font-black uppercase flex flex-col items-center gap-1 transition-all ${currentTab === tab.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-emerald-400 shadow-md ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
-                    >
-                        <tab.icon className={`w-5 h-5 ${currentTab === tab.id ? 'text-emerald-500' : 'text-slate-400'}`} />
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
         </div>
       </header>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="max-w-4xl mx-auto p-4 pb-40">
-        {currentTab === 'inventory' && (
-            <Dashboard 
-                inventory={activeInventory} 
-                costCenters={activeCostCenters} 
-                movements={activeMovements}
-                personnel={activePersonnel}
-                machines={activeMachines}
-                maintenanceLogs={activeMaintenance}
-                suppliers={activeSuppliers}
-                onAddMovement={handleDashboardAddMovement} 
-                onDelete={handleDashboardDelete} 
-                onViewHistory={handleDashboardHistory} 
-                onViewGlobalHistory={handleDashboardGlobalHistory} 
-                onOpenExport={() => setShowExport(true)}
-                onNavigate={(tabId) => {
-                    // Logic to switch tabs from Dashboard Widget
-                    const foundGroup = NAV_GROUPS.find(g => g.items.some(item => item.id === tabId));
-                    if (foundGroup) {
-                        setActiveGroup(foundGroup.id);
-                        setCurrentTab(tabId);
-                    } else if (tabId === 'masters') {
-                        // Special handling for settings modal trigger
-                        setShowSettings(true);
-                    }
-                }}
-                isAdmin={true} 
-            />
+      {/* 2. MAIN CONTENT AREA */}
+      <main className="max-w-5xl mx-auto p-4 pb-32 min-h-screen">
+        
+        {/* --- MODULE: RESUMEN (HOME) --- */}
+        {activeModule === 'RESUMEN' && (
+            <div className="animate-fade-in">
+                <StatsView 
+                    laborFactor={data.laborFactor} 
+                    movements={activeMovements} 
+                    suppliers={activeSuppliers} 
+                    costCenters={activeCostCenters} 
+                    laborLogs={activeLaborLogs} 
+                    harvests={activeHarvests} 
+                    maintenanceLogs={activeMaintenance} 
+                    rainLogs={activeRain} 
+                    machines={activeMachines} 
+                    budgets={activeBudgets} 
+                    plannedLabors={activePlannedLabors} 
+                />
+            </div>
         )}
-        
-        {currentTab === 'lots' && <LotManagementView costCenters={activeCostCenters} laborLogs={activeLaborLogs} movements={activeMovements} harvests={activeHarvests} plannedLabors={activePlannedLabors} onUpdateLot={actions.updateCostCenter} onAddPlannedLabor={actions.addPlannedLabor} activities={activeActivities} onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety}]}))} onDeleteCostCenter={actions.deleteCostCenter} />}
 
-        {currentTab === 'labor' && <LaborView laborLogs={activeLaborLogs} personnel={activePersonnel} costCenters={activeCostCenters} activities={activeActivities} onAddLabor={() => setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
-        
-        {currentTab === 'scheduler' && <LaborSchedulerView plannedLabors={activePlannedLabors} costCenters={activeCostCenters} activities={activeActivities} personnel={activePersonnel} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} onAddActivity={handleAddActivityQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} budgets={activeBudgets} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} />}
-        
-        {currentTab === 'sanitary' && <SanitaryView costCenters={activeCostCenters} pestLogs={activePests} onSaveLog={(l)=>setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...l, id: generateId(), warehouseId: activeId}]}))} />}
+        {/* --- MODULE: BODEGA (OPERATIVO) --- */}
+        {activeModule === 'BODEGA' && (
+            <div className="animate-fade-in">
+                {renderSubTabs([
+                    { id: 'inventory', label: 'Inventario', icon: Package },
+                    { id: 'harvest', label: 'Ventas Cosecha', icon: Target },
+                    { id: 'history', label: 'Kárdex Global', icon: ClipboardList }
+                ])}
+                
+                {subTab === 'inventory' && (
+                    <Dashboard 
+                        inventory={activeInventory} 
+                        costCenters={activeCostCenters} 
+                        movements={activeMovements}
+                        personnel={activePersonnel}
+                        machines={activeMachines}
+                        maintenanceLogs={activeMaintenance}
+                        suppliers={activeSuppliers}
+                        onAddMovement={handleDashboardAddMovement} 
+                        onDelete={handleDashboardDelete} 
+                        onViewHistory={handleDashboardHistory} 
+                        onViewGlobalHistory={handleDashboardGlobalHistory} 
+                        onOpenExport={() => setShowExport(true)}
+                        isAdmin={true} 
+                    />
+                )}
+                {subTab === 'harvest' && (
+                    <HarvestView harvests={activeHarvests} costCenters={activeCostCenters} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} onAddCostCenter={handleAddCostCenterQuick} isAdmin={true} allMovements={data.movements} />
+                )}
+                {subTab === 'history' && (
+                    <div className="text-center py-10">
+                        <button onClick={() => setShowGlobalHistory(true)} className="bg-slate-800 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs flex items-center gap-2 mx-auto">
+                            <ClipboardList className="w-4 h-4" /> Abrir Historial Completo
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
 
-        {currentTab === 'harvest' && <HarvestView harvests={activeHarvests} costCenters={activeCostCenters} onAddHarvest={(h)=>setData(prev=>({...prev, harvests: [...prev.harvests, {...h, id: generateId(), warehouseId: activeId}]}))} onDeleteHarvest={(id) => setData(prev=>({...prev, harvests: prev.harvests.filter(h=>h.id !== id)}))} onAddCostCenter={handleAddCostCenterQuick} isAdmin={true} allMovements={data.movements} />}
-        {currentTab === 'simulator' && <SimulatorView />} 
-        {currentTab === 'management' && <ManagementView machines={activeMachines} maintenanceLogs={activeMaintenance} rainLogs={activeRain} costCenters={activeCostCenters} personnel={activePersonnel} activities={activeActivities} soilAnalyses={activeSoil} ppeLogs={activePPE} wasteLogs={activeWaste} assets={activeAssets} bpaChecklist={data.bpaChecklist} phenologyLogs={activePhenology} pestLogs={activePests} onAddMachine={(m) => setData(prev=>({...prev, machines: [...prev.machines, {...m, id: generateId(), warehouseId: activeId}]}))} onUpdateMachine={(m) => setData(prev=>({...prev, machines: prev.machines.map(x=>x.id===m.id?m:x)}))} onAddMaintenance={(m) => setData(prev=>({...prev, maintenanceLogs: [...prev.maintenanceLogs, {...m, id: generateId(), warehouseId: activeId}]}))} onDeleteMachine={(id) => setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r) => setData(prev=>({...prev, rainLogs: [...prev.rainLogs, {...r, id: generateId(), warehouseId: activeId}]}))} onDeleteRain={(id) => setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s) => setData(prev=>({...prev, soilAnalyses: [...prev.soilAnalyses, {...s, id: generateId(), warehouseId: activeId}]}))} onDeleteSoilAnalysis={(id) => setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p) => setData(prev=>({...prev, ppeLogs: [...prev.ppeLogs, {...p, id: generateId(), warehouseId: activeId}]}))} onDeletePPE={(id) => setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w) => setData(prev=>({...prev, wasteLogs: [...prev.wasteLogs, {...w, id: generateId(), warehouseId: activeId}]}))} onDeleteWaste={(id) => setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={(a) => setData(prev=>({...prev, assets: [...prev.assets, {...a, id: generateId(), warehouseId: activeId}]}))} onDeleteAsset={(id) => setData(prev=>({...prev, assets: prev.assets.filter(a=>a.id!==id)}))} onToggleBpa={(code) => setData(prev=>({...prev, bpaChecklist: {...prev.bpaChecklist, [code]: !prev.bpaChecklist[code]}}))} onAddPhenologyLog={(log) => setData(prev=>({...prev, phenologyLogs: [...prev.phenologyLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePhenologyLog={(id) => setData(prev=>({...prev, phenologyLogs: prev.phenologyLogs.filter(l=>l.id!==id)}))} onAddPestLog={(log) => setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePestLog={(id) => setData(prev=>({...prev, pestLogs: prev.pestLogs.filter(l=>l.id!==id)}))} isAdmin={true} />}
-        {currentTab === 'assets' && <BiologicalAssetsView costCenters={activeCostCenters} movements={activeMovements} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} onUpdateLot={actions.updateCostCenter} />}
-        {currentTab === 'budget' && <BudgetView budgets={activeBudgets} costCenters={activeCostCenters} activities={activeActivities} inventory={activeInventory} warehouseId={activeId} onSaveBudget={actions.saveBudget} laborLogs={activeLaborLogs} movements={activeMovements} laborFactor={data.laborFactor} onAddCostCenter={handleAddCostCenterQuick} />}
-        {currentTab === 'agenda' && <AgendaView agenda={activeAgenda} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
-        {currentTab === 'stats' && <StatsView laborFactor={data.laborFactor} movements={activeMovements} suppliers={activeSuppliers} costCenters={activeCostCenters} laborLogs={activeLaborLogs} harvests={activeHarvests} maintenanceLogs={activeMaintenance} rainLogs={activeRain} machines={activeMachines} budgets={activeBudgets} plannedLabors={activePlannedLabors} />}
-        
-        {/* Floating Buttons */}
-        <div className="fixed bottom-6 left-6 flex gap-2 z-30">
-            <button onClick={() => setShowExport(true)} className="p-4 bg-slate-800 text-white rounded-3xl shadow-2xl border-2 border-slate-600 active:scale-90 transition-all"><Download className="w-6 h-6" /></button>
-        </div>
-        {currentTab === 'inventory' && <button onClick={() => setShowAddForm(true)} className="fixed bottom-6 right-6 bg-emerald-600 text-white p-5 rounded-3xl shadow-2xl border-2 border-emerald-400 active:scale-95 transition-all z-30 mr-20 sm:mr-0"><Plus className="w-8 h-8" /></button>}
+        {/* --- MODULE: CAMPO (AGRONOMIA) --- */}
+        {activeModule === 'CAMPO' && (
+            <div className="animate-fade-in">
+                {renderSubTabs([
+                    { id: 'lots', label: 'Lotes', icon: LayoutGrid },
+                    { id: 'scheduler', label: 'Programación', icon: CalendarRange },
+                    { id: 'sanitary', label: 'Sanidad', icon: Bug },
+                    { id: 'weather', label: 'Bitácora', icon: Leaf },
+                    { id: 'assets', label: 'Activos', icon: Sprout },
+                ])}
+
+                {subTab === 'lots' && <LotManagementView costCenters={activeCostCenters} laborLogs={activeLaborLogs} movements={activeMovements} harvests={activeHarvests} plannedLabors={activePlannedLabors} onUpdateLot={actions.updateCostCenter} onAddPlannedLabor={actions.addPlannedLabor} activities={activeActivities} onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety, pid) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety, parentId: pid}]}))} onDeleteCostCenter={actions.deleteCostCenter} />}
+                {subTab === 'scheduler' && <LaborSchedulerView plannedLabors={activePlannedLabors} costCenters={activeCostCenters} activities={activeActivities} personnel={activePersonnel} onAddPlannedLabor={actions.addPlannedLabor} onDeletePlannedLabor={(id) => setData(prev=>({...prev, plannedLabors: prev.plannedLabors.filter(l=>l.id!==id)}))} onToggleComplete={(id)=>setData(prev=>({...prev, plannedLabors: prev.plannedLabors.map(l=>l.id===id?{...l, completed:!l.completed}:l)}))} onAddActivity={handleAddActivityQuick} onAddCostCenter={handleAddCostCenterQuick} onAddPersonnel={handleAddPersonnelQuick} budgets={activeBudgets} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} />}
+                {subTab === 'sanitary' && <SanitaryView costCenters={activeCostCenters} pestLogs={activePests} onSaveLog={(l)=>setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...l, id: generateId(), warehouseId: activeId}]}))} />}
+                {subTab === 'weather' && <ManagementView machines={activeMachines} maintenanceLogs={activeMaintenance} rainLogs={activeRain} costCenters={activeCostCenters} personnel={activePersonnel} activities={activeActivities} soilAnalyses={activeSoil} ppeLogs={activePPE} wasteLogs={activeWaste} assets={activeAssets} bpaChecklist={data.bpaChecklist} phenologyLogs={activePhenology} pestLogs={activePests} onAddMachine={(m) => setData(prev=>({...prev, machines: [...prev.machines, {...m, id: generateId(), warehouseId: activeId}]}))} onUpdateMachine={(m) => setData(prev=>({...prev, machines: prev.machines.map(x=>x.id===m.id?m:x)}))} onAddMaintenance={(m) => setData(prev=>({...prev, maintenanceLogs: [...prev.maintenanceLogs, {...m, id: generateId(), warehouseId: activeId}]}))} onDeleteMachine={(id) => setData(prev=>({...prev, machines: prev.machines.filter(m=>m.id!==id)}))} onAddRain={(r) => setData(prev=>({...prev, rainLogs: [...prev.rainLogs, {...r, id: generateId(), warehouseId: activeId}]}))} onDeleteRain={(id) => setData(prev=>({...prev, rainLogs: prev.rainLogs.filter(r=>r.id!==id)}))} onAddSoilAnalysis={(s) => setData(prev=>({...prev, soilAnalyses: [...prev.soilAnalyses, {...s, id: generateId(), warehouseId: activeId}]}))} onDeleteSoilAnalysis={(id) => setData(prev=>({...prev, soilAnalyses: prev.soilAnalyses.filter(s=>s.id!==id)}))} onAddPPE={(p) => setData(prev=>({...prev, ppeLogs: [...prev.ppeLogs, {...p, id: generateId(), warehouseId: activeId}]}))} onDeletePPE={(id) => setData(prev=>({...prev, ppeLogs: prev.ppeLogs.filter(p=>p.id!==id)}))} onAddWaste={(w) => setData(prev=>({...prev, wasteLogs: [...prev.wasteLogs, {...w, id: generateId(), warehouseId: activeId}]}))} onDeleteWaste={(id) => setData(prev=>({...prev, wasteLogs: prev.wasteLogs.filter(w=>w.id!==id)}))} onAddAsset={(a) => setData(prev=>({...prev, assets: [...prev.assets, {...a, id: generateId(), warehouseId: activeId}]}))} onDeleteAsset={(id) => setData(prev=>({...prev, assets: prev.assets.filter(a=>a.id!==id)}))} onToggleBpa={(code) => setData(prev=>({...prev, bpaChecklist: {...prev.bpaChecklist, [code]: !prev.bpaChecklist[code]}}))} onAddPhenologyLog={(log) => setData(prev=>({...prev, phenologyLogs: [...prev.phenologyLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePhenologyLog={(id) => setData(prev=>({...prev, phenologyLogs: prev.phenologyLogs.filter(l=>l.id!==id)}))} onAddPestLog={(log) => setData(prev=>({...prev, pestLogs: [...prev.pestLogs, {...log, id: generateId(), warehouseId: activeId}]}))} onDeletePestLog={(id) => setData(prev=>({...prev, pestLogs: prev.pestLogs.filter(l=>l.id!==id)}))} isAdmin={true} />}
+                {subTab === 'assets' && <BiologicalAssetsView costCenters={activeCostCenters} movements={activeMovements} laborLogs={activeLaborLogs} laborFactor={data.laborFactor} onUpdateLot={actions.updateCostCenter} />}
+            </div>
+        )}
+
+        {/* --- MODULE: NOMINA --- */}
+        {activeModule === 'NOMINA' && (
+            <div className="animate-fade-in">
+                {renderSubTabs([
+                    { id: 'labor', label: 'Jornales', icon: Pickaxe },
+                    { id: 'agenda', label: 'Agenda', icon: CalendarRange },
+                ])}
+                {subTab === 'labor' && <LaborView laborLogs={activeLaborLogs} personnel={activePersonnel} costCenters={activeCostCenters} activities={activeActivities} onAddLabor={() => setShowLaborForm(true)} onDeleteLabor={(id) => setData(prev=>({...prev, laborLogs: prev.laborLogs.filter(l=>l.id!==id)}))} isAdmin={true} onOpenPayroll={()=>setShowPayroll(true)} />}
+                {subTab === 'agenda' && <AgendaView agenda={activeAgenda} onAddEvent={(e) => setData(prev => ({ ...prev, agenda: [...prev.agenda, { ...e, id: generateId(), warehouseId: activeId, date: new Date().toISOString(), completed: false }] }))} onToggleEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.map(a => a.id === id ? { ...a, completed: !a.completed } : a) }))} onDeleteEvent={(id) => setData(prev => ({ ...prev, agenda: prev.agenda.filter(a => a.id !== id) }))} />}
+            </div>
+        )}
+
+        {/* --- MODULE: GERENCIA --- */}
+        {activeModule === 'GERENCIA' && (
+            <div className="animate-fade-in">
+                {renderSubTabs([
+                    { id: 'finance', label: 'Caja Menor', icon: Wallet },
+                    { id: 'budget', label: 'Presupuesto', icon: Calculator },
+                    { id: 'simulator', label: 'Simulador', icon: Lightbulb },
+                    { id: 'config', label: 'Avanzado', icon: Settings },
+                ])}
+                {subTab === 'finance' && <FinanceView financeLogs={activeFinance} onAddTransaction={(t) => setData(prev => ({...prev, financeLogs: [...prev.financeLogs, {...t, id: generateId(), warehouseId: activeId}]}))} onDeleteTransaction={(id) => setData(prev => ({...prev, financeLogs: prev.financeLogs.filter(f => f.id !== id)}))} />}
+                {subTab === 'budget' && <BudgetView budgets={activeBudgets} costCenters={activeCostCenters} activities={activeActivities} inventory={activeInventory} warehouseId={activeId} onSaveBudget={actions.saveBudget} laborLogs={activeLaborLogs} movements={activeMovements} laborFactor={data.laborFactor} onAddCostCenter={handleAddCostCenterQuick} />}
+                {subTab === 'simulator' && <SimulatorView />}
+                {subTab === 'config' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button onClick={() => setShowSettings(true)} className="p-6 bg-slate-800 rounded-3xl border border-slate-700 hover:border-indigo-500 group transition-all text-left">
+                            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Settings2 className="w-6 h-6 text-white"/></div>
+                            <h3 className="text-white font-black uppercase text-sm">Configuración Maestra</h3>
+                            <p className="text-slate-400 text-xs mt-1">Lotes, Personal y Labores</p>
+                        </button>
+                        <button onClick={() => setShowData(true)} className="p-6 bg-slate-800 rounded-3xl border border-slate-700 hover:border-orange-500 group transition-all text-left">
+                            <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Database className="w-6 h-6 text-white"/></div>
+                            <h3 className="text-white font-black uppercase text-sm">Centro de Datos</h3>
+                            <p className="text-slate-400 text-xs mt-1">Copias de Seguridad y Restauración</p>
+                        </button>
+                        <button onClick={() => setShowManual(true)} className="p-6 bg-slate-800 rounded-3xl border border-slate-700 hover:border-emerald-500 group transition-all text-left">
+                            <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><HelpCircle className="w-6 h-6 text-white"/></div>
+                            <h3 className="text-white font-black uppercase text-sm">Manual de Usuario</h3>
+                            <p className="text-slate-400 text-xs mt-1">Guías y Documentación</p>
+                        </button>
+                        <button onClick={() => setShowExport(true)} className="p-6 bg-slate-800 rounded-3xl border border-slate-700 hover:border-blue-500 group transition-all text-left">
+                            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Download className="w-6 h-6 text-white"/></div>
+                            <h3 className="text-white font-black uppercase text-sm">Exportar Reportes</h3>
+                            <p className="text-slate-400 text-xs mt-1">PDF y Excel</p>
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
+
       </main>
+
+      {/* 3. BOTTOM NAVIGATION BAR */}
+      <nav className="fixed bottom-6 left-4 right-4 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl z-50 px-2 py-3 flex justify-between items-center max-w-lg mx-auto">
+          {[
+              { id: 'RESUMEN', icon: LayoutDashboard, label: 'Inicio' },
+              { id: 'BODEGA', icon: Package, label: 'Bodega' },
+              { id: 'CAMPO', icon: Sprout, label: 'Campo' },
+              { id: 'NOMINA', icon: Users, label: 'Nómina' },
+              { id: 'GERENCIA', icon: BarChart3, label: 'Gestión' },
+          ].map((item) => (
+              <button 
+                  key={item.id}
+                  onClick={() => setActiveModule(item.id as any)}
+                  className={`flex flex-col items-center gap-1 w-full relative group transition-all duration-300 ${activeModule === item.id ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                  {/* Indicator Line */}
+                  {activeModule === item.id && (
+                      <span className="absolute -top-3 w-8 h-1 bg-emerald-500 rounded-b-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
+                  )}
+                  <item.icon className={`w-6 h-6 transition-transform ${activeModule === item.id ? 'scale-110 -translate-y-1' : ''}`} />
+                  <span className={`text-[9px] font-black uppercase tracking-tight ${activeModule === item.id ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
+              </button>
+          ))}
+      </nav>
+
+      {/* 4. CONTEXTUAL FLOATING ACTION BUTTON (FAB) */}
+      {/* Show context-specific add buttons above the nav bar */}
+      <div className="fixed bottom-28 right-6 z-40 flex flex-col gap-3">
+          {activeModule === 'BODEGA' && subTab === 'inventory' && (
+              <button onClick={() => setShowAddForm(true)} className="w-14 h-14 bg-emerald-600 rounded-2xl shadow-xl shadow-emerald-900/40 text-white flex items-center justify-center border-2 border-emerald-400 active:scale-95 transition-all animate-bounce-subtle">
+                  <Plus className="w-8 h-8" />
+              </button>
+          )}
+          {activeModule === 'NOMINA' && subTab === 'labor' && (
+              <button onClick={() => setShowLaborForm(true)} className="w-14 h-14 bg-amber-600 rounded-2xl shadow-xl shadow-amber-900/40 text-white flex items-center justify-center border-2 border-amber-400 active:scale-95 transition-all">
+                  <Plus className="w-8 h-8" />
+              </button>
+          )}
+      </div>
 
       {/* MODALS LAYER */}
       <div className="z-[100] relative">
           {showManual && <ManualModal onClose={() => setShowManual(false)} />}
           {showData && data && <DataModal fullState={data} onRestoreData={(d) => { setData(d); setShowData(false); }} onClose={() => setShowData(false)} onShowNotification={onShowNotification} onLoadDemoData={() => { actions.loadDemoData(); setShowData(false); }} />}
           
-          {/* Settings Modal (Activated by Button or Tab) */}
-          {(showSettings || currentTab === 'masters') && data && (
+          {(showSettings) && data && (
             <SettingsModal 
                 suppliers={activeSuppliers} 
                 costCenters={activeCostCenters} 
@@ -407,7 +416,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
               }} 
               onCancel={() => setShowLaborForm(false)} 
               onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} 
-              onAddPersonnel={(name) => handleAddPersonnelQuick({name, role: 'Trabajador'})}
+              onAddPersonnel={handleAddPersonnelQuick}
               onAddCostCenter={handleAddCostCenterQuick}
               onAddActivity={(name) => handleAddActivityQuick(name, 'JOINT')}
             />
