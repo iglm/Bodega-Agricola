@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { CostCenter, LaborLog, Movement, HarvestLog, PlannedLabor, Activity } from '../types';
+import { CostCenter, LaborLog, Movement, HarvestLog, PlannedLabor, Activity, RenovationRecord } from '../types';
 import { formatCurrency, formatNumberInput, parseNumberInput, convertToBase } from '../services/inventoryService';
 import { generateFarmStructurePDF, generateFarmStructureExcel } from '../services/reportService';
 import { parseSicaPdf } from '../services/sicaParserService';
@@ -10,7 +10,7 @@ import {
   ArrowRight, Leaf, Target, Plus, Trash2, Sun, Zap, ShieldCheck,
   FileText, FileSpreadsheet, Clock, AlertCircle, Flower2, AlignJustify,
   FileUp, RefreshCw, AlertOctagon, Calculator, MoveHorizontal, ArrowLeftRight,
-  LayoutGrid, Triangle, MousePointer2, RefreshCcw, Info, BookOpen
+  LayoutGrid, Triangle, MousePointer2, RefreshCcw, Info, BookOpen, Split, GitFork
 } from 'lucide-react';
 import { HeaderCard, Modal, EmptyState } from './UIElements';
 
@@ -23,7 +23,7 @@ interface LotManagementViewProps {
   onUpdateLot: (lot: CostCenter) => void;
   onAddPlannedLabor: (labor: any) => void; 
   activities: Activity[]; 
-  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string, cropAgeMonths?: number, associatedCropDensity?: number, associatedCropAge?: number, variety?: string) => void;
+  onAddCostCenter: (name: string, budget: number, area?: number, stage?: 'Produccion' | 'Levante' | 'Infraestructura', plantCount?: number, cropType?: string, associatedCrop?: string, cropAgeMonths?: number, associatedCropDensity?: number, associatedCropAge?: number, variety?: string, parentId?: string) => void;
   onDeleteCostCenter: (id: string) => void;
 }
 
@@ -45,9 +45,13 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // --- ZOCA TYPES STATE ---
+  // --- RENOVATION STATES ---
+  const [renovationScope, setRenovationScope] = useState<'TOTAL' | 'PARTIAL'>('TOTAL');
   const [zocaType, setZocaType] = useState<'TRADICIONAL' | 'PULMON' | 'CALAVERA'>('TRADICIONAL');
+  const [renovationMethod, setRenovationMethod] = useState<'ZOCA' | 'SIEMBRA'>('ZOCA');
   const [includeReseeding, setIncludeReseeding] = useState(false);
+  const [splitArea, setSplitArea] = useState('');
+  const [splitNameSuffix, setSplitNameSuffix] = useState('Renovado');
 
   // --- CREATE LOT STATES ---
   const [loteName, setLoteName] = useState('');
@@ -234,7 +238,8 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
         calculatedAge, 
         associatedCrop !== 'Ninguno' ? (parseNumberInput(associatedCropDensity) || 0) : undefined, 
         associatedCrop !== 'Ninguno' ? assocCalculatedAge : undefined,
-        loteVariety // Pass variety
+        loteVariety, // Pass variety
+        undefined // parentId
     );
     
     // Reset
@@ -336,50 +341,112 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       setIsEditing(false);
   };
 
-  const handleRenovation = (type: 'ZOCA' | 'SIEMBRA' | 'RENOVACION_SIEMBRA') => {
+  const handleRenovation = () => {
       if (!selectedLot) return;
       
+      // Calculate derived data
+      const currentArea = selectedLot.area || 0;
+      const currentDensity = currentArea > 0 ? (selectedLot.plantCount || 0) / currentArea : 0;
+      
+      const areaToSplit = parseNumberInput(splitArea);
+      
+      // Validation for Split
+      if (renovationScope === 'PARTIAL') {
+          if (areaToSplit <= 0 || areaToSplit >= currentArea) {
+              alert("El área a dividir debe ser menor al área total y mayor a 0.");
+              return;
+          }
+      }
+
       let detailMsg = '';
-      if (type === 'ZOCA') {
+      if (renovationMethod === 'ZOCA') {
           const zocaLabel = zocaType === 'TRADICIONAL' ? 'Tradicional (30cm)' : zocaType === 'PULMON' ? 'Pulmón' : 'Calavera';
           detailMsg = `Tipo: ${zocaLabel}. Se estima 18 meses para primera cosecha y ahorro del 50% en costos.`;
+      } else {
+          detailMsg = 'Sustitución completa de cultivo. Alta inversión inicial.';
+      }
+
+      // History Record
+      const renovationRecord: RenovationRecord = {
+          date: new Date().toISOString(),
+          type: renovationScope === 'PARTIAL' ? 'PARCIAL_SPLIT' : renovationMethod,
+          details: renovationScope === 'PARTIAL' 
+              ? `División de ${areaToSplit} Ha para renovación. Nuevo lote creado.`
+              : detailMsg,
+          previousAge: selectedLot.cropAgeMonths,
+          originalArea: currentArea,
+          splitArea: renovationScope === 'PARTIAL' ? areaToSplit : undefined
+      };
+
+      if (renovationScope === 'TOTAL') {
+          // TOTAL RENOVATION LOGIC
+          const updatedLot: CostCenter = {
+              ...selectedLot,
+              stage: 'Levante',
+              cropAgeMonths: 0,
+              activationDate: undefined,
+              assetValue: undefined,
+              accumulatedCapex: 0,
+              renovationHistory: [...(selectedLot.renovationHistory || []), renovationRecord]
+          };
+          onUpdateLot(updatedLot);
           
-          if (includeReseeding) {
-             const reseedingCount = Math.round((selectedLot.plantCount || 0) * 0.10);
+          if (includeReseeding && renovationMethod === 'ZOCA') {
+             // Add labor logic...
              onAddPlannedLabor({
-                 date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0], // Next month
+                 date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0],
                  activityName: 'Resiembra (10%)',
                  activityId: 'reseeding', 
                  costCenterId: selectedLot.id,
                  costCenterName: selectedLot.name,
                  targetArea: selectedLot.area,
-                 technicalYield: 50, // Approx
+                 technicalYield: 50,
                  unitCost: 0,
                  efficiency: 100,
                  calculatedPersonDays: 0,
                  calculatedTotalCost: 0,
-                 notes: `Resiembra obligatoria del 10% (${reseedingCount} árboles) sugerida por renovación Zoca.`
+                 notes: `Resiembra obligatoria del 10% sugerida por renovación Zoca.`
              });
-             detailMsg += " Se ha programado la tarea de Resiembra.";
           }
-      } else if (type === 'RENOVACION_SIEMBRA') {
-          detailMsg = 'Sustitución completa de cultivo. Alta inversión inicial. Se mantiene historial del lote.';
+          setSelectedLot(updatedLot);
+          alert(`Lote renovado totalmente. Regresó a etapa Levante.`);
+
       } else {
-          detailMsg = 'Siembra en lote nuevo (Expansión).';
+          // PARTIAL / SPLIT LOGIC
+          const remainingArea = currentArea - areaToSplit;
+          const remainingPlants = Math.round(remainingArea * currentDensity);
+          const newPlants = Math.round(areaToSplit * currentDensity);
+          
+          // 1. Update Original Lot (Shrink)
+          const updatedOriginal: CostCenter = {
+              ...selectedLot,
+              area: remainingArea,
+              plantCount: remainingPlants,
+              renovationHistory: [...(selectedLot.renovationHistory || []), renovationRecord]
+          };
+          onUpdateLot(updatedOriginal);
+
+          // 2. Create New Lot (The Renovated Part)
+          onAddCostCenter(
+              `${selectedLot.name} - ${splitNameSuffix}`, 
+              0, // Budget
+              areaToSplit, 
+              'Levante', // Starts fresh
+              newPlants, 
+              selectedLot.cropType, 
+              selectedLot.associatedCrop, 
+              0, // New Age 0
+              selectedLot.associatedCropDensity, 
+              selectedLot.associatedCropAge,
+              selectedLot.variety,
+              selectedLot.id // Link to Parent
+          );
+
+          alert(`División Exitosa.\nOriginal: ${remainingArea.toFixed(2)} Ha\nNuevo: ${areaToSplit.toFixed(2)} Ha (Renovado)`);
+          setSelectedLot(updatedOriginal);
       }
 
-      const updatedLot: CostCenter = {
-          ...selectedLot,
-          stage: 'Levante',
-          cropAgeMonths: 0, // Reset to 0 as specifically requested for Zoca/Renovation
-          activationDate: undefined,
-          assetValue: undefined,
-          accumulatedCapex: 0
-      };
-      onUpdateLot(updatedLot);
       setShowRenovateModal(false);
-      setSelectedLot(updatedLot);
-      alert(`Lote renovado vía ${type}. ${detailMsg} El lote ha regresado a etapa de Levante (Edad 0).`);
   };
 
   return (
@@ -418,22 +485,20 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
               
               // LÓGICA DE DENSIDAD VS CICLO
               const isHighDensity = density >= 5500;
-              // Ciclo Corto (Alta Densidad): 5-6 años (60-72 meses)
-              // Ciclo Largo (Baja Densidad): Hasta 8 años (96 meses)
               const maxAge = isHighDensity ? 72 : 96;
               const warningAge = isHighDensity ? 60 : 84;
               
               let needsRenovation = age >= warningAge;
-              
               const hasAssoc = lot.associatedCrop && lot.associatedCrop !== 'Ninguno';
-              
-              // Etapa fisiológica Café
               const mainStage = getPhenologicalStage(lot.cropType, age);
+              const isChild = !!lot.parentId;
 
               return (
                   <div key={lot.id} onClick={() => handleOpenLot(lot)} className={`bg-white dark:bg-slate-800 p-5 rounded-[2rem] border transition-all cursor-pointer hover:shadow-xl active:scale-95 group relative overflow-hidden ${needsRenovation ? 'border-amber-500/50' : isLevante ? 'border-blue-500/30' : 'border-slate-200 dark:border-slate-700'}`}>
                       {needsRenovation && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase flex items-center gap-1 z-10"><Clock className="w-3 h-3" /> Renovación Sugerida</div>}
-                      <div className="flex justify-between items-start mb-3">
+                      {isChild && <div className="absolute top-0 left-0 bg-indigo-500 text-white text-[8px] font-black px-3 py-1 rounded-br-xl uppercase flex items-center gap-1 z-10"><GitFork className="w-3 h-3" /> Sub-Lote</div>}
+                      
+                      <div className="flex justify-between items-start mb-3 pt-2">
                           <div className="flex items-center gap-3">
                               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md ${isLevante ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white'}`}>{isLevante ? <Sprout className="w-5 h-5" /> : <TreePine className="w-5 h-5" />}</div>
                               <div>
@@ -755,7 +820,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                       </div>
                       
                       <div className="bg-slate-100 dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-3">
-                          <button onClick={() => setShowRenovateModal(true)} className="py-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Sprout className="w-4 h-4" /> Renovar</button>
+                          <button onClick={() => setShowRenovateModal(true)} className="py-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Sprout className="w-4 h-4" /> Renovar / Dividir</button>
                           <button onClick={() => { if(confirm('¿Eliminar lote?')) { onDeleteCostCenter(selectedLot.id); setSelectedLot(null); } }} className="py-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-xl text-[10px] font-black uppercase transition-all flex flex-col items-center justify-center gap-1"><Trash2 className="w-4 h-4" /> Eliminar</button>
                       </div>
                   </div>
@@ -769,12 +834,34 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                               <p className="text-xl font-mono font-black text-blue-500">{lotMetrics.yield > 0 ? formatCurrency(lotMetrics.unitCost) : 'Sin Cosecha'}</p>
                           </div>
                       </div>
+                      
+                      {/* BITÁCORA Y RENOVACIONES */}
                       <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden flex flex-col">
                           <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
-                              <h4 className="font-black text-slate-700 dark:text-white text-sm uppercase flex items-center gap-2"><History className="w-4 h-4 text-indigo-500" /> Bitácora de Campo</h4>
+                              <h4 className="font-black text-slate-700 dark:text-white text-sm uppercase flex items-center gap-2"><History className="w-4 h-4 text-indigo-500" /> Trazabilidad</h4>
                           </div>
                           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 max-h-80">
-                              {lotHistory.length === 0 ? <EmptyState icon={Leaf} message="Sin registros" /> : lotHistory.map((item, idx) => (
+                              
+                              {/* Historial de Renovaciones */}
+                              {selectedLot.renovationHistory?.map((ren, idx) => (
+                                  <div key={`ren-${idx}`} className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 p-3 rounded-xl flex gap-3 items-start">
+                                      <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600">
+                                          {ren.type === 'PARCIAL_SPLIT' ? <Split className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />}
+                                      </div>
+                                      <div>
+                                          <div className="flex justify-between items-center w-full">
+                                              <p className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase">
+                                                  {ren.type === 'PARCIAL_SPLIT' ? 'División de Lote' : `Renovación ${ren.type}`}
+                                              </p>
+                                              <span className="text-[9px] text-slate-400 font-bold">{new Date(ren.date).toLocaleDateString()}</span>
+                                          </div>
+                                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{ren.details}</p>
+                                          {ren.previousAge && <span className="text-[8px] bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">Edad previa: {ren.previousAge} meses</span>}
+                                      </div>
+                                  </div>
+                              ))}
+
+                              {lotHistory.length === 0 ? <EmptyState icon={Leaf} message="Sin registros operativos" /> : lotHistory.map((item, idx) => (
                                   <div key={idx} className="flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                                       <div className={`p-2 rounded-lg bg-slate-100 dark:bg-slate-900 ${item.color}`}><item.icon className="w-4 h-4" /></div>
                                       <div className="flex-1"><p className="text-xs font-bold text-slate-800 dark:text-white">{item.title}</p><p className="text-[9px] text-slate-400 uppercase font-bold">{new Date(item.date).toLocaleDateString()}</p></div>
@@ -792,64 +879,113 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       <Modal isOpen={showRenovateModal} onClose={() => setShowRenovateModal(false)} title="Renovación de Lote" icon={Sprout} maxWidth="max-w-lg">
           <div className="space-y-6">
               
+              {/* Scope Selector */}
+              <div className="flex bg-slate-950 p-1 rounded-xl">
+                  <button 
+                      onClick={() => setRenovationScope('TOTAL')} 
+                      className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${renovationScope === 'TOTAL' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500'}`}
+                  >
+                      Renovación Total
+                  </button>
+                  <button 
+                      onClick={() => setRenovationScope('PARTIAL')} 
+                      className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${renovationScope === 'PARTIAL' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500'}`}
+                  >
+                      Parcial / Dividir
+                  </button>
+              </div>
+
+              {renovationScope === 'PARTIAL' && (
+                  <div className="bg-indigo-900/20 p-4 rounded-2xl border border-indigo-500/30 space-y-3 animate-fade-in">
+                      <h5 className="text-[10px] font-black text-indigo-400 uppercase flex items-center gap-2"><Split className="w-3 h-3"/> Configuración de División</h5>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                          <div>
+                              <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Área a Renovar (Ha)</label>
+                              <input type="text" inputMode="decimal" value={splitArea} onChange={e => setSplitArea(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono font-bold text-sm text-center" placeholder="0.0" />
+                          </div>
+                          <div>
+                              <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Nombre Nuevo Lote</label>
+                              <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-2">
+                                  <span className="text-[9px] text-slate-500 whitespace-nowrap">{selectedLot?.name} - </span>
+                                  <input type="text" value={splitNameSuffix} onChange={e => setSplitNameSuffix(e.target.value)} className="w-full bg-transparent border-none p-2 text-white font-bold text-xs outline-none" />
+                              </div>
+                          </div>
+                      </div>
+                      
+                      {parseNumberInput(splitArea) > 0 && selectedLot && (
+                          <div className="text-[9px] text-slate-400 text-center bg-slate-950 p-2 rounded-lg border border-slate-800">
+                              Lote Original: {(selectedLot.area - parseNumberInput(splitArea)).toFixed(2)} Ha (Queda)
+                              <br/>
+                              Nuevo Lote: {parseNumberInput(splitArea).toFixed(2)} Ha (Renovado a Levante)
+                          </div>
+                      )}
+                  </div>
+              )}
+
+              {/* TABS FOR METHOD */}
+              <div className="flex border-b border-slate-700 gap-4 mb-4">
+                  <button onClick={() => setRenovationMethod('ZOCA')} className={`pb-2 text-xs font-bold uppercase transition-colors ${renovationMethod === 'ZOCA' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500'}`}>Opción A: Zoca</button>
+                  <button onClick={() => setRenovationMethod('SIEMBRA')} className={`pb-2 text-xs font-bold uppercase transition-colors ${renovationMethod === 'SIEMBRA' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-slate-500'}`}>Opción B: Siembra</button>
+              </div>
+              
               {/* ZOCA SECTION WITH TECHNICAL DATA */}
-              <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                  <div className="flex justify-between items-center">
-                      <h5 className="text-sm text-slate-600 dark:text-white font-black uppercase flex items-center gap-2"><Scissors className="w-4 h-4 text-amber-500"/> Opción A: Zoca</h5>
-                      <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold uppercase border border-emerald-200">Ahorro ~53.5%</span>
-                  </div>
-                  
-                  {/* Technical Badge */}
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-500/20 flex gap-3 items-start">
-                      <BookOpen className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-blue-600 dark:text-blue-300 uppercase">Ficha Técnica Cenicafé</p>
-                          <ul className="text-[9px] text-slate-500 dark:text-slate-400 space-y-1 list-disc list-inside">
-                              <li>Tiempo a floración: <strong>11 meses</strong>.</li>
-                              <li>Tiempo a cosecha plena: <strong>18 meses</strong>.</li>
-                              <li>Ciclo productivo esperado: <strong>4 a 5 cosechas</strong>.</li>
-                          </ul>
+              {renovationMethod === 'ZOCA' ? (
+                  <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-fade-in">
+                      <div className="flex justify-between items-center">
+                          <h5 className="text-sm text-slate-600 dark:text-white font-black uppercase flex items-center gap-2"><Scissors className="w-4 h-4 text-amber-500"/> Zoca (Rebrote)</h5>
+                          <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold uppercase border border-emerald-200">Ahorro ~53.5%</span>
                       </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                      <button onClick={() => setZocaType('TRADICIONAL')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'TRADICIONAL' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Tradicional</button>
-                      <button onClick={() => setZocaType('PULMON')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'PULMON' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Pulmón</button>
-                      <button onClick={() => setZocaType('CALAVERA')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'CALAVERA' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Calavera</button>
-                  </div>
-                  
-                  {/* Reseeding Checkbox */}
-                  <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-emerald-500/50 transition-colors">
-                      <input 
-                          type="checkbox" 
-                          checked={includeReseeding} 
-                          onChange={e => setIncludeReseeding(e.target.checked)} 
-                          className="w-5 h-5 text-emerald-500 rounded focus:ring-emerald-500 border-gray-300"
-                      />
-                      <div>
-                          <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase">Programar Resiembra (10%)</p>
-                          <p className="text-[9px] text-slate-400">Compensar pérdidas por llaga macana.</p>
+                      
+                      {/* Technical Badge */}
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-500/20 flex gap-3 items-start">
+                          <BookOpen className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-300 uppercase">Ficha Técnica Cenicafé</p>
+                              <ul className="text-[9px] text-slate-500 dark:text-slate-400 space-y-1 list-disc list-inside">
+                                  <li>Tiempo a floración: <strong>11 meses</strong>.</li>
+                                  <li>Tiempo a cosecha plena: <strong>18 meses</strong>.</li>
+                                  <li>Ciclo productivo esperado: <strong>4 a 5 cosechas</strong>.</li>
+                              </ul>
+                          </div>
                       </div>
-                  </label>
 
-                  <button onClick={() => handleRenovation('ZOCA')} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black uppercase text-xs py-3 rounded-xl shadow-lg transition-all active:scale-95">
-                      Confirmar Zoca (Reiniciar a Levante)
-                  </button>
-              </div>
-
-              {/* RENOVATION BY SOWING SECTION */}
-              <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <div className="flex justify-between items-center mb-3">
-                      <h5 className="text-sm text-slate-600 dark:text-white font-black uppercase flex items-center gap-2"><RefreshCcw className="w-4 h-4 text-blue-500"/> Opción B: Renovación por Siembra</h5>
-                      <span className="text-[8px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold uppercase border border-blue-200">Alta Inversión</span>
+                      <div className="grid grid-cols-3 gap-2">
+                          <button onClick={() => setZocaType('TRADICIONAL')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'TRADICIONAL' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Tradicional</button>
+                          <button onClick={() => setZocaType('PULMON')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'PULMON' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Pulmón</button>
+                          <button onClick={() => setZocaType('CALAVERA')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'CALAVERA' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Calavera</button>
+                      </div>
+                      
+                      {/* Reseeding Checkbox */}
+                      <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-emerald-500/50 transition-colors">
+                          <input 
+                              type="checkbox" 
+                              checked={includeReseeding} 
+                              onChange={e => setIncludeReseeding(e.target.checked)} 
+                              className="w-5 h-5 text-emerald-500 rounded focus:ring-emerald-500 border-gray-300"
+                          />
+                          <div>
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase">Programar Resiembra (10%)</p>
+                              <p className="text-[9px] text-slate-400">Compensar pérdidas por llaga macana.</p>
+                          </div>
+                      </label>
                   </div>
-                  <p className="text-[9px] text-slate-500 mb-4 px-1">
-                      Eliminación total de plantas viejas y resiembra. Se conserva el historial del lote pero reinicia el ciclo biológico.
-                  </p>
-                  <button onClick={() => handleRenovation('RENOVACION_SIEMBRA')} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs py-3 rounded-xl shadow-lg transition-all active:scale-95">
-                      Confirmar Siembra (Lote Existente)
-                  </button>
-              </div>
+              ) : (
+                  /* RENOVATION BY SOWING SECTION */
+                  <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 animate-fade-in">
+                      <div className="flex justify-between items-center mb-3">
+                          <h5 className="text-sm text-slate-600 dark:text-white font-black uppercase flex items-center gap-2"><RefreshCcw className="w-4 h-4 text-blue-500"/> Renovación por Siembra</h5>
+                          <span className="text-[8px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold uppercase border border-blue-200">Alta Inversión</span>
+                      </div>
+                      <p className="text-[9px] text-slate-500 mb-4 px-1">
+                          Eliminación total de plantas viejas y resiembra. Se conserva el historial del lote pero reinicia el ciclo biológico. Ideal para cambio de variedad.
+                      </p>
+                  </div>
+              )}
+
+              <button onClick={handleRenovation} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black uppercase text-xs py-4 rounded-xl shadow-lg transition-all active:scale-95">
+                  Confirmar {renovationScope === 'PARTIAL' ? 'División y Renovación' : 'Renovación Total'}
+              </button>
           </div>
       </Modal>
     </div>

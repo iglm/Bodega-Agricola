@@ -69,6 +69,15 @@ export interface Supplier {
   creditDays?: number;
 }
 
+export interface RenovationRecord {
+  date: string;
+  type: 'TOTAL' | 'PARCIAL_SPLIT' | 'ZOCA' | 'SIEMBRA';
+  details: string;
+  previousAge?: number;
+  originalArea?: number;
+  splitArea?: number;
+}
+
 export interface CostCenter {
   id: string;
   warehouseId: string;
@@ -87,6 +96,8 @@ export interface CostCenter {
   assetValue?: number;
   accumulatedCapex?: number;
   amortizationDuration?: number;
+  parentId?: string; // ID del lote padre si proviene de una división
+  renovationHistory?: RenovationRecord[];
 }
 
 export type ContractType = 'FIJO' | 'INDEFINIDO' | 'OBRA_LABOR' | 'PRESTACION_SERVICIOS';
@@ -98,8 +109,18 @@ export interface Personnel {
   role: string;
   documentId?: string;
   phone?: string;
+  
+  // New Fields
+  age?: number;
+  eps?: string;
+  emergencyPhone?: string;
+  emergencyRelation?: string;
+  
   contractType?: ContractType;
   contractEndDate?: string;
+  contractDurationValue?: number; // Cantidad de tiempo
+  contractDurationUnit?: 'DIAS' | 'MESES' | 'INDEFINIDO'; // Unidad de tiempo
+  
   salary?: number;
 }
 

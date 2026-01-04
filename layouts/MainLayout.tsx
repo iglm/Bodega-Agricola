@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Tractor, Package, Target, CalendarRange, Sprout, ClipboardList, Bug, Leaf, 
@@ -38,7 +39,7 @@ import { DeleteModal } from '../components/DeleteModal';
 import { PayrollModal } from '../components/PayrollModal';
 import { LaborSchedulerView } from '../components/LaborSchedulerView';
 import { LaborForm } from '../components/LaborForm'; 
-import { InventoryItem, CostClassification } from '../types';
+import { InventoryItem, CostClassification, Personnel } from '../types';
 
 interface MainLayoutProps {
   onShowNotification: (msg: string, type: 'success' | 'error') => void;
@@ -187,14 +188,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
       onShowNotification(`Lote "${name}" creado. Edite detalles en Configuración.`, 'success');
   };
 
-  const handleAddPersonnelQuick = (name: string) => {
+  const handleAddPersonnelQuick = (person: string | Omit<Personnel, 'id' | 'warehouseId'>) => {
+      // Backward compatibility for string input from simple forms
+      const newPerson = typeof person === 'string' 
+          ? { name: person, role: 'Trabajador' } 
+          : person;
+
       setData(prev => ({
           ...prev,
           personnel: [...prev.personnel, {
-              id: generateId(), warehouseId: activeId, name, role: 'Trabajador'
+              ...newPerson,
+              id: generateId(), warehouseId: activeId
           }]
       }));
-      onShowNotification(`Trabajador "${name}" registrado.`, 'success');
+      onShowNotification(`Trabajador "${newPerson.name}" registrado.`, 'success');
   };
 
   const handleAddSupplierQuick = (name: string, taxId?: string, creditDays?: number) => {
@@ -359,7 +366,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
                 onDeleteSupplier={(id) => setData(prev=>({...prev, suppliers: prev.suppliers.filter(s=>s.id!==id)}))} 
                 onAddCostCenter={(n,b,a,s,pc,ct,ac,age,density, assocAge, variety) => setData(prev=>({...prev, costCenters:[...prev.costCenters,{id:generateId(),warehouseId:activeId,name:n,budget:b,area:a || 0,stage:s,plantCount:pc, cropType:ct || 'Café',associatedCrop:ac, cropAgeMonths: age, associatedCropDensity: density, associatedCropAge: assocAge, variety}]}))} 
                 onDeleteCostCenter={actions.deleteCostCenter} 
-                onAddPersonnel={(p) => setData(prev=>({...prev, personnel:[...prev.personnel,{...p, id:generateId(),warehouseId:activeId}]}))} 
+                onAddPersonnel={handleAddPersonnelQuick} 
                 onDeletePersonnel={actions.deletePersonnel} 
                 onAddActivity={(n, cls) => setData(prev=>({...prev, activities:[...prev.activities,{id:generateId(),warehouseId:activeId,name:n,costClassification:cls}]}))} 
                 onDeleteActivity={actions.deleteActivity} 
@@ -400,7 +407,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onShowNotification }) =>
               }} 
               onCancel={() => setShowLaborForm(false)} 
               onOpenSettings={() => { setShowLaborForm(false); setShowSettings(true); }} 
-              onAddPersonnel={handleAddPersonnelQuick}
+              onAddPersonnel={(name) => handleAddPersonnelQuick({name, role: 'Trabajador'})}
               onAddCostCenter={handleAddCostCenterQuick}
               onAddActivity={(name) => handleAddActivityQuick(name, 'JOINT')}
             />

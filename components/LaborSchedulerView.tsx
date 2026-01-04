@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { PlannedLabor, CostCenter, Activity, BudgetPlan, LaborLog, Personnel } from '../types';
-import { formatCurrency } from '../services/inventoryService';
+import { formatCurrency, parseNumberInput, formatNumberInput } from '../services/inventoryService';
 import { CalendarRange, Plus, Calendar, Pickaxe, MapPin, Users, DollarSign, Calculator, Filter, CheckCircle2, Circle, Trash2, ArrowRight, AlertTriangle, AlertCircle, Clock, Percent, Gauge, UserCheck, Square, CheckSquare, Save, X, Wand2, Sprout, Settings2 } from 'lucide-react';
 import { HeaderCard, EmptyState, Modal } from './UIElements';
 
@@ -68,6 +68,8 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
   const [isCreatingPerson, setIsCreatingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   
+  const selectedLot = useMemo(() => costCenters.find(c => c.id === costCenterId), [costCenters, costCenterId]);
+
   const projection = useMemo(() => {
       const area = parseFloat(targetArea) || 0;
       const yieldBase = parseFloat(technicalYield) || 0; 
@@ -335,7 +337,7 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                                 <button type="button" onClick={handleCreateLot} disabled={!newLotName.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg transition-all"><Save className="w-4 h-4" /></button>
                             </div>
                         ) : (
-                            <select value={costCenterId} onChange={e => setCostCenterId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white text-xs font-bold" required>
+                            <select value={costCenterId} onChange={e => { setCostCenterId(e.target.value); setTargetArea(''); }} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white text-xs font-bold" required>
                                 <option value="">Seleccionar...</option>
                                 {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
@@ -370,6 +372,12 @@ export const LaborSchedulerView: React.FC<LaborSchedulerViewProps> = ({
                     <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Área Meta (Ha)</label>
                         <input type="number" step="0.1" value={targetArea} onChange={e => setTargetArea(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white font-mono text-sm" required placeholder="0.0" />
+                        {selectedLot && selectedLot.area > 0 && (
+                            <div className="flex gap-1 mt-1 justify-end">
+                                <button type="button" onClick={() => setTargetArea(formatNumberInput(selectedLot.area))} className="text-[9px] bg-slate-800 hover:bg-emerald-600 text-slate-400 hover:text-white px-2 py-1 rounded transition-colors uppercase font-bold">Total</button>
+                                <button type="button" onClick={() => setTargetArea(formatNumberInput(selectedLot.area / 2))} className="text-[9px] bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white px-2 py-1 rounded transition-colors uppercase font-bold">Mitad</button>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Rend. (Ha/Jornal)</label>
