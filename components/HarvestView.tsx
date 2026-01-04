@@ -66,8 +66,8 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
       // Solo relevante para café
       if (saleType !== 'COFFEE') return { totalLoss: 0 };
 
-      const broca = parseFloat(pestPct) || 0;
-      const kgs = parseFloat(coffeeWeight) || 0;
+      const broca = parseNumberInput(pestPct);
+      const kgs = parseNumberInput(coffeeWeight);
       const value = parseNumberInput(totalValue);
       
       // Estimación simple: si broca > 2%, castigo del precio base
@@ -79,8 +79,8 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
   }, [pestPct, totalValue, coffeeWeight, saleType]);
 
   const derivedTotalQty = useMemo(() => {
-      if (saleType === 'COFFEE') return parseFloat(coffeeWeight) || 0;
-      return (parseFloat(qtyQuality1)||0) + (parseFloat(qtyQuality2)||0) + (parseFloat(qtyQuality3)||0);
+      if (saleType === 'COFFEE') return parseNumberInput(coffeeWeight);
+      return (parseNumberInput(qtyQuality1)) + (parseNumberInput(qtyQuality2)) + (parseNumberInput(qtyQuality3));
   }, [saleType, coffeeWeight, qtyQuality1, qtyQuality2, qtyQuality3]);
 
   // --- HANDLERS ---
@@ -109,14 +109,14 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
         unit: saleType === 'COFFEE' ? 'Kg' : 'Und/Kg', 
         totalValue: value,
         // Campos condicionales
-        yieldFactor: saleType === 'COFFEE' ? (parseFloat(yieldFactor) || undefined) : undefined,
-        pestPercentage: saleType === 'COFFEE' ? (parseFloat(pestPct) || undefined) : undefined,
-        collectorsCount: saleType === 'COFFEE' ? (parseInt(collectorsCount) || 1) : undefined,
+        yieldFactor: saleType === 'COFFEE' ? (parseNumberInput(yieldFactor) || undefined) : undefined,
+        pestPercentage: saleType === 'COFFEE' ? (parseNumberInput(pestPct) || undefined) : undefined,
+        collectorsCount: saleType === 'COFFEE' ? (parseNumberInput(collectorsCount) || 1) : undefined,
         brocaLossValue: saleType === 'COFFEE' ? qualityAnalysis.totalLoss : undefined,
         // Campos Plátano
-        quality1Qty: saleType !== 'COFFEE' ? (parseFloat(qtyQuality1) || 0) : undefined,
-        quality2Qty: saleType !== 'COFFEE' ? (parseFloat(qtyQuality2) || 0) : undefined,
-        wasteQty: saleType !== 'COFFEE' ? (parseFloat(qtyQuality3) || 0) : undefined,
+        quality1Qty: saleType !== 'COFFEE' ? (parseNumberInput(qtyQuality1) || 0) : undefined,
+        quality2Qty: saleType !== 'COFFEE' ? (parseNumberInput(qtyQuality2) || 0) : undefined,
+        wasteQty: saleType !== 'COFFEE' ? (parseNumberInput(qtyQuality3) || 0) : undefined,
     });
 
     setShowForm(false);
@@ -267,21 +267,29 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
                                 
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Peso Total (Kg Café Pergamino/Cereza)</label>
-                                    <input type="number" step="0.1" value={coffeeWeight} onChange={e => setCoffeeWeight(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-mono text-xl font-black text-center focus:border-emerald-500 outline-none" placeholder="0.0" required />
+                                    <input 
+                                        type="text" 
+                                        inputMode="decimal"
+                                        value={coffeeWeight} 
+                                        onChange={e => setCoffeeWeight(formatNumberInput(e.target.value))} 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-mono text-xl font-black text-center focus:border-emerald-500 outline-none" 
+                                        placeholder="0" 
+                                        required 
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-slate-500 uppercase block text-center">Factor Rend.</label>
-                                        <input type="number" step="0.1" value={yieldFactor} onChange={e => setYieldFactor(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-center font-bold" placeholder="94" />
+                                        <input type="text" inputMode="decimal" value={yieldFactor} onChange={e => setYieldFactor(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-center font-bold" placeholder="94" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-red-500 uppercase block text-center">% Broca</label>
-                                        <input type="number" step="0.1" value={pestPct} onChange={e => setPestPct(e.target.value)} className="w-full bg-slate-900 border border-red-500/30 rounded-xl p-3 text-red-400 text-center font-bold" placeholder="0%" />
+                                        <input type="text" inputMode="decimal" value={pestPct} onChange={e => setPestPct(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-red-500/30 rounded-xl p-3 text-red-400 text-center font-bold" placeholder="0" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-slate-500 uppercase block text-center">Recolectores</label>
-                                        <input type="number" value={collectorsCount} onChange={e => setCollectorsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-center font-bold" placeholder="1" />
+                                        <input type="text" inputMode="numeric" value={collectorsCount} onChange={e => setCollectorsCount(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-center font-bold" placeholder="1" />
                                     </div>
                                 </div>
                             </div>
@@ -295,15 +303,15 @@ export const HarvestView: React.FC<HarvestViewProps> = ({
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-emerald-500 uppercase block text-center">1ra Calidad</label>
-                                        <input type="number" value={qtyQuality1} onChange={e => setQtyQuality1(e.target.value)} className="w-full bg-slate-900 border border-emerald-500/30 rounded-xl p-3 text-emerald-400 text-center font-bold text-lg" placeholder="0" />
+                                        <input type="text" inputMode="decimal" value={qtyQuality1} onChange={e => setQtyQuality1(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-emerald-500/30 rounded-xl p-3 text-emerald-400 text-center font-bold text-lg" placeholder="0" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-amber-500 uppercase block text-center">2da Calidad</label>
-                                        <input type="number" value={qtyQuality2} onChange={e => setQtyQuality2(e.target.value)} className="w-full bg-slate-900 border border-amber-500/30 rounded-xl p-3 text-amber-400 text-center font-bold text-lg" placeholder="0" />
+                                        <input type="text" inputMode="decimal" value={qtyQuality2} onChange={e => setQtyQuality2(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-amber-500/30 rounded-xl p-3 text-amber-400 text-center font-bold text-lg" placeholder="0" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-red-500 uppercase block text-center">Rechazo</label>
-                                        <input type="number" value={qtyQuality3} onChange={e => setQtyQuality3(e.target.value)} className="w-full bg-slate-900 border border-red-500/30 rounded-xl p-3 text-red-400 text-center font-bold text-lg" placeholder="0" />
+                                        <input type="text" inputMode="decimal" value={qtyQuality3} onChange={e => setQtyQuality3(formatNumberInput(e.target.value))} className="w-full bg-slate-900 border border-red-500/30 rounded-xl p-3 text-red-400 text-center font-bold text-lg" placeholder="0" />
                                     </div>
                                 </div>
                                 
