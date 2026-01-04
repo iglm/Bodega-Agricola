@@ -4,13 +4,9 @@ import { InventoryItem, Movement, Unit, AppState } from '../types';
 export const STORAGE_KEY = 'agrobodega_pro_v1';
 
 export const generateId = (): string => {
-  // 1. Prioridad: API Nativa de Alto Rendimiento (Crypto)
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-
-  // 2. Fallback Robusto: Generador compatible con UUID v4 (RFC 4122)
-  // Garantiza unicidad estadística incluso en navegadores antiguos
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -34,7 +30,13 @@ export const getBaseUnitType = (unit: Unit): 'g' | 'ml' | 'unit' => {
 
 export const formatNumberInput = (val: string | number | undefined | null): string => {
   if (val === undefined || val === null || val === '') return '';
-  let s = val.toString().replace(/['.\s]/g, '');
+  let s = val.toString().replace(/['\s]/g, ''); // Remove spaces and quotes
+  // Check if it's a simple decimal like "0.5" or "1.5" to avoid formatting it as "5" or "15"
+  if (s.includes('.') && !s.includes(',') && s.split('.')[1].length <= 2 && parseFloat(s) < 1000) {
+      return s.replace('.', ','); // Display as comma for Spanish locale
+  }
+  
+  s = s.replace('.', ''); // Remove dots for standard currency formatting
   const parts = s.split(',');
   let intStr = parts[0].replace(/\D/g, ''); 
   let decStr = parts.length > 1 ? ',' + parts[1].replace(/\D/g, '').slice(0, 2) : '';
@@ -57,6 +59,14 @@ export const formatNumberInput = (val: string | number | undefined | null): stri
 export const parseNumberInput = (s: string | number): number => {
   if (s === undefined || s === null) return 0;
   let str = s.toString();
+  
+  // Heuristic: If it looks like a small decimal (e.g., "0.5" or "1.5") treat dot as decimal
+  // Regex checks for: Start, digits, dot, 1 or 2 digits, End. And Value < 1000.
+  if (/^\d+\.\d{1,2}$/.test(str)) {
+      return parseFloat(str);
+  }
+
+  // Standard Colombian/European parsing: 1.000 = 1000, 0,5 = 0.5
   const cleaned = str.replace(/['.]/g, '').replace(',', '.');
   return parseFloat(cleaned) || 0;
 };
@@ -84,10 +94,6 @@ export const formatBaseQuantity = (qty: number, type: string) => {
   return `${qty.toFixed(1)} ${type}`;
 };
 
-/**
- * Calculates the new Weighted Average Cost (WAC/CPP).
- * @param incomingPrice - Price corresponding strictly to ONE unit of incomingUnit.
- */
 export const calculateWeightedAverageCost = (item: InventoryItem, incomingQty: number, incomingUnit: Unit, incomingPrice: number) => {
   const currentTotalVal = item.currentQuantity * item.averageCost;
   const incomingBaseQty = convertToBase(incomingQty, incomingUnit);
@@ -113,8 +119,6 @@ export const processInventoryMovement = (inventory: InventoryItem[], movement: O
     item.lastPurchaseUnit = movement.unit;
     if (newExpirationDate) item.expirationDate = newExpirationDate;
   } else {
-    // SAFETY: OUT movements must strictly use the existing Weighted Average Cost (CPP).
-    // We explicitly ignore any 'newPrice' passed to prevent fraudulent revaluation during outputs.
     movementCost = baseQty * item.averageCost;
     item.currentQuantity -= baseQty;
   }
@@ -154,7 +158,6 @@ export const loadDataFromLocalStorage = (): AppState => {
     swot: parsed.swot || { f: '', o: '', d: '', a: '' }, 
     bpaChecklist: parsed.bpaChecklist || {},
     assets: parsed.assets || [],
-    // Commercial Module Initialization
     clients: parsed.clients || [],
     salesContracts: parsed.salesContracts || [],
     sales: parsed.sales || []

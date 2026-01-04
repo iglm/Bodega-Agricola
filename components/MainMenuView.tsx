@@ -62,7 +62,6 @@ export const MainMenuView: React.FC<MainMenuViewProps> = ({ onSelectTab }) => {
       headerClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
       items: [
         { id: 'budget', label: 'Presupuesto', icon: Calculator, desc: 'Proyección' },
-        { id: 'simulator', label: 'Simulador', icon: DollarSign, desc: 'Rentabilidad' },
         { id: 'stats', label: 'KPIs / BI', icon: PieChart, desc: 'Analítica' },
       ]
     }
