@@ -10,7 +10,8 @@ import {
   ArrowRight, Leaf, Target, Plus, Trash2, Sun, Zap, ShieldCheck,
   FileText, FileSpreadsheet, Clock, AlertCircle, Flower2, AlignJustify,
   FileUp, RefreshCw, AlertOctagon, Calculator, MoveHorizontal, ArrowLeftRight,
-  LayoutGrid, Triangle, MousePointer2, RefreshCcw, Info, BookOpen, Split, GitFork
+  LayoutGrid, Triangle, MousePointer2, RefreshCcw, Info, BookOpen, Split, GitFork,
+  Coins, TrendingDown, Users
 } from 'lucide-react';
 import { HeaderCard, Modal, EmptyState } from './UIElements';
 
@@ -361,9 +362,9 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       let detailMsg = '';
       if (renovationMethod === 'ZOCA') {
           const zocaLabel = zocaType === 'TRADICIONAL' ? 'Tradicional (30cm)' : zocaType === 'PULMON' ? 'Pulmón' : 'Calavera';
-          detailMsg = `Tipo: ${zocaLabel}. Se estima 18 meses para primera cosecha y ahorro del 50% en costos.`;
+          detailMsg = `Tipo: ${zocaLabel}. Ahorro significativo en material vegetal y mano de obra de establecimiento.`;
       } else {
-          detailMsg = 'Sustitución completa de cultivo. Alta inversión inicial.';
+          detailMsg = 'Sustitución completa de cultivo. Requiere trazado, ahoyado y material vegetal nuevo (Inversión Completa).';
       }
 
       // History Record
@@ -653,7 +654,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                   {/* NEW: Variety Input for Coffee */}
                   {loteCrop === 'Café' && (
                       <div className="animate-fade-in-down">
-                          <label className="text-[9px] text-slate-500 uppercase font-bold ml-1">Variedad de Café</label>
+                          <label className="text-[9px] text-slate-500 uppercase font-bold ml-1">Variedad Café</label>
                           <input 
                               type="text" 
                               value={loteVariety} 
@@ -876,7 +877,7 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
       </Modal>
 
       {/* RENOVAR MODAL MEJORADO */}
-      <Modal isOpen={showRenovateModal} onClose={() => setShowRenovateModal(false)} title="Renovación de Lote" icon={Sprout} maxWidth="max-w-lg">
+      <Modal isOpen={showRenovateModal} onClose={() => setShowRenovateModal(false)} title="Renovación de Lote" icon={Sprout} maxWidth="max-w-xl">
           <div className="space-y-6">
               
               {/* Scope Selector */}
@@ -929,35 +930,44 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                   <button onClick={() => setRenovationMethod('SIEMBRA')} className={`pb-2 text-xs font-bold uppercase transition-colors ${renovationMethod === 'SIEMBRA' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-slate-500'}`}>Opción B: Siembra</button>
               </div>
               
-              {/* ZOCA SECTION WITH TECHNICAL DATA */}
+              {/* ZOCA SECTION WITH DETAILED COST STRUCTURE */}
               {renovationMethod === 'ZOCA' ? (
-                  <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-fade-in">
-                      <div className="flex justify-between items-center">
-                          <h5 className="text-sm text-slate-600 dark:text-white font-black uppercase flex items-center gap-2"><Scissors className="w-4 h-4 text-amber-500"/> Zoca (Rebrote)</h5>
-                          <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold uppercase border border-emerald-200">Ahorro ~53.5%</span>
-                      </div>
-                      
-                      {/* Technical Badge */}
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-500/20 flex gap-3 items-start">
-                          <BookOpen className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                          <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-300 uppercase">Ficha Técnica Cenicafé</p>
-                              <ul className="text-[9px] text-slate-500 dark:text-slate-400 space-y-1 list-disc list-inside">
-                                  <li>Tiempo a floración: <strong>11 meses</strong>.</li>
-                                  <li>Tiempo a cosecha plena: <strong>18 meses</strong>.</li>
-                                  <li>Ciclo productivo esperado: <strong>4 a 5 cosechas</strong>.</li>
-                              </ul>
+                  <div className="space-y-4 animate-fade-in">
+                      <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border border-amber-200 dark:border-amber-800">
+                          <div className="flex justify-between items-center mb-3">
+                              <h5 className="text-sm text-amber-700 dark:text-amber-400 font-black uppercase flex items-center gap-2"><Scissors className="w-4 h-4"/> Zoca (Rebrote)</h5>
+                              <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold uppercase border border-emerald-200">Ahorro Estructural</span>
                           </div>
-                      </div>
+                          
+                          {/* COST STRUCTURE COMPARISON */}
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-500/30 relative overflow-hidden">
+                                  <div className="absolute top-0 right-0 p-1 bg-emerald-500 text-white rounded-bl-lg"><Coins className="w-3 h-3" /></div>
+                                  <p className="text-[9px] font-black text-emerald-600 uppercase mb-2">Ahorro en Material</p>
+                                  <ul className="text-[9px] text-slate-500 space-y-1">
+                                      <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500"/> Sin Chapolas/Colinos</li>
+                                      <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500"/> Sin Bolsas/Sustrato</li>
+                                  </ul>
+                              </div>
+                              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-500/30 relative overflow-hidden">
+                                  <div className="absolute top-0 right-0 p-1 bg-emerald-500 text-white rounded-bl-lg"><Pickaxe className="w-3 h-3" /></div>
+                                  <p className="text-[9px] font-black text-emerald-600 uppercase mb-2">Ahorro en Labor</p>
+                                  <ul className="text-[9px] text-slate-500 space-y-1">
+                                      <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500"/> Sin Trazado</li>
+                                      <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500"/> Sin Ahoyado</li>
+                                  </ul>
+                              </div>
+                          </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                          <button onClick={() => setZocaType('TRADICIONAL')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'TRADICIONAL' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Tradicional</button>
-                          <button onClick={() => setZocaType('PULMON')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'PULMON' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Pulmón</button>
-                          <button onClick={() => setZocaType('CALAVERA')} className={`py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${zocaType === 'CALAVERA' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-500' : 'border-slate-300 dark:border-slate-700 text-slate-500'}`}>Calavera</button>
+                          <div className="flex gap-2">
+                              <button onClick={() => setZocaType('TRADICIONAL')} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-lg border transition-all ${zocaType === 'TRADICIONAL' ? 'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-white border-amber-500' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-500'}`}>Tradicional</button>
+                              <button onClick={() => setZocaType('PULMON')} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-lg border transition-all ${zocaType === 'PULMON' ? 'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-white border-amber-500' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-500'}`}>Pulmón</button>
+                              <button onClick={() => setZocaType('CALAVERA')} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-lg border transition-all ${zocaType === 'CALAVERA' ? 'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-white border-amber-500' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-500'}`}>Calavera</button>
+                          </div>
                       </div>
                       
                       {/* Reseeding Checkbox */}
-                      <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-emerald-500/50 transition-colors">
+                      <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-emerald-500/50 transition-colors">
                           <input 
                               type="checkbox" 
                               checked={includeReseeding} 
@@ -972,13 +982,34 @@ export const LotManagementView: React.FC<LotManagementViewProps> = ({
                   </div>
               ) : (
                   /* RENOVATION BY SOWING SECTION */
-                  <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 animate-fade-in">
-                      <div className="flex justify-between items-center mb-3">
-                          <h5 className="text-sm text-slate-600 dark:text-white font-black uppercase flex items-center gap-2"><RefreshCcw className="w-4 h-4 text-blue-500"/> Renovación por Siembra</h5>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-2xl border border-blue-200 dark:border-blue-800 animate-fade-in space-y-4">
+                      <div className="flex justify-between items-center mb-1">
+                          <h5 className="text-sm text-blue-700 dark:text-blue-300 font-black uppercase flex items-center gap-2"><RefreshCcw className="w-4 h-4"/> Siembra Nueva</h5>
                           <span className="text-[8px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold uppercase border border-blue-200">Alta Inversión</span>
                       </div>
-                      <p className="text-[9px] text-slate-500 mb-4 px-1">
-                          Eliminación total de plantas viejas y resiembra. Se conserva el historial del lote pero reinicia el ciclo biológico. Ideal para cambio de variedad.
+                      
+                      {/* COST STRUCTURE WARNING */}
+                      <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-blue-500/30 relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-1 bg-blue-500 text-white rounded-bl-lg"><TrendingUp className="w-3 h-3" /></div>
+                              <p className="text-[9px] font-black text-blue-600 uppercase mb-2">Costos Insumos</p>
+                              <ul className="text-[9px] text-slate-500 space-y-1">
+                                  <li className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-blue-500"/> Compra Chapolas</li>
+                                  <li className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-blue-500"/> Bolsas y Sustrato</li>
+                              </ul>
+                          </div>
+                          <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-blue-500/30 relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-1 bg-blue-500 text-white rounded-bl-lg"><Users className="w-3 h-3" /></div>
+                              <p className="text-[9px] font-black text-blue-600 uppercase mb-2">Costos Labor</p>
+                              <ul className="text-[9px] text-slate-500 space-y-1">
+                                  <li className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-blue-500"/> Trazado Lote</li>
+                                  <li className="flex items-center gap-1"><AlertCircle className="w-3 h-3 text-blue-500"/> Ahoyado Completo</li>
+                              </ul>
+                          </div>
+                      </div>
+
+                      <p className="text-[9px] text-slate-500 px-1 italic">
+                          * Esta opción reinicia el ciclo biológico desde cero. Recomendado solo para cambio de variedad o densidades muy bajas.
                       </p>
                   </div>
               )}

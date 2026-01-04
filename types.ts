@@ -96,7 +96,7 @@ export interface CostCenter {
   assetValue?: number;
   accumulatedCapex?: number;
   amortizationDuration?: number;
-  parentId?: string; // ID del lote padre si proviene de una división
+  parentId?: string;
   renovationHistory?: RenovationRecord[];
 }
 
@@ -118,8 +118,8 @@ export interface Personnel {
   
   contractType?: ContractType;
   contractEndDate?: string;
-  contractDurationValue?: number; // Cantidad de tiempo
-  contractDurationUnit?: 'DIAS' | 'MESES' | 'INDEFINIDO'; // Unidad de tiempo
+  contractDurationValue?: number;
+  contractDurationUnit?: 'DIAS' | 'MESES' | 'INDEFINIDO';
   
   salary?: number;
 }
@@ -282,6 +282,7 @@ export interface PestLog {
   notes?: string;
 }
 
+// NUEVA INTERFAZ: PLANIFICACIÓN DE LABORES
 export interface PlannedLabor {
   id: string;
   warehouseId: string;
@@ -290,13 +291,19 @@ export interface PlannedLabor {
   activityName: string;
   costCenterId: string;
   costCenterName: string;
-  targetArea: number;
-  technicalYield: number;
-  unitCost: number;
-  efficiency: number;
-  calculatedPersonDays: number;
+  
+  // Parámetros Técnicos
+  targetArea: number;       // Área a intervenir
+  technicalYield: number;   // Rendimiento esperado (Ha/Jornal)
+  unitCost: number;         // Costo estimado por Jornal
+  efficiency: number;       // Factor de eficiencia (0-100%)
+  
+  // Cálculos Automáticos
+  calculatedPersonDays: number; // Jornales necesarios
   calculatedHours?: number;
   calculatedTotalCost: number;
+  
+  // Asignación
   assignedPersonnelIds?: string[];
   completed: boolean;
   notes?: string;
@@ -383,7 +390,9 @@ export interface AppState {
   agenda: AgendaEvent[];
   phenologyLogs: PhenologyLog[];
   pestLogs: PestLog[];
-  plannedLabors: PlannedLabor[];
+  
+  plannedLabors: PlannedLabor[]; // Nuevo array de estado
+  
   budgets: BudgetPlan[];
   assets: Asset[];
   bpaChecklist: Record<string, boolean>;
